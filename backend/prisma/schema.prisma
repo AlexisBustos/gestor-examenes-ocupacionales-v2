@@ -1,6 +1,5 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
@@ -8,149 +7,197 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model agentes {
-  id          Int           @id @default(autoincrement())
-  nombre      String
-  categoria   String?
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime
-  baterias    baterias[]
-  ges_agentes ges_agentes[]
+// --------------------------------------
+// Estructura Organizacional
+// --------------------------------------
+
+model Company {
+  id           String       @id @default(uuid())
+  rut          String       @unique
+  name         String
+  contactEmail String
+  address      String?
+  phone        String?
+  workCenters  WorkCenter[]
+  examOrders   ExamOrder[]
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 }
 
-model areas {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  centroId  Int
+model WorkCenter {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+  areas     Area[]
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  centros   centros  @relation(fields: [centroId], references: [id], onDelete: Cascade)
-  ges       ges[]
-
-  @@index([centroId])
+  updatedAt DateTime @updatedAt
 }
 
-model baterias {
-  id        Int        @id @default(autoincrement())
-  nombre    String
-  agenteId  Int
-  createdAt DateTime   @default(now())
-  updatedAt DateTime
-  agentes   agentes    @relation(fields: [agenteId], references: [id], onDelete: Cascade)
-  examenes  examenes[]
-
-  @@index([agenteId])
+model Area {
+  id           String     @id @default(uuid())
+  name         String
+  workCenterId String
+  workCenter   WorkCenter @relation(fields: [workCenterId], references: [id])
+  gesGroups    Ges[]
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 }
 
-model cargos_empresa {
-  id                 Int                  @id @default(autoincrement())
-  nombre             String
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime
-  ges_cargos_empresa ges_cargos_empresa[]
-}
-
-model centros {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  empresaId Int
+model CostCenter {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  areas     areas[]
-  empresas  empresas @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-
-  @@index([empresaId])
+  updatedAt DateTime @updatedAt
 }
 
-model empresas {
-  id        Int       @id @default(autoincrement())
-  nombre    String    @unique
-  createdAt DateTime  @default(now())
-  updatedAt DateTime
-  centros   centros[]
+// --------------------------------------
+// Núcleo GES (Grupos de Exposición Similar)
+// --------------------------------------
+
+model Ges {
+  id               String         @id @default(uuid())
+  name             String
+  reportDate       DateTime
+  reportNumber     String
+  menCount         Int
+  womenCount       Int
+  tasksDescription String         @db.Text
+  // New fields for fiscalization
+  validityYears      Int?
+  nextEvaluationDate DateTime?
+  risksResume        String?
+  prescriptions      String?
+  
+  areaId           String
+  area             Area           @relation(fields: [areaId], references: [id])
+  riskExposures    RiskExposure[]
+  workers          Worker[]       @relation("CurrentGes")
+  examOrders       ExamOrder[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
 }
 
-model examenes {
-  id        Int      @id @default(autoincrement())
-  nombre    String
-  tipo      String
-  bateriaId Int
+model RiskAgent {
+  id            String         @id @default(uuid())
+  name          String         @unique
+  riskExposures RiskExposure[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+enum ExposureType {
+  ACUTE
+  CHRONIC
+  INTERMITTENT
+}
+
+model RiskExposure {
+  id            String        @id @default(uuid())
+  gesId         String
+  ges           Ges           @relation(fields: [gesId], references: [id])
+  riskAgentId   String
+  riskAgent     RiskAgent     @relation(fields: [riskAgentId], references: [id])
+  exposureType  ExposureType
+  examBatteries ExamBattery[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+// --------------------------------------
+// Definición Médica
+// --------------------------------------
+
+model MedicalExam {
+  id           String        @id @default(uuid())
+  name         String        @unique
+  batteryExams BatteryExam[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model ExamBattery {
+  id            String         @id @default(uuid())
+  name          String
+  batteryExams  BatteryExam[]
+  riskExposures RiskExposure[]
+  examOrders    ExamOrder[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model BatteryExam {
+  id            String      @id @default(uuid())
+  examBatteryId String
+  examBattery   ExamBattery @relation(fields: [examBatteryId], references: [id])
+  medicalExamId String
+  medicalExam   MedicalExam @relation(fields: [medicalExamId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([examBatteryId, medicalExamId])
+}
+
+// --------------------------------------
+// Operación y Personas
+// --------------------------------------
+
+enum UserRole {
+  ADMIN_VITAM
+  USER_COMPANY
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      UserRole
   createdAt DateTime @default(now())
-  updatedAt DateTime
-  baterias  baterias @relation(fields: [bateriaId], references: [id], onDelete: Cascade)
-
-  @@index([bateriaId])
-  @@index([tipo])
+  updatedAt DateTime @updatedAt
 }
 
-model ges {
-  id                   Int                  @id @default(autoincrement())
-  nombre               String
-  nombreNormalizado    String
-  areaId               Int
-  descripcionInforme   String?
-  fechaInforme         DateTime?
-  numeroInforme        String?
-  tipoExposicion       String?
-  informeFileUrl       String?
-  descripcionProceso   String?
-  descripcionTareas    String?
-  nTrabajadoresHombres Int?
-  nTrabajadoresMujeres Int?
-  createdAt            DateTime             @default(now())
-  updatedAt            DateTime
-  areas                areas                @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  ges_agentes          ges_agentes[]
-  ges_cargos_empresa   ges_cargos_empresa[]
-  ges_sustancias       ges_sustancias[]
-
-  @@index([areaId])
-  @@index([nombreNormalizado])
+model Worker {
+  id          String      @id @default(uuid())
+  rut         String      @unique
+  name        String
+  // New fields
+  position       String
+  managementArea String?
+  
+  currentGesId String?
+  currentGes  Ges?        @relation("CurrentGes", fields: [currentGesId], references: [id])
+  examOrders  ExamOrder[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
-model ges_agentes {
-  id        Int      @id @default(autoincrement())
-  gesId     Int
-  agenteId  Int
-  createdAt DateTime @default(now())
-  agentes   agentes  @relation(fields: [agenteId], references: [id], onDelete: Cascade)
-  ges       ges      @relation(fields: [gesId], references: [id], onDelete: Cascade)
-
-  @@unique([gesId, agenteId])
-  @@index([agenteId])
-  @@index([gesId])
+enum OrderStatus {
+  SOLICITADO
+  AGENDADO
+  REALIZADO
+  CERRADO
+  ANULADO
 }
 
-model ges_cargos_empresa {
-  id             Int            @id @default(autoincrement())
-  gesId          Int
-  cargoEmpresaId Int
-  createdAt      DateTime       @default(now())
-  cargos_empresa cargos_empresa @relation(fields: [cargoEmpresaId], references: [id], onDelete: Cascade)
-  ges            ges            @relation(fields: [gesId], references: [id], onDelete: Cascade)
+model ExamOrder {
+  id            String      @id @default(uuid())
+  workerId      String
+  worker        Worker      @relation(fields: [workerId], references: [id])
+  companyId     String
+  company       Company     @relation(fields: [companyId], references: [id])
+  gesId         String
+  ges           Ges         @relation(fields: [gesId], references: [id])
+  examBatteryId String
+  examBattery   ExamBattery @relation(fields: [examBatteryId], references: [id])
+  status        OrderStatus @default(SOLICITADO)
+  
+  // Traceability
+  scheduledAt   DateTime?
+  providerName  String?
+  externalId    String?
 
-  @@unique([gesId, cargoEmpresaId])
-  @@index([cargoEmpresaId])
-  @@index([gesId])
-}
-
-model ges_sustancias {
-  id          Int        @id @default(autoincrement())
-  gesId       Int
-  sustanciaId Int
-  createdAt   DateTime   @default(now())
-  ges         ges        @relation(fields: [gesId], references: [id], onDelete: Cascade)
-  sustancias  sustancias @relation(fields: [sustanciaId], references: [id], onDelete: Cascade)
-
-  @@unique([gesId, sustanciaId])
-  @@index([gesId])
-  @@index([sustanciaId])
-}
-
-model sustancias {
-  id             Int              @id @default(autoincrement())
-  nombre         String
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime
-  ges_sustancias ges_sustancias[]
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
