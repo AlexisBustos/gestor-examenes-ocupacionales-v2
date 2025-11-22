@@ -39,6 +39,8 @@ const formatDate = (dateString: string) => {
     });
 };
 
+import { NewOrderSheet } from '@/components/orders/NewOrderSheet';
+
 export default function OrdersPage() {
     const { data: orders, isLoading, error } = useOrders();
     const [searchTerm, setSearchTerm] = useState('');
@@ -66,9 +68,12 @@ export default function OrdersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col gap-1">
-                <h2 className="text-2xl font-bold tracking-tight text-gray-900">Gestión de Órdenes</h2>
-                <p className="text-muted-foreground">Administra y monitorea los exámenes ocupacionales</p>
+            <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-1">
+                    <h2 className="text-2xl font-bold tracking-tight text-gray-900">Gestión de Órdenes</h2>
+                    <p className="text-muted-foreground">Administra y monitorea los exámenes ocupacionales</p>
+                </div>
+                <NewOrderSheet />
             </div>
 
             <div className="flex items-center justify-between">

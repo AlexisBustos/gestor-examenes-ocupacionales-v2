@@ -18,8 +18,12 @@ model Company {
   contactEmail String
   address      String?
   phone        String?
+  
+  // Relaciones
   workCenters  WorkCenter[]
   examOrders   ExamOrder[]
+  workers      Worker[]     // <--- ¡ESTA ERA LA LÍNEA QUE FALTABA!
+
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
 }
@@ -36,7 +40,7 @@ model WorkCenter {
 }
 
 model Area {
-  id           String     @id @default(uuid())
+  id           String   @id @default(uuid())
   name         String
   workCenterId String
   workCenter   WorkCenter @relation(fields: [workCenterId], references: [id])
@@ -64,12 +68,15 @@ model Ges {
   reportNumber     String
   menCount         Int
   womenCount       Int
-  tasksDescription String         @db.Text
-  // New fields for fiscalization
-  validityYears      Int?
+  tasksDescription String?        @db.Text 
+  machineryUsed    String?        @db.Text 
+  controlMeasures  String?        @db.Text 
+  
+  // Campos para fiscalización
+  validityYears    Int?
   nextEvaluationDate DateTime?
-  risksResume        String?
-  prescriptions      String?
+  risksResume      String?
+  prescriptions    String?
   
   areaId           String
   area             Area           @relation(fields: [areaId], references: [id])
@@ -89,9 +96,10 @@ model RiskAgent {
 }
 
 enum ExposureType {
-  ACUTE
-  CHRONIC
-  INTERMITTENT
+  AGUDA
+  CRONICA
+  INTERMITENTE
+  CONTINUA
 }
 
 model RiskExposure {
@@ -100,7 +108,7 @@ model RiskExposure {
   ges           Ges           @relation(fields: [gesId], references: [id])
   riskAgentId   String
   riskAgent     RiskAgent     @relation(fields: [riskAgentId], references: [id])
-  exposureType  ExposureType
+  exposureType  ExposureType? 
   examBatteries ExamBattery[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -109,6 +117,12 @@ model RiskExposure {
 // --------------------------------------
 // Definición Médica
 // --------------------------------------
+
+enum EvaluationType {
+  PRE_OCUPACIONAL
+  OCUPACIONAL
+  EXAMEN_SALIDA
+}
 
 model MedicalExam {
   id           String        @id @default(uuid())
@@ -119,13 +133,15 @@ model MedicalExam {
 }
 
 model ExamBattery {
-  id            String         @id @default(uuid())
-  name          String
-  batteryExams  BatteryExam[]
-  riskExposures RiskExposure[]
-  examOrders    ExamOrder[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id             String         @id @default(uuid())
+  name           String
+  evaluationType EvaluationType? 
+  
+  batteryExams   BatteryExam[]
+  riskExposures  RiskExposure[]
+  examOrders     ExamOrder[]
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
 }
 
 model BatteryExam {
@@ -159,18 +175,24 @@ model User {
 }
 
 model Worker {
-  id          String      @id @default(uuid())
-  rut         String      @unique
-  name        String
-  // New fields
-  position       String
-  managementArea String?
+  id             String   @id @default(uuid())
+  rut            String   @unique
+  name           String
   
-  currentGesId String?
-  currentGes  Ges?        @relation("CurrentGes", fields: [currentGesId], references: [id])
-  examOrders  ExamOrder[]
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  // Campos nuevos corregidos
+  phone          String?  
+  position       String?  
+  managementArea String?  
+  
+  currentGesId   String?
+  currentGes     Ges?     @relation("CurrentGes", fields: [currentGesId], references: [id])
+  
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id])
+
+  examOrders     ExamOrder[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 }
 
 enum OrderStatus {
@@ -183,17 +205,22 @@ enum OrderStatus {
 
 model ExamOrder {
   id            String      @id @default(uuid())
+  
   workerId      String
   worker        Worker      @relation(fields: [workerId], references: [id])
+  
   companyId     String
   company       Company     @relation(fields: [companyId], references: [id])
+  
   gesId         String
   ges           Ges         @relation(fields: [gesId], references: [id])
+  
   examBatteryId String
   examBattery   ExamBattery @relation(fields: [examBatteryId], references: [id])
+  
   status        OrderStatus @default(SOLICITADO)
   
-  // Traceability
+  // Trazabilidad
   scheduledAt   DateTime?
   providerName  String?
   externalId    String?

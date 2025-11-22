@@ -1,10 +1,16 @@
 import { z } from 'zod';
 
 export const createOrderSchema = z.object({
-    workerId: z.string().uuid('Invalid worker ID'),
+    worker: z.object({
+        rut: z.string(),
+        name: z.string(),
+        phone: z.string().optional(),
+        position: z.string().optional(),
+    }),
     companyId: z.string().uuid('Invalid company ID'),
     gesId: z.string().uuid('Invalid GES ID'),
-    examBatteryId: z.string().uuid('Invalid exam battery ID'),
+    examBatteryId: z.string().uuid('Invalid exam battery ID').optional(),
+    evaluationType: z.enum(['PRE_OCUPACIONAL', 'OCUPACIONAL', 'EXAMEN_SALIDA']).optional(),
 });
 
 export const updateOrderStatusSchema = z.object({

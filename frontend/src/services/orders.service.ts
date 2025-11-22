@@ -24,4 +24,14 @@ export const ordersService = {
         const response = await axiosInstance.get<Order>(`/orders/${id}`);
         return response.data;
     },
+
+    /**
+     * Create a new order
+     * @param data - Order data
+     * @returns Promise with created order
+     */
+    async create(data: any) {
+        const response = await axiosInstance.post<Order>('/orders', data);
+        return response.data;
+    }
 };

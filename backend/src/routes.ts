@@ -4,7 +4,7 @@ import { companiesRouter } from './modules/companies/companies.routes';
 import { workCentersRouter } from './modules/work-centers/work-centers.routes';
 import { areasRouter } from './modules/areas/areas.routes';
 import { gesRouter } from './modules/ges/ges.routes';
-import { ordersRouter } from './modules/orders/orders.routes';
+import ordersRouter from './modules/orders/orders.routes';
 
 export const AppRoutes = Router();
 
