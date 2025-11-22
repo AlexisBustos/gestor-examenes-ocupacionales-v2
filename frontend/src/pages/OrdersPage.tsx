@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import {
     Table,
@@ -13,25 +14,34 @@ import { Input } from '@/components/ui/Input';
 import { Loader2, Search } from 'lucide-react';
 import type { OrderStatus } from '@/types/order.types';
 
-const getStatusVariant = (status: OrderStatus) => {
+const getStatusColor = (status: OrderStatus) => {
     switch (status) {
         case 'SOLICITADO':
-            return 'secondary';
+            return 'bg-yellow-100 text-yellow-700 hover:bg-yellow-100/80 border-transparent';
         case 'AGENDADO':
-            return 'default'; // Blue-ish usually
+            return 'bg-blue-100 text-blue-700 hover:bg-blue-100/80 border-transparent';
         case 'REALIZADO':
-            return 'outline'; // Or success color if we had one
+            return 'bg-green-100 text-green-700 hover:bg-green-100/80 border-transparent';
         case 'CERRADO':
-            return 'outline';
+            return 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-transparent';
         case 'ANULADO':
-            return 'destructive';
+            return 'bg-red-100 text-red-700 hover:bg-red-100/80 border-transparent';
         default:
-            return 'default';
+            return 'bg-gray-100 text-gray-700 hover:bg-gray-100/80 border-transparent';
     }
+};
+
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('es-CL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+    });
 };
 
 export default function OrdersPage() {
     const { data: orders, isLoading, error } = useOrders();
+    const [searchTerm, setSearchTerm] = useState('');
 
     if (isLoading) {
         return (
@@ -49,47 +59,63 @@ export default function OrdersPage() {
         );
     }
 
+    const filteredOrders = orders?.filter((order) =>
+        order.worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        order.worker.rut.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <div className="space-y-4">
+        <div className="space-y-6">
+            <div className="flex flex-col gap-1">
+                <h2 className="text-2xl font-bold tracking-tight text-gray-900">Gestión de Órdenes</h2>
+                <p className="text-muted-foreground">Administra y monitorea los exámenes ocupacionales</p>
+            </div>
+
             <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Órdenes</h2>
-                <div className="flex items-center space-x-2">
-                    <div className="relative">
-                        <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                        <Input placeholder="Buscar..." className="pl-8 w-[250px]" />
-                    </div>
+                <div className="relative w-full max-w-sm">
+                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Buscar por nombre o RUT..."
+                        className="pl-8"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
             </div>
 
-            <Card>
+            <Card className="border-0 shadow-sm ring-1 ring-gray-200">
                 <Table>
                     <TableHeader>
-                        <TableRow>
-                            <TableHead>Trabajador</TableHead>
-                            <TableHead>RUT</TableHead>
-                            <TableHead>Empresa</TableHead>
-                            <TableHead>Batería</TableHead>
-                            <TableHead>Estado</TableHead>
+                        <TableRow className="bg-gray-50/50 hover:bg-gray-50/50">
+                            <TableHead className="font-medium text-gray-500">Trabajador</TableHead>
+                            <TableHead className="font-medium text-gray-500">RUT</TableHead>
+                            <TableHead className="font-medium text-gray-500">Empresa</TableHead>
+                            <TableHead className="font-medium text-gray-500">Batería</TableHead>
+                            <TableHead className="font-medium text-gray-500">Fecha</TableHead>
+                            <TableHead className="font-medium text-gray-500">Estado</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                        {orders?.map((order) => (
-                            <TableRow key={order.id}>
-                                <TableCell className="font-medium">{order.worker.name}</TableCell>
-                                <TableCell>{order.worker.rut}</TableCell>
-                                <TableCell>{order.company.name}</TableCell>
-                                <TableCell>{order.examBattery.name}</TableCell>
-                                <TableCell>
-                                    <Badge variant={getStatusVariant(order.status)}>
+                        {filteredOrders?.map((order) => (
+                            <TableRow key={order.id} className="hover:bg-gray-50 transition-colors">
+                                <TableCell className="p-4 font-medium text-gray-900">{order.worker.name}</TableCell>
+                                <TableCell className="p-4 text-gray-600">{order.worker.rut}</TableCell>
+                                <TableCell className="p-4 text-gray-600">{order.company.name}</TableCell>
+                                <TableCell className="p-4 text-gray-600">{order.examBattery.name}</TableCell>
+                                <TableCell className="p-4 text-gray-600">
+                                    {formatDate(order.scheduledAt || order.createdAt)}
+                                </TableCell>
+                                <TableCell className="p-4">
+                                    <Badge className={getStatusColor(order.status)} variant="outline">
                                         {order.status}
                                     </Badge>
                                 </TableCell>
                             </TableRow>
                         ))}
-                        {orders?.length === 0 && (
+                        {filteredOrders?.length === 0 && (
                             <TableRow>
-                                <TableCell colSpan={5} className="text-center h-24">
-                                    No se encontraron órdenes.
+                                <TableCell colSpan={6} className="text-center h-32 text-muted-foreground">
+                                    No se encontraron resultados para "{searchTerm}"
                                 </TableCell>
                             </TableRow>
                         )}
