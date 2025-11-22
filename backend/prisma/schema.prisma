@@ -1,0 +1,156 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model agentes {
+  id          Int           @id @default(autoincrement())
+  nombre      String
+  categoria   String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime
+  baterias    baterias[]
+  ges_agentes ges_agentes[]
+}
+
+model areas {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  centroId  Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  centros   centros  @relation(fields: [centroId], references: [id], onDelete: Cascade)
+  ges       ges[]
+
+  @@index([centroId])
+}
+
+model baterias {
+  id        Int        @id @default(autoincrement())
+  nombre    String
+  agenteId  Int
+  createdAt DateTime   @default(now())
+  updatedAt DateTime
+  agentes   agentes    @relation(fields: [agenteId], references: [id], onDelete: Cascade)
+  examenes  examenes[]
+
+  @@index([agenteId])
+}
+
+model cargos_empresa {
+  id                 Int                  @id @default(autoincrement())
+  nombre             String
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  ges_cargos_empresa ges_cargos_empresa[]
+}
+
+model centros {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  empresaId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  areas     areas[]
+  empresas  empresas @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@index([empresaId])
+}
+
+model empresas {
+  id        Int       @id @default(autoincrement())
+  nombre    String    @unique
+  createdAt DateTime  @default(now())
+  updatedAt DateTime
+  centros   centros[]
+}
+
+model examenes {
+  id        Int      @id @default(autoincrement())
+  nombre    String
+  tipo      String
+  bateriaId Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime
+  baterias  baterias @relation(fields: [bateriaId], references: [id], onDelete: Cascade)
+
+  @@index([bateriaId])
+  @@index([tipo])
+}
+
+model ges {
+  id                   Int                  @id @default(autoincrement())
+  nombre               String
+  nombreNormalizado    String
+  areaId               Int
+  descripcionInforme   String?
+  fechaInforme         DateTime?
+  numeroInforme        String?
+  tipoExposicion       String?
+  informeFileUrl       String?
+  descripcionProceso   String?
+  descripcionTareas    String?
+  nTrabajadoresHombres Int?
+  nTrabajadoresMujeres Int?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime
+  areas                areas                @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  ges_agentes          ges_agentes[]
+  ges_cargos_empresa   ges_cargos_empresa[]
+  ges_sustancias       ges_sustancias[]
+
+  @@index([areaId])
+  @@index([nombreNormalizado])
+}
+
+model ges_agentes {
+  id        Int      @id @default(autoincrement())
+  gesId     Int
+  agenteId  Int
+  createdAt DateTime @default(now())
+  agentes   agentes  @relation(fields: [agenteId], references: [id], onDelete: Cascade)
+  ges       ges      @relation(fields: [gesId], references: [id], onDelete: Cascade)
+
+  @@unique([gesId, agenteId])
+  @@index([agenteId])
+  @@index([gesId])
+}
+
+model ges_cargos_empresa {
+  id             Int            @id @default(autoincrement())
+  gesId          Int
+  cargoEmpresaId Int
+  createdAt      DateTime       @default(now())
+  cargos_empresa cargos_empresa @relation(fields: [cargoEmpresaId], references: [id], onDelete: Cascade)
+  ges            ges            @relation(fields: [gesId], references: [id], onDelete: Cascade)
+
+  @@unique([gesId, cargoEmpresaId])
+  @@index([cargoEmpresaId])
+  @@index([gesId])
+}
+
+model ges_sustancias {
+  id          Int        @id @default(autoincrement())
+  gesId       Int
+  sustanciaId Int
+  createdAt   DateTime   @default(now())
+  ges         ges        @relation(fields: [gesId], references: [id], onDelete: Cascade)
+  sustancias  sustancias @relation(fields: [sustanciaId], references: [id], onDelete: Cascade)
+
+  @@unique([gesId, sustanciaId])
+  @@index([gesId])
+  @@index([sustanciaId])
+}
+
+model sustancias {
+  id             Int              @id @default(autoincrement())
+  nombre         String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime
+  ges_sustancias ges_sustancias[]
+}
