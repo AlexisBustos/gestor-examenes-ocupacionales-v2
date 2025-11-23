@@ -22,7 +22,8 @@ model Company {
   // Relaciones
   workCenters  WorkCenter[]
   examOrders   ExamOrder[]
-  workers      Worker[]     // <--- ¡ESTA ERA LA LÍNEA QUE FALTABA!
+  workers      Worker[]     
+  users        User[]       // <--- Relación con usuarios (Clientes)
 
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -169,7 +170,13 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
+  name      String?  // <--- Nuevo campo (Nombre)
   role      UserRole
+  
+  // Relación con Empresa (Restaurada)
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -178,8 +185,6 @@ model Worker {
   id             String   @id @default(uuid())
   rut            String   @unique
   name           String
-  
-  // Campos nuevos corregidos
   phone          String?  
   position       String?  
   managementArea String?  

@@ -1,4 +1,5 @@
-import { PrismaClient, ExposureType, EvaluationType, OrderStatus } from '@prisma/client';
+import { PrismaClient, ExposureType, EvaluationType, OrderStatus, UserRole } from '@prisma/client';
+import bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
@@ -14,6 +15,7 @@ async function main() {
   await prisma.ges.deleteMany();
   await prisma.area.deleteMany();
   await prisma.workCenter.deleteMany();
+  await prisma.user.deleteMany(); // Limpiar usuarios
   await prisma.company.deleteMany();
   await prisma.riskAgent.deleteMany();
   await prisma.medicalExam.deleteMany();
@@ -26,6 +28,28 @@ async function main() {
       contactEmail: 'contacto@weir.com',
       address: 'Av. La Montaña 123',
       phone: '+56222222222',
+    },
+  });
+
+  // 2.1 Crear Usuarios
+  const passwordHash = bcrypt.hashSync('123456', 10);
+
+  // Admin Vitam
+  await prisma.user.create({
+    data: {
+      email: 'admin@vitam.cl',
+      password: passwordHash,
+      role: UserRole.ADMIN_VITAM,
+    },
+  });
+
+  // Cliente WEIR
+  await prisma.user.create({
+    data: {
+      email: 'contacto@weir.com',
+      password: passwordHash,
+      role: UserRole.USER_COMPANY,
+      companyId: company.id,
     },
   });
 
