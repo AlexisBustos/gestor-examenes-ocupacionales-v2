@@ -27,7 +27,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -111,7 +111,7 @@ export function NewOrderSheet({ open, onOpenChange }: NewOrderSheetProps) {
       if (selectedGes && selectedGes.riskExposures) {
         const riskWithBattery = selectedGes.riskExposures.find((r) => r.examBatteries && r.examBatteries.length > 0);
         if (riskWithBattery && riskWithBattery.examBatteries) {
-            examBatteryId = riskWithBattery.examBatteries[0].id;
+          examBatteryId = riskWithBattery.examBatteries[0].id;
         }
       }
 
@@ -156,7 +156,7 @@ export function NewOrderSheet({ open, onOpenChange }: NewOrderSheetProps) {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-6">
-            
+
             <div className="space-y-4">
               <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Datos Trabajador</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -187,7 +187,7 @@ export function NewOrderSheet({ open, onOpenChange }: NewOrderSheetProps) {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -222,7 +222,7 @@ export function NewOrderSheet({ open, onOpenChange }: NewOrderSheetProps) {
 
             <div className="space-y-4">
               <h3 className="font-medium text-sm text-muted-foreground uppercase tracking-wider">Datos del Servicio</h3>
-              
+
               <FormField
                 control={form.control}
                 name="companyId"

@@ -110,14 +110,11 @@ model RiskExposure {
   riskAgentId   String
   riskAgent     RiskAgent     @relation(fields: [riskAgentId], references: [id])
   exposureType  ExposureType? 
+  specificAgentDetails String?
   examBatteries ExamBattery[]
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 }
-
-// --------------------------------------
-// Definición Médica
-// --------------------------------------
 
 enum EvaluationType {
   PRE_OCUPACIONAL

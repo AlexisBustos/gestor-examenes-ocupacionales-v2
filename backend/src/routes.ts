@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { healthRouter } from './modules/health/health.routes';
-import authRouter from './modules/auth/auth.routes'; // <--- ARREGLADO (Sin llaves)
+import authRouter from './modules/auth/auth.routes';
 import { companiesRouter } from './modules/companies/companies.routes';
 import { workCentersRouter } from './modules/work-centers/work-centers.routes';
 import { areasRouter } from './modules/areas/areas.routes';
 import { gesRouter } from './modules/ges/ges.routes';
-import ordersRouter from './modules/orders/orders.routes'; // <--- ARREGLADO (Sin llaves)
+import ordersRouter from './modules/orders/orders.routes';
+import importRouter from './modules/import/import.routes';
 
 const router = Router();
 
@@ -14,6 +15,9 @@ router.use('/health', healthRouter);
 
 // Rutas de Autenticación
 router.use('/auth', authRouter);
+
+// Rutas de Importación
+router.use('/import', importRouter);
 
 // Rutas de Negocio
 router.use('/companies', companiesRouter);
