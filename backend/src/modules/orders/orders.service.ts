@@ -14,7 +14,11 @@ export const getAllOrders = async (status?: string) => {
       worker: true,
       company: true,
       examBattery: true,
-      ges: true,
+      ges: {
+        include: {
+          riskExposures: true
+        }
+      },
     },
   });
 };
@@ -96,13 +100,17 @@ export const createOrder = async (data: {
 export const updateOrderStatus = async (
   id: string,
   status: string,
-  scheduledAt?: string
+  scheduledAt?: string,
+  providerName?: string,
+  externalId?: string
 ) => {
   return await prisma.examOrder.update({
     where: { id },
     data: {
       status: status as any,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
+      providerName,
+      externalId,
     },
   });
 };

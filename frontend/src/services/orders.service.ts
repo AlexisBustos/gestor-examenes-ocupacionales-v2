@@ -33,5 +33,15 @@ export const ordersService = {
     async create(data: any) {
         const response = await axiosInstance.post<Order>('/orders', data);
         return response.data;
+    },
+
+    async updateStatus(id: string, status: string, scheduledAt?: string, providerName?: string, externalId?: string) {
+        const response = await axiosInstance.patch<Order>(`/orders/${id}/status`, {
+            status,
+            scheduledAt,
+            providerName,
+            externalId
+        });
+        return response.data;
     }
 };

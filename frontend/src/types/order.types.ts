@@ -1,19 +1,26 @@
 // frontend/src/types/order.types.ts
 
-// Definimos los estados posibles como un tipo String Union
 export type OrderStatus = 'SOLICITADO' | 'AGENDADO' | 'REALIZADO' | 'CERRADO' | 'ANULADO';
 
-export interface Worker {
+// --- AQUÍ ESTÁN LAS EXPORTACIONES QUE FALTABAN ---
+
+export interface RiskAgent {
   id: string;
-  rut: string;
   name: string;
-  position: string;
-  managementArea: string | null;
 }
 
-export interface Company {
+export interface RiskExposure {
+  id: string;
+  riskAgent: RiskAgent;
+  exposureType?: string;
+}
+
+// ¡Esta es la importante! Fíjate que dice 'export interface Ges'
+export interface Ges {
   id: string;
   name: string;
+  riskExposures?: RiskExposure[];
+  prescriptions?: string;
 }
 
 export interface ExamBattery {
@@ -21,7 +28,16 @@ export interface ExamBattery {
   name: string;
 }
 
-export interface Ges {
+export interface Worker {
+  id: string;
+  rut: string;
+  name: string;
+  position: string;
+  phone?: string | null;
+  managementArea: string | null;
+}
+
+export interface Company {
   id: string;
   name: string;
 }
