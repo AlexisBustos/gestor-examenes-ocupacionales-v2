@@ -1,98 +1,90 @@
-import { prisma } from '../../config/prisma';
-import { createGesSchema, updateGesSchema } from './ges.schema';
-import { z } from 'zod';
+import { PrismaClient } from '@prisma/client';
 
-type CreateGesDto = z.infer<typeof createGesSchema>;
-type UpdateGesDto = z.infer<typeof updateGesSchema>;
+const prisma = new PrismaClient();
 
-export class GesService {
-    static async create(data: CreateGesDto) {
-        // Verify area exists
-        const area = await prisma.area.findUnique({
-            where: { id: data.areaId },
-        });
+export const getAllGes = async () => {
+  return await prisma.ges.findMany({
+    include: {
+      riskExposures: { include: { riskAgent: true, examBatteries: true } },
+      technicalReport: true,
+    },
+  });
+};
 
-        if (!area) {
-            throw new Error('Area not found');
-        }
+export const getGesById = async (id: string) => {
+  return await prisma.ges.findUnique({
+    where: { id },
+    include: {
+      riskExposures: { include: { riskAgent: true } },
+      technicalReport: true,
+      area: { include: { workCenter: true } }
+    },
+  });
+};
 
-        return prisma.ges.create({
-            data: {
-                ...data,
-                reportDate: new Date(data.reportDate),
-                nextEvaluationDate: data.nextEvaluationDate ? new Date(data.nextEvaluationDate) : undefined,
-            },
-        });
+export const createGes = async (data: any) => {
+  return await prisma.ges.create({ data });
+};
+
+// FUNCIÓN DE SUBIDA INTELIGENTE
+export const uploadGesReport = async (
+  gesId: string,
+  fileData: { path: string; filename: string },
+  meta: { reportDate: string; reportNumber: string; applyToArea?: boolean }
+) => {
+
+  // 1. Buscar el GES y su Área
+  const ges = await prisma.ges.findUnique({
+    where: { id: gesId },
+    include: { area: { include: { workCenter: true } } }
+  });
+
+  if (!ges) throw new Error("GES no encontrado");
+
+  const companyId = ges.area.workCenter.companyId;
+  const areaId = ges.areaId;
+
+  // 2. Crear el Informe Técnico Centralizado
+  const report = await prisma.technicalReport.create({
+    data: {
+      pdfUrl: `/uploads/${fileData.filename}`,
+      reportNumber: meta.reportNumber,
+      reportDate: new Date(meta.reportDate),
+      companyId: companyId,
+      // Conectamos al GES actual sí o sí
+      gesGroups: {
+        connect: { id: gesId }
+      }
     }
+  });
 
-    static async findAll(areaId?: string) {
-        return prisma.ges.findMany({
-            where: areaId ? { areaId } : undefined,
-            include: {
-                riskExposures: {
-                    include: {
-                        riskAgent: true,
-                    },
-                },
-                area: {
-                    include: {
-                        workCenter: {
-                            include: {
-                                company: true,
-                            },
-                        },
-                    },
-                },
-            },
-            orderBy: { name: 'asc' },
-        });
-    }
+  // 3. Calcular Vigencia (Fecha + 3 años)
+  const nextDate = new Date(meta.reportDate);
+  nextDate.setFullYear(nextDate.getFullYear() + 3);
 
-    static async findById(id: string) {
-        const ges = await prisma.ges.findUnique({
-            where: { id },
-            include: {
-                riskExposures: {
-                    include: {
-                        riskAgent: true,
-                    },
-                },
-                workers: true,
-                area: {
-                    include: {
-                        workCenter: {
-                            include: {
-                                company: true,
-                            },
-                        },
-                    },
-                },
-            },
-        });
+  // 4. ¿APLICAR A TODOS LOS DEL ÁREA?
+  if (meta.applyToArea) {
+    console.log(`🔄 Replicando informe a toda el área: ${ges.area.name}`);
 
-        if (!ges) {
-            throw new Error('GES not found');
-        }
+    // Actualizamos TODOS los GES del área
+    await prisma.ges.updateMany({
+      where: { areaId: areaId },
+      data: {
+        nextEvaluationDate: nextDate,
+        technicalReportId: report.id // <--- ¡ESTA ES LA LÍNEA QUE FALTABA!
+      }
+    });
 
-        return ges;
-    }
+  } else {
+    // Solo actualizar el actual
+    await prisma.ges.update({
+      where: { id: gesId },
+      data: {
+        nextEvaluationDate: nextDate,
+        technicalReportId: report.id
+      }
+    });
+  }
 
-    static async update(id: string, data: UpdateGesDto) {
-        await this.findById(id);
-        return prisma.ges.update({
-            where: { id },
-            data: {
-                ...data,
-                reportDate: data.reportDate ? new Date(data.reportDate) : undefined,
-                nextEvaluationDate: data.nextEvaluationDate ? new Date(data.nextEvaluationDate) : undefined,
-            },
-        });
-    }
-
-    static async delete(id: string) {
-        await this.findById(id);
-        return prisma.ges.delete({
-            where: { id },
-        });
-    }
-}
+  return report;
+};

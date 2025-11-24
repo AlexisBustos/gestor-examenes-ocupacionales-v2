@@ -2,40 +2,26 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Trash2, Eye, Pencil, Building2, Loader2, Plus } from 'lucide-react';
+import { Trash2, Eye, Pencil, Plus } from 'lucide-react';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-
-// 👇 AQUÍ ESTABA EL ERROR: Ahora apunta a la carpeta correcta 'companies'
 import { CompanyDetailsSheet } from '@/components/companies/CompanyDetailsSheet';
-// Si tienes el formulario de edición, descomenta esta línea:
-// import { CompanyFormSheet } from '@/components/companies/CompanyFormSheet';
+// 👇 AQUÍ ESTÁ LA CLAVE: Importamos el formulario
+import { CompanyFormSheet } from '@/components/companies/CompanyFormSheet';
 
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [viewId, setViewId] = useState<string | null>(null); // Estado para el Ojo
-  const [editId, setEditId] = useState<string | null>(null); // Estado para el Lápiz
+  const [viewId, setViewId] = useState<string | null>(null);
+  const [editId, setEditId] = useState<string | null>(null); // ID para editar
 
-  // 1. Traer Empresas
   const { data: companies, isLoading } = useQuery({
     queryKey: ['companies'],
     queryFn: async () => {
@@ -44,40 +30,33 @@ export default function CompaniesPage() {
     },
   });
 
-  // 2. Borrar Empresa
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
-      await axios.delete(`/companies/${id}`);
-    },
+    mutationFn: async (id: string) => { await axios.delete(`/companies/${id}`); },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['companies'] });
-      toast.success('Empresa eliminada correctamente');
+      toast.success('Empresa eliminada');
       setDeleteId(null);
     },
-    onError: () => {
-      toast.error('Error al eliminar empresa');
-      setDeleteId(null);
-    },
+    onError: () => { toast.error('Error al eliminar'); setDeleteId(null); },
   });
 
-  if (isLoading) return <div className="p-8 text-center">Cargando empresas...</div>;
+  if (isLoading) return <div className="p-8 text-center">Cargando...</div>;
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Empresas</h1>
-          <p className="text-muted-foreground">Gestiona tus clientes y su estructura.</p>
+          <p className="text-muted-foreground">Gestiona tus clientes.</p>
         </div>
-        <Button>
+        {/* Botón Crear Nueva (Usa el mismo sheet pero sin ID) */}
+        <Button onClick={() => setEditId('new')}>
           <Plus className="mr-2 h-4 w-4" /> Nueva Empresa
         </Button>
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle>Listado de Clientes</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle>Listado de Clientes</CardTitle></CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
@@ -95,28 +74,16 @@ export default function CompaniesPage() {
                   <TableCell className="font-medium">{company.name}</TableCell>
                   <TableCell>{company.contactEmail}</TableCell>
                   <TableCell className="text-right space-x-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setViewId(company.id)}
-                      title="Ver Detalles"
-                    >
+                    <Button variant="ghost" size="icon" onClick={() => setViewId(company.id)} title="Ver Detalles">
                       <Eye className="h-4 w-4 text-blue-600" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setEditId(company.id)}
-                      title="Editar"
-                    >
+                    
+                    {/* Botón Lápiz */}
+                    <Button variant="ghost" size="icon" onClick={() => setEditId(company.id)} title="Editar">
                       <Pencil className="h-4 w-4 text-amber-600" />
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setDeleteId(company.id)}
-                      title="Eliminar"
-                    >
+                    
+                    <Button variant="ghost" size="icon" onClick={() => setDeleteId(company.id)} title="Eliminar">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
                   </TableCell>
@@ -127,32 +94,27 @@ export default function CompaniesPage() {
         </CardContent>
       </Card>
 
-      {/* Componente de Detalle (El que muestra los números) */}
-      {viewId && (
-        <CompanyDetailsSheet
-          companyId={viewId}
-          open={!!viewId}
-          onOpenChange={(open) => !open && setViewId(null)}
+      {/* Modal Ver Detalles */}
+      {viewId && <CompanyDetailsSheet companyId={viewId} open={!!viewId} onOpenChange={(open) => !open && setViewId(null)} />}
+      
+      {/* Modal Editar/Crear */}
+      {editId && (
+        <CompanyFormSheet 
+          companyId={editId === 'new' ? null : editId} 
+          open={!!editId} 
+          onOpenChange={(open) => !open && setEditId(null)} 
         />
       )}
 
-      {/* Alerta de Borrado */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Estás absolutamente seguro?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta acción borrará permanentemente la empresa, sus centros, áreas, GES, trabajadores y órdenes asociadas.
-            </AlertDialogDescription>
+            <AlertDialogTitle>¿Eliminar Empresa?</AlertDialogTitle>
+            <AlertDialogDescription>Se borrarán todos los datos asociados.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-red-600 hover:bg-red-700"
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
-            >
-              Eliminar todo
-            </AlertDialogAction>
+            <AlertDialogAction className="bg-red-600" onClick={() => deleteId && deleteMutation.mutate(deleteId)}>Eliminar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

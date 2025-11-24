@@ -7,26 +7,22 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --------------------------------------
-// Estructura Organizacional
-// --------------------------------------
+// --- ORGANIZACIÓN ---
 
 model Company {
-  id           String       @id @default(uuid())
-  rut          String       @unique
-  name         String
-  contactEmail String
-  address      String?
-  phone        String?
-  
-  // Relaciones
-  workCenters  WorkCenter[]
-  examOrders   ExamOrder[]
-  workers      Worker[]     
-  users        User[]       // <--- Relación con usuarios (Clientes)
-
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
+  id               String            @id @default(uuid())
+  rut              String            @unique
+  name             String
+  contactEmail     String
+  address          String?
+  phone            String?
+  workCenters      WorkCenter[]
+  examOrders       ExamOrder[]
+  workers          Worker[]     
+  users            User[]
+  technicalReports TechnicalReport[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
 model WorkCenter {
@@ -50,17 +46,19 @@ model Area {
   updatedAt    DateTime   @updatedAt
 }
 
-model CostCenter {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model TechnicalReport {
+  id           String   @id @default(uuid())
+  reportNumber String
+  reportDate   DateTime
+  pdfUrl       String
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+  gesGroups    Ges[]    
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 }
 
-// --------------------------------------
-// Núcleo GES (Grupos de Exposición Similar)
-// --------------------------------------
+// --- GES Y RIESGOS ---
 
 model Ges {
   id               String         @id @default(uuid())
@@ -72,13 +70,13 @@ model Ges {
   tasksDescription String?        @db.Text 
   machineryUsed    String?        @db.Text 
   controlMeasures  String?        @db.Text 
-  
-  // Campos para fiscalización
+  subArea          String?
   validityYears    Int?
   nextEvaluationDate DateTime?
   risksResume      String?
   prescriptions    String?
-  
+  technicalReportId String?
+  technicalReport   TechnicalReport? @relation(fields: [technicalReportId], references: [id])
   areaId           String
   area             Area           @relation(fields: [areaId], references: [id])
   riskExposures    RiskExposure[]
@@ -104,17 +102,19 @@ enum ExposureType {
 }
 
 model RiskExposure {
-  id            String        @id @default(uuid())
-  gesId         String
-  ges           Ges           @relation(fields: [gesId], references: [id])
-  riskAgentId   String
-  riskAgent     RiskAgent     @relation(fields: [riskAgentId], references: [id])
-  exposureType  ExposureType? 
+  id                   String        @id @default(uuid())
+  gesId                String
+  ges                  Ges           @relation(fields: [gesId], references: [id])
+  riskAgentId          String
+  riskAgent            RiskAgent     @relation(fields: [riskAgentId], references: [id])
+  exposureType         ExposureType? 
   specificAgentDetails String?
-  examBatteries ExamBattery[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  examBatteries        ExamBattery[]
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
 }
+
+// --- MÉDICO ---
 
 enum EvaluationType {
   PRE_OCUPACIONAL
@@ -134,10 +134,12 @@ model ExamBattery {
   id             String         @id @default(uuid())
   name           String
   evaluationType EvaluationType? 
-  
   batteryExams   BatteryExam[]
   riskExposures  RiskExposure[]
-  examOrders     ExamOrder[]
+  
+  // CAMBIO: Relación implícita muchos-a-muchos con Órdenes
+  examOrders     ExamOrder[]    
+
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -150,13 +152,10 @@ model BatteryExam {
   medicalExam   MedicalExam @relation(fields: [medicalExamId], references: [id])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-
   @@unique([examBatteryId, medicalExamId])
 }
 
-// --------------------------------------
-// Operación y Personas
-// --------------------------------------
+// --- OPERACIÓN ---
 
 enum UserRole {
   ADMIN_VITAM
@@ -167,13 +166,10 @@ model User {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  name      String?  // <--- Nuevo campo (Nombre)
+  name      String?
   role      UserRole
-  
-  // Relación con Empresa (Restaurada)
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -185,13 +181,10 @@ model Worker {
   phone          String?  
   position       String?  
   managementArea String?  
-  
   currentGesId   String?
   currentGes     Ges?     @relation("CurrentGes", fields: [currentGesId], references: [id])
-  
   companyId      String
   company        Company  @relation(fields: [companyId], references: [id])
-
   examOrders     ExamOrder[]
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
@@ -207,26 +200,28 @@ enum OrderStatus {
 
 model ExamOrder {
   id            String      @id @default(uuid())
-  
   workerId      String
   worker        Worker      @relation(fields: [workerId], references: [id])
-  
   companyId     String
   company       Company     @relation(fields: [companyId], references: [id])
-  
   gesId         String
   ges           Ges         @relation(fields: [gesId], references: [id])
   
-  examBatteryId String
-  examBattery   ExamBattery @relation(fields: [examBatteryId], references: [id])
+  // CAMBIO CRÍTICO: Esto es una lista [], ya no un String único
+  examBatteries ExamBattery[] 
   
   status        OrderStatus @default(SOLICITADO)
-  
-  // Trazabilidad
   scheduledAt   DateTime?
   providerName  String?
   externalId    String?
-
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+}
+
+model CostCenter {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

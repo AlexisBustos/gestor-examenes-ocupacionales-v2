@@ -2,34 +2,29 @@ import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Obtener lista
 export const getAllOrders = async (status?: string) => {
-  const where: Prisma.ExamOrderWhereInput = status
-    ? { status: status as any }
-    : {};
-
+  const where: Prisma.ExamOrderWhereInput = status ? { status: status as any } : {};
   return await prisma.examOrder.findMany({
     where,
     orderBy: { createdAt: 'desc' },
     include: {
       worker: true,
       company: true,
-      examBattery: true,
+      examBatteries: true, // <--- AHORA TRAEMOS LA LISTA
       ges: true,
     },
   });
 };
 
-// Crear Orden (Con Upsert Worker y Auto-Healing Battery)
 export const createOrder = async (data: {
   worker: { rut: string; name: string; phone?: string; position?: string };
   gesId: string;
   companyId: string;
-  examBatteryId?: string;
+  examBatteryId?: string; // (Ignorado o usado como hint)
   evaluationType: string;
 }) => {
   
-  // 1. Gestionar Trabajador
+  // 1. Upsert Trabajador
   const worker = await prisma.worker.upsert({
     where: { rut: data.worker.rut },
     update: {
@@ -48,22 +43,41 @@ export const createOrder = async (data: {
     },
   });
 
-  // 2. Gestionar Batería (Fallback)
-  let finalBatteryId = data.examBatteryId;
+  // 2. LÓGICA MULTI-BATERÍA 🧠
+  // Buscamos el GES y sus riesgos para ver qué baterías tocan
+  const ges = await prisma.ges.findUnique({
+    where: { id: data.gesId },
+    include: { 
+        riskExposures: { include: { riskAgent: true } } 
+    }
+  });
 
-  if (finalBatteryId) {
-    const batteryExists = await prisma.examBattery.findUnique({ where: { id: finalBatteryId } });
-    if (!batteryExists) finalBatteryId = undefined;
-  }
+  let batteriesToConnect: { id: string }[] = [];
 
-  if (!finalBatteryId) {
-    const fallbackBattery = await prisma.examBattery.findFirst();
-    if (fallbackBattery) {
-      finalBatteryId = fallbackBattery.id;
-    } else {
-      throw new Error("No hay baterías disponibles en el sistema.");
+  if (ges && ges.riskExposures) {
+    for (const riskExp of ges.riskExposures) {
+        // Buscamos baterías que coincidan con el nombre del riesgo (ej: Riesgo "Ruido" -> Batería "Ruido")
+        const battery = await prisma.examBattery.findFirst({
+            where: {
+                name: { contains: riskExp.riskAgent.name, mode: 'insensitive' }
+            }
+        });
+        if (battery) {
+            batteriesToConnect.push({ id: battery.id });
+        }
     }
   }
+
+  // Si no encontramos ninguna inteligente, buscamos fallback
+  if (batteriesToConnect.length === 0) {
+      const fallback = await prisma.examBattery.findFirst();
+      if (fallback) batteriesToConnect.push({ id: fallback.id });
+  }
+
+  // Eliminar duplicados
+  batteriesToConnect = [...new Map(batteriesToConnect.map(item => [item['id'], item])).values()];
+
+  console.log(`🔗 Conectando ${batteriesToConnect.length} baterías a la orden.`);
 
   // 3. Crear Orden
   return await prisma.examOrder.create({
@@ -72,26 +86,22 @@ export const createOrder = async (data: {
       workerId: worker.id,
       companyId: data.companyId,
       gesId: data.gesId,
-      examBatteryId: finalBatteryId!,
+      // Conexión Múltiple
+      examBatteries: {
+          connect: batteriesToConnect
+      }
     },
   });
 };
 
-// Actualizar Estado (Agendar)
-export const updateOrderStatus = async (
-  id: string,
-  status: string,
-  scheduledAt?: string,
-  providerName?: string, // <--- Nuevos parámetros
-  externalId?: string
-) => {
+export const updateOrderStatus = async (id: string, status: string, scheduledAt?: string, providerName?: string, externalId?: string) => {
   return await prisma.examOrder.update({
     where: { id },
     data: {
       status: status as any,
       scheduledAt: scheduledAt ? new Date(scheduledAt) : undefined,
-      providerName: providerName, // Guardamos proveedor
-      externalId: externalId      // Guardamos folio
+      providerName,
+      externalId
     },
   });
 };

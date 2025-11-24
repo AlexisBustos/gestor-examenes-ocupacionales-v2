@@ -1,73 +1,67 @@
 import { Request, Response } from 'express';
-import { GesService } from './ges.service';
-import { createGesSchema, updateGesSchema } from './ges.schema';
+import { getAllGes, getGesById, createGes, uploadGesReport } from './ges.service';
 
-export class GesController {
-    static async create(req: Request, res: Response) {
-        try {
-            const data = createGesSchema.parse(req.body);
-            const ges = await GesService.create(data);
-            res.status(201).json(ges);
-        } catch (error: any) {
-            if (error.name === 'ZodError') {
-                res.status(400).json({ error: error.errors });
-            } else if (error.message === 'Area not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
+export const list = async (req: Request, res: Response) => {
+  try {
+    const gesList = await getAllGes();
+    res.json(gesList);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al listar GES' });
+  }
+};
+
+export const getOne = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const ges = await getGesById(id);
+    if (!ges) return res.status(404).json({ error: 'GES no encontrado' });
+    res.json(ges);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener GES' });
+  }
+};
+
+export const create = async (req: Request, res: Response) => {
+  try {
+    const ges = await createGes(req.body);
+    res.status(201).json(ges);
+  } catch (error) {
+    res.status(400).json({ error: 'Error al crear GES' });
+  }
+};
+
+// CONTROLADOR DE SUBIDA (CORREGIDO)
+export const uploadReport = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const file = req.file;
+    // Aquí recibimos los datos del formulario
+    const { reportDate, reportNumber, applyToArea } = req.body;
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se subió ningún archivo PDF' });
     }
 
-    static async findAll(req: Request, res: Response) {
-        try {
-            const areaId = req.query.areaId as string | undefined;
-            const gesList = await GesService.findAll(areaId);
-            res.json(gesList);
-        } catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+    if (!reportDate || !reportNumber) {
+      return res.status(400).json({ error: 'Faltan datos del informe (Fecha o Número)' });
     }
 
-    static async findById(req: Request, res: Response) {
-        try {
-            const ges = await GesService.findById(req.params.id);
-            res.json(ges);
-        } catch (error: any) {
-            if (error.message === 'GES not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
+    // CONVERSIÓN CRÍTICA: FormData envía "true" (string), lo pasamos a boolean
+    const shouldApplyToArea = applyToArea === 'true';
 
-    static async update(req: Request, res: Response) {
-        try {
-            const data = updateGesSchema.parse(req.body);
-            const ges = await GesService.update(req.params.id, data);
-            res.json(ges);
-        } catch (error: any) {
-            if (error.name === 'ZodError') {
-                res.status(400).json({ error: error.errors });
-            } else if (error.message === 'GES not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
+    const result = await uploadGesReport(
+      id, 
+      { path: file.path, filename: file.filename }, 
+      { 
+        reportDate, 
+        reportNumber, 
+        applyToArea: shouldApplyToArea // <--- Pasamos la bandera correcta
+      }
+    );
 
-    static async delete(req: Request, res: Response) {
-        try {
-            await GesService.delete(req.params.id);
-            res.status(204).send();
-        } catch (error: any) {
-            if (error.message === 'GES not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
-}
+    res.json(result);
+  } catch (error: any) {
+    console.error("Error subiendo reporte:", error);
+    res.status(500).json({ error: 'Error al subir informe', details: error.message });
+  }
+};

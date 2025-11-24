@@ -1,8 +1,4 @@
-// frontend/src/types/order.types.ts
-
 export type OrderStatus = 'SOLICITADO' | 'AGENDADO' | 'REALIZADO' | 'CERRADO' | 'ANULADO';
-
-// --- AQUÍ ESTÁN LAS EXPORTACIONES QUE FALTABAN ---
 
 export interface RiskAgent {
   id: string;
@@ -15,7 +11,6 @@ export interface RiskExposure {
   exposureType?: string;
 }
 
-// ¡Esta es la importante! Fíjate que dice 'export interface Ges'
 export interface Ges {
   id: string;
   name: string;
@@ -47,7 +42,10 @@ export interface Order {
   status: OrderStatus;
   worker: Worker;
   company: Company;
-  examBattery: ExamBattery;
+  
+  // CAMBIO: Ahora es un array (Lista)
+  examBatteries: ExamBattery[]; 
+  
   ges: Ges;
   createdAt: string;
   updatedAt: string;

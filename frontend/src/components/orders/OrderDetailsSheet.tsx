@@ -92,20 +92,32 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: OrderDetailsShe
                                 <p className="font-medium">{order.ges.name}</p>
                             </div>
                             <div>
-                                <p className="text-muted-foreground text-xs">Batería de Exámenes</p>
-                                <p className="font-medium">{order.examBattery.name}</p>
-                            </div>
-                            <div>
                                 <p className="text-muted-foreground text-xs mb-1">Riesgos Detectados</p>
                                 <div className="flex flex-wrap gap-1">
                                     {(order.ges as any).riskExposures?.length > 0 ? (
                                         (order.ges as any).riskExposures.map((risk: any) => (
-                                            <Badge key={risk.id} variant="secondary" className="text-xs">
-                                                {risk.name}
+                                            <Badge key={risk.id} variant="secondary" className="text-xs bg-orange-100 text-orange-800 border-orange-200 hover:bg-orange-100">
+                                                {risk.riskAgent?.name || risk.name || 'Riesgo'}
                                             </Badge>
                                         ))
                                     ) : (
                                         <span className="text-muted-foreground italic">Sin riesgos registrados</span>
+                                    )}
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-muted-foreground text-xs mb-1">Baterías Asignadas</p>
+                                <div className="space-y-2">
+                                    {order.examBatteries?.length > 0 ? (
+                                        order.examBatteries.map((bat) => (
+                                            <div key={bat.id} className="flex items-center gap-2 p-2 bg-green-50 border border-green-100 rounded-md">
+                                                <div className="h-4 w-4 rounded-full bg-green-500 flex items-center justify-center text-white text-[10px]">✓</div>
+                                                <span className="text-sm font-medium text-green-900">{bat.name}</span>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="font-medium text-sm text-muted-foreground">Sin batería asignada</p>
                                     )}
                                 </div>
                             </div>

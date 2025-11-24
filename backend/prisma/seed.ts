@@ -1,167 +1,81 @@
-import { PrismaClient, ExposureType, EvaluationType, OrderStatus, UserRole } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+import { PrismaClient, EvaluationType, UserRole, OrderStatus } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// DICCIONARIO MÉDICO COMPLETO
+const PROTOCOLOS = [
+  { agente: "Ruido", bateria: "Evaluación Ocupacional Auditiva PREXOR", examenes: ["Encuesta de salud", "Enfermería", "Audiometría en cámara", "Consulta médica"] },
+  { agente: "Sílice", bateria: "Vigilancia de Neumoconiosis (Polvos/Sílice)", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Lectura OIT", "Consulta médica"] },
+  { agente: "Plaguicidas", bateria: "Vigilancia por Intoxicación de Plaguicidas", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Creatinina", "SGOT", "SGPT", "Protrombina", "Actividad de acetilcolinesterasa plasmática", "Consulta médica"] },
+  { agente: "Citostáticos", bateria: "Vigilancia de Exposición a Citostáticos", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "GPT/SGPT", "Consulta médica"] },
+  { agente: "Arsénico", bateria: "Biomonitorización de Arsénico", examenes: ["Encuesta de salud", "Enfermería", "Arsénico inorgánico en orina", "Creatinina", "GPT/SGPT", "Consulta médica"] },
+  { agente: "Plomo", bateria: "Biomonitorización de Plomo", examenes: ["Encuesta de salud", "Enfermería", "Hemoglobina", "SGPT", "Protrombina", "Creatinina", "Plomo en sangre", "Consulta médica"] },
+  { agente: "Cromo", bateria: "Biomonitorización de Cromo", examenes: ["Encuesta de salud", "Enfermería", "Espirometría", "Radiografía de tórax", "Creatinina", "SGPT", "Cromo en orina", "Consulta médica"] },
+  { agente: "Manganeso", bateria: "Biomonitorización de Manganeso", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "FA (Fosfatasa Alcalina)", "GGT", "Hemoglobina", "Manganeso en orina", "Consulta médica"] },
+  { agente: "Asma", bateria: "Vigilancia Asma Ocupacional", examenes: ["Encuesta de salud", "Enfermería", "Optometría", "Hemograma completo con recuento de plaquetas", "Recuento de reticulocitos", "Consulta médica"] },
+  { agente: "Radiaciones Ionizantes", bateria: "Vigilancia Radiológica", examenes: ["Encuesta de salud", "Enfermería", "Espirometría completa", "Consulta médica"] },
+  { agente: "Vibraciones", bateria: "Batería Osteomuscular Vibraciones", examenes: ["Encuesta de salud", "Consulta médica", "Evaluación Musculoesquelética"] },
+  { agente: "Solventes", bateria: "Batería Solventes General", examenes: ["Encuesta de salud", "Enfermería", "Hemograma", "Perfil Hepático", "Consulta médica"] },
+  { agente: "Humos Metálicos", bateria: "Batería Humos Metálicos", examenes: ["Encuesta de salud", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Consulta médica"] },
+  { agente: "Trabajo en Altura Geográfica", bateria: "Batería Gran Altura", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Creatinina", "Consulta médica"] },
+  { agente: "Trabajo en Altura Física", bateria: "Batería Altura Física", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Visiometría", "Consulta médica"] },
+  { agente: "Estrés Térmico Calor", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Encuesta de salud", "Enfermería", "Creatinina", "Electrolitos plasmáticos", "Consulta médica"] }
+];
+
 async function main() {
-  console.log('🌱 Iniciando seed...');
+  console.log('🌱 Iniciando Limpieza y Carga...');
 
-  // 1. Limpiar base de datos (Orden inverso para respetar Foreign Keys)
-  await prisma.examOrder.deleteMany();
-  await prisma.batteryExam.deleteMany();
-  await prisma.examBattery.deleteMany();
-  await prisma.riskExposure.deleteMany();
-  await prisma.worker.deleteMany();
-  await prisma.ges.deleteMany();
-  await prisma.area.deleteMany();
-  await prisma.workCenter.deleteMany();
-  await prisma.user.deleteMany(); // Limpiar usuarios
-  await prisma.company.deleteMany();
-  await prisma.riskAgent.deleteMany();
-  await prisma.medicalExam.deleteMany();
+  // 1. BORRADO TOTAL
+  try {
+    await prisma.technicalReport.deleteMany();
+    await prisma.examOrder.deleteMany();
+    await prisma.riskExposure.deleteMany();
+    await prisma.batteryExam.deleteMany();
+    await prisma.examBattery.deleteMany();
+    await prisma.worker.deleteMany();
+    await prisma.ges.deleteMany();
+    await prisma.area.deleteMany();
+    await prisma.workCenter.deleteMany();
+    await prisma.user.deleteMany();
+    await prisma.company.deleteMany();
+    await prisma.riskAgent.deleteMany();
+    await prisma.medicalExam.deleteMany();
+  } catch (e) { console.log('Limpieza inicial saltada o parcial.'); }
 
-  // 2. Crear Empresa (WEIR)
-  const company = await prisma.company.create({
-    data: {
-      rut: '76.123.456-7',
-      name: 'WEIR MINERALS',
-      contactEmail: 'contacto@weir.com',
-      address: 'Av. La Montaña 123',
-      phone: '+56222222222',
-    },
-  });
-
-  // 2.1 Crear Usuarios
-  const passwordHash = bcrypt.hashSync('123456', 10);
-
-  // Admin Vitam
+  // 2. USUARIO ADMIN
+  const hashedPassword = await bcrypt.hash('123456', 10);
   await prisma.user.create({
-    data: {
-      email: 'admin@vitam.cl',
-      password: passwordHash,
-      role: UserRole.ADMIN_VITAM,
-    },
+    data: { email: 'admin@vitam.cl', password: hashedPassword, name: 'Admin Vitam', role: UserRole.ADMIN_VITAM },
   });
 
-  // Cliente WEIR
-  await prisma.user.create({
-    data: {
-      email: 'contacto@weir.com',
-      password: passwordHash,
-      role: UserRole.USER_COMPANY,
-      companyId: company.id,
-    },
-  });
+  // 3. CARGA MÉDICA
+  for (const proto of PROTOCOLOS) {
+    // Riesgo
+    const risk = await prisma.riskAgent.upsert({
+      where: { name: proto.agente }, update: {}, create: { name: proto.agente }
+    });
 
-  // 3. Crear Jerarquía
-  const workCenter = await prisma.workCenter.create({
-    data: {
-      name: 'Planta 1',
-      address: 'San Bernardo',
-      companyId: company.id,
-    },
-  });
+    // Exámenes
+    const examIds = [];
+    for (const exName of proto.examenes) {
+      const ex = await prisma.medicalExam.upsert({ where: { name: exName }, update: {}, create: { name: exName } });
+      examIds.push(ex.id);
+    }
 
-  const area = await prisma.area.create({
-    data: {
-      name: 'Gerencia de Operaciones',
-      workCenterId: workCenter.id,
-    },
-  });
-
-  // 4. Catálogos Técnicos (Riesgos)
-  const agenteRuido = await prisma.riskAgent.create({ data: { name: 'Ruido Ocupacional' } });
-  const agenteSilice = await prisma.riskAgent.create({ data: { name: 'Sílice Libre Cristalizada' } });
-  const agenteHumos = await prisma.riskAgent.create({ data: { name: 'Humos Metálicos' } });
-
-  // 5. Catálogos Médicos (Exámenes)
-  const exAudio = await prisma.medicalExam.create({ data: { name: 'Audiometría' } });
-  const exEspiro = await prisma.medicalExam.create({ data: { name: 'Espirometría' } });
-  const exRx = await prisma.medicalExam.create({ data: { name: 'Rx Tórax OIT' } });
-  const exVisiometria = await prisma.medicalExam.create({ data: { name: 'Visiometría' } });
-
-  // 6. Crear Baterías (La receta médica)
-  const bateriaHumos = await prisma.examBattery.create({
-    data: {
-      name: 'Batería Humos Metálicos',
-      evaluationType: EvaluationType.OCUPACIONAL,
-      batteryExams: {
-        create: [
-          { medicalExamId: exEspiro.id },
-          { medicalExamId: exRx.id },
-        ],
-      },
-    },
-  });
-
-  // 7. Crear GES (Soldadores)
-  const ges = await prisma.ges.create({
-    data: {
-      name: 'SOLDADORES TALLER',
-      reportDate: new Date(),
-      reportNumber: 'INF-2025-001',
-      menCount: 15,
-      womenCount: 2,
-      tasksDescription: 'Soldadura al arco y mig en estructuras metálicas.',
-      validityYears: 1,
-      nextEvaluationDate: new Date('2026-11-22'),
-      risksResume: 'Humos Metálicos, Ruido',
-      prescriptions: 'Uso obligatorio de máscara de soldar con filtro y protección auditiva tipo copa',
-      areaId: area.id,
-      // Asignar riesgos
-      riskExposures: {
-        create: [
-          {
-            riskAgentId: agenteRuido.id,
-            exposureType: ExposureType.CRONICA, // <--- CORREGIDO A ESPAÑOL
-          },
-          {
-            riskAgentId: agenteHumos.id,
-            exposureType: ExposureType.AGUDA,   // <--- CORREGIDO A ESPAÑOL
-            // Conectar batería a este riesgo
-            examBatteries: {
-              connect: { id: bateriaHumos.id }
-            }
-          },
-        ],
-      },
-    },
-  });
-
-  // 8. Crear Trabajador (Pedro Pascal)
-  const worker = await prisma.worker.create({
-    data: {
-      rut: '15.555.666-8',
-      name: 'Juan Pérez', // (O Pedro Pascal)
-      position: 'Soldador',
-      managementArea: 'Gerencia de Operaciones',
-      currentGesId: ges.id,
-      companyId: company.id, // <--- CORREGIDO: Faltaba asignar la empresa
-    },
-  });
-
-  // 9. Crear Orden de Prueba
-  await prisma.examOrder.create({
-    data: {
-      status: OrderStatus.AGENDADO,
-      workerId: worker.id,
-      companyId: company.id,
-      gesId: ges.id,
-      examBatteryId: bateriaHumos.id,
-      providerName: 'ACHS',
-      scheduledAt: new Date('2025-11-25'),
-      externalId: 'ORD-ACHS-999',
-    },
-  });
-
-  console.log('✅ Seed completado correctamente');
+    // Batería (Conectada al Riesgo indirectamente por nombre o lógica futura)
+    const bat = await prisma.examBattery.findFirst({ where: { name: proto.bateria } });
+    if (!bat) {
+      await prisma.examBattery.create({
+        data: {
+          name: proto.bateria,
+          evaluationType: EvaluationType.OCUPACIONAL,
+          batteryExams: { create: examIds.map(id => ({ medicalExamId: id })) }
+        }
+      });
+    }
+  }
+  console.log('✅ Sistema reiniciado y listo.');
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });
+main().catch(e => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });

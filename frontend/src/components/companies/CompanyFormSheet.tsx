@@ -2,120 +2,129 @@ import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/Sheet';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import { useUpdateCompany } from '@/hooks/useCompanies';
-import { toast } from 'sonner';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import axios from '@/lib/axios';
+import {
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
+} from '@/components/ui/sheet';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  Form, FormControl, FormField, FormItem, FormLabel, FormMessage
+} from '@/components/ui/form';
 import { Loader2 } from 'lucide-react';
-import type { Company } from '@/services/companies.service';
+import { toast } from 'sonner';
 
-const companySchema = z.object({
-    rut: z.string().min(1, 'RUT es requerido'),
-    name: z.string().min(1, 'Nombre es requerido'),
-    contactEmail: z.string().email('Email inválido').optional().or(z.literal('')),
-    address: z.string().optional(),
-    phone: z.string().optional(),
+// Esquema de validación
+const formSchema = z.object({
+  rut: z.string().min(8, 'RUT inválido'),
+  name: z.string().min(2, 'Nombre requerido'),
+  contactEmail: z.string().email('Email inválido'),
+  phone: z.string().optional(),
+  address: z.string().optional(),
 });
 
-type CompanyFormValues = z.infer<typeof companySchema>;
+type FormValues = z.infer<typeof formSchema>;
 
-interface CompanyFormSheetProps {
-    isOpen: boolean;
-    onClose: () => void;
-    company: Company | null;
+interface Props {
+  companyId?: string | null; // Si viene ID es editar, si no es crear
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function CompanyFormSheet({ isOpen, onClose, company }: CompanyFormSheetProps) {
-    const updateCompanyMutation = useUpdateCompany();
+export function CompanyFormSheet({ companyId, open, onOpenChange }: Props) {
+  const queryClient = useQueryClient();
 
-    const { register, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm<CompanyFormValues>({
-        resolver: zodResolver(companySchema),
-        defaultValues: {
-            rut: '',
-            name: '',
-            contactEmail: '',
-            address: '',
-            phone: '',
-        },
-    });
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { rut: '', name: '', contactEmail: '', phone: '', address: '' },
+  });
 
-    useEffect(() => {
-        if (company) {
-            reset({
-                rut: company.rut,
-                name: company.name,
-                contactEmail: company.contactEmail || '',
-                address: company.address || '',
-                phone: company.phone || '',
-            });
-        }
-    }, [company, reset]);
+  // 1. Cargar datos si estamos editando
+  const { data: company, isLoading: isLoadingData } = useQuery({
+    queryKey: ['company', companyId],
+    queryFn: async () => {
+      const { data } = await axios.get(`/companies/${companyId}`);
+      return data;
+    },
+    enabled: !!companyId && open,
+  });
 
-    const onSubmit = async (data: CompanyFormValues) => {
-        if (!company) return;
+  // 2. Rellenar el formulario cuando llegan los datos
+  useEffect(() => {
+    if (company) {
+      form.reset({
+        rut: company.rut,
+        name: company.name,
+        contactEmail: company.contactEmail,
+        phone: company.phone || '',
+        address: company.address || '',
+      });
+    } else {
+        form.reset({ rut: '', name: '', contactEmail: '', phone: '', address: '' });
+    }
+  }, [company, form, open]);
 
-        try {
-            await updateCompanyMutation.mutateAsync({ id: company.id, data });
-            toast.success('Empresa actualizada correctamente');
-            onClose();
-        } catch (error) {
-            console.error(error);
-            toast.error('Error al actualizar la empresa');
-        }
-    };
+  // 3. Guardar cambios (Patch)
+  const updateMutation = useMutation({
+    mutationFn: async (values: FormValues) => {
+      if (companyId) {
+        // Modo Edición
+        await axios.patch(`/companies/${companyId}`, values);
+      } else {
+        // Modo Creación (Futuro)
+        await axios.post('/companies', values);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['companies'] });
+      queryClient.invalidateQueries({ queryKey: ['company', companyId] });
+      toast.success(companyId ? 'Empresa actualizada' : 'Empresa creada');
+      onOpenChange(false);
+    },
+    onError: () => toast.error('Error al guardar'),
+  });
 
-    return (
-        <Sheet open={isOpen} onOpenChange={onClose}>
-            <SheetContent>
-                <SheetHeader>
-                    <SheetTitle>Editar Empresa</SheetTitle>
-                    <SheetDescription>
-                        Modifica los datos de la empresa.
-                    </SheetDescription>
-                </SheetHeader>
+  const onSubmit = (values: FormValues) => {
+    updateMutation.mutate(values);
+  };
 
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 mt-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="rut">RUT</Label>
-                        <Input id="rut" {...register('rut')} disabled />
-                        {errors.rut && <p className="text-sm text-red-500">{errors.rut.message}</p>}
-                    </div>
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent className="sm:max-w-[500px]">
+        <SheetHeader>
+          <SheetTitle>{companyId ? 'Editar Empresa' : 'Nueva Empresa'}</SheetTitle>
+          <SheetDescription>Modifica los datos de contacto y facturación.</SheetDescription>
+        </SheetHeader>
 
-                    <div className="space-y-2">
-                        <Label htmlFor="name">Nombre</Label>
-                        <Input id="name" {...register('name')} />
-                        {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
-                    </div>
+        {isLoadingData ? (
+          <div className="py-10 flex justify-center"><Loader2 className="animate-spin" /></div>
+        ) : (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+              <FormField control={form.control} name="rut" render={({ field }) => (
+                <FormItem><FormLabel>RUT</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="name" render={({ field }) => (
+                <FormItem><FormLabel>Razón Social</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="contactEmail" render={({ field }) => (
+                <FormItem><FormLabel>Email Contacto</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="phone" render={({ field }) => (
+                <FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={form.control} name="address" render={({ field }) => (
+                <FormItem><FormLabel>Dirección</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
 
-                    <div className="space-y-2">
-                        <Label htmlFor="contactEmail">Email de Contacto</Label>
-                        <Input id="contactEmail" {...register('contactEmail')} />
-                        {errors.contactEmail && <p className="text-sm text-red-500">{errors.contactEmail.message}</p>}
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="address">Dirección</Label>
-                        <Input id="address" {...register('address')} />
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="phone">Teléfono</Label>
-                        <Input id="phone" {...register('phone')} />
-                    </div>
-
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button type="button" variant="outline" onClick={onClose}>
-                            Cancelar
-                        </Button>
-                        <Button type="submit" disabled={isSubmitting}>
-                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Guardar Cambios
-                        </Button>
-                    </div>
-                </form>
-            </SheetContent>
-        </Sheet>
-    );
+              <Button type="submit" className="w-full" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? 'Guardando...' : 'Guardar Cambios'}
+              </Button>
+            </form>
+          </Form>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
 }

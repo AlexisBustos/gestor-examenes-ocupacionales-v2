@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
-import AppRoutes from './routes'; // Importación por defecto (sin llaves)
+import path from 'path'; // <--- Importante para las rutas de carpetas
+import AppRoutes from './routes';
 
 const app = express();
 
@@ -8,15 +9,14 @@ const app = express();
 // 1. CONFIGURACIÓN CORS (Permisiva para Desarrollo)
 // ---------------------------------------------------------
 app.use(cors({
-  origin: '*', // ¡Permitir a todo el mundo! (Crucial para que no falle localmente)
+  origin: '*', // Permitir a todo el mundo
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 // ---------------------------------------------------------
-// 2. ALARMA DE DIAGNÓSTICO (El "Ding Dong")
+// 2. ALARMA DE DIAGNÓSTICO (Ding Dong)
 // ---------------------------------------------------------
-// Este código nos avisará en la terminal cada vez que el Frontend toque la puerta
 app.use((req, res, next) => {
   console.log(`🔔 ¡DING DONG! Recibí una petición: ${req.method} ${req.url}`);
   next();
@@ -29,12 +29,17 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ---------------------------------------------------------
-// 4. RUTAS
+// 4. CARPETA PÚBLICA DE ARCHIVOS (PDFs)
 // ---------------------------------------------------------
-// Todas las rutas de la API empiezan con /api
+// Esto permite que cuando entres a http://localhost:3000/uploads/archivo.pdf, lo veas.
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// ---------------------------------------------------------
+// 5. RUTAS DE LA API
+// ---------------------------------------------------------
 app.use('/api', AppRoutes);
 
-// Ruta Raíz para verificar que el servidor vive
+// Ruta Raíz
 app.get('/', (req, res) => {
   res.json({ message: 'Antigravity API Running 🚀' });
 });

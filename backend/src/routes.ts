@@ -16,14 +16,12 @@ router.use('/health', healthRouter);
 // Rutas de Autenticación
 router.use('/auth', authRouter);
 
-// Rutas de Importación
-router.use('/import', importRouter);
-
 // Rutas de Negocio
 router.use('/companies', companiesRouter);
 router.use('/work-centers', workCentersRouter);
 router.use('/areas', areasRouter);
 router.use('/ges', gesRouter);
 router.use('/orders', ordersRouter);
+router.use('/import', importRouter);
 
 export default router;

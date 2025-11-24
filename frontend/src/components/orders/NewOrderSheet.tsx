@@ -40,7 +40,7 @@ interface RiskAgent {
 interface RiskExposure {
   id: string;
   riskAgent: RiskAgent;
-  examBatteries?: { id: string }[];
+  examBatteries?: { id: string; name: string }[];
 }
 
 interface GesLocal {
@@ -311,6 +311,16 @@ export function NewOrderSheet({ open, onOpenChange }: NewOrderSheetProps) {
                   <div>
                     <span className="font-semibold">Riesgos:</span>{' '}
                     {selectedGes.riskExposures?.map((r) => r.riskAgent.name).join(', ') || 'Sin riesgos registrados'}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Baterías Sugeridas:</span>{' '}
+                    {(() => {
+                      const batteries = selectedGes.riskExposures?.flatMap(r => r.examBatteries || []) || [];
+                      const uniqueBatteries = Array.from(new Map(batteries.map(b => [b.id, b])).values());
+                      return uniqueBatteries.length > 0
+                        ? uniqueBatteries.map(b => b.name).join(', ')
+                        : 'Ninguna detectada (se usará fallback)';
+                    })()}
                   </div>
                   {selectedGes.prescriptions && (
                     <div>

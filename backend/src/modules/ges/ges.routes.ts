@@ -1,10 +1,19 @@
 import { Router } from 'express';
-import { GesController } from './ges.controller';
+import multer from 'multer';
+import { list, getOne, create, uploadReport } from './ges.controller';
 
-export const gesRouter = Router();
+const router = Router();
 
-gesRouter.post('/', GesController.create);
-gesRouter.get('/', GesController.findAll);
-gesRouter.get('/:id', GesController.findById);
-gesRouter.put('/:id', GesController.update);
-gesRouter.delete('/:id', GesController.delete);
+// Configuración simple de Multer (Guardar en carpeta 'uploads')
+const upload = multer({ dest: 'uploads/' });
+
+// Rutas existentes
+router.get('/', list);
+router.get('/:id', getOne);
+router.post('/', create);
+
+// 👇 NUEVA RUTA: Subir Informe PDF
+// 'file' es el nombre del campo que envía el frontend
+router.post('/:id/report', upload.single('file'), uploadReport);
+
+export const gesRouter = router;
