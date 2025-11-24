@@ -1,10 +1,14 @@
 import { Router } from 'express';
-import { CompaniesController } from './companies.controller';
+import { list, getOne, create, update, remove } from './companies.controller';
 
-export const companiesRouter = Router();
+const router = Router();
 
-companiesRouter.post('/', CompaniesController.create);
-companiesRouter.get('/', CompaniesController.findAll);
-companiesRouter.get('/:id', CompaniesController.findById);
-companiesRouter.put('/:id', CompaniesController.update);
-companiesRouter.delete('/:id', CompaniesController.delete);
+// Definir las rutas y conectarlas a las funciones del controlador
+router.get('/', list);
+router.get('/:id', getOne);
+router.post('/', create);
+router.patch('/:id', update);
+router.delete('/:id', remove);
+
+// Exportamos con nombre para que coincida con routes.ts
+export const companiesRouter = router;

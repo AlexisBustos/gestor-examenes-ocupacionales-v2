@@ -7,6 +7,7 @@ import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage';
 import ImportPage from '@/pages/ImportPage';
+import CompaniesPage from '@/pages/admin/CompaniesPage';
 
 // 1. Layout Global
 const AppLayout = () => (
@@ -44,6 +45,7 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <DashboardPage /> },
               { path: 'orders', element: <OrdersPage /> },
+              { path: 'companies', element: <CompaniesPage /> },
               { path: 'import', element: <ImportPage /> },
             ],
           },

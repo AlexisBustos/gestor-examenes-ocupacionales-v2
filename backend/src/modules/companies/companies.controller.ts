@@ -1,72 +1,64 @@
 import { Request, Response } from 'express';
-import { CompaniesService } from './companies.service';
-import { createCompanySchema, updateCompanySchema } from './companies.schema';
+import { createCompany, deleteCompany, getAllCompanies, getCompanyById, updateCompany } from './companies.service';
 
-export class CompaniesController {
-    static async create(req: Request, res: Response) {
-        try {
-            const data = createCompanySchema.parse(req.body);
-            const company = await CompaniesService.create(data);
-            res.status(201).json(company);
-        } catch (error: any) {
-            if (error.name === 'ZodError') {
-                res.status(400).json({ error: error.errors });
-            } else if (error.message === 'Company with this RUT already exists') {
-                res.status(400).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
+// Listar
+export const list = async (req: Request, res: Response) => {
+  try {
+    const companies = await getAllCompanies();
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al listar empresas' });
+  }
+};
 
-    static async findAll(req: Request, res: Response) {
-        try {
-            const companies = await CompaniesService.findAll();
-            res.json(companies);
-        } catch (error) {
-            res.status(500).json({ error: 'Internal Server Error' });
-        }
+// Obtener UNA (Con stats)
+export const getOne = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const company = await getCompanyById(id);
+    if (!company) {
+      return res.status(404).json({ error: 'Empresa no encontrada' });
     }
+    res.json(company);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al obtener empresa' });
+  }
+};
 
-    static async findById(req: Request, res: Response) {
-        try {
-            const company = await CompaniesService.findById(req.params.id);
-            res.json(company);
-        } catch (error: any) {
-            if (error.message === 'Company not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
+// Crear
+export const create = async (req: Request, res: Response) => {
+  try {
+    const company = await createCompany(req.body);
+    res.status(201).json(company);
+  } catch (error: any) {
+    // Manejo de error de duplicados (P2002)
+    if (error.code === 'P2002') {
+      return res.status(409).json({ error: 'Ya existe una empresa con ese RUT' });
     }
+    res.status(400).json({ error: 'Error al crear empresa' });
+  }
+};
 
-    static async update(req: Request, res: Response) {
-        try {
-            const data = updateCompanySchema.parse(req.body);
-            const company = await CompaniesService.update(req.params.id, data);
-            res.json(company);
-        } catch (error: any) {
-            if (error.name === 'ZodError') {
-                res.status(400).json({ error: error.errors });
-            } else if (error.message === 'Company not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
+// Actualizar
+export const update = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const company = await updateCompany(id, req.body);
+    res.json(company);
+  } catch (error) {
+    res.status(400).json({ error: 'Error al actualizar empresa' });
+  }
+};
 
-    static async delete(req: Request, res: Response) {
-        try {
-            await CompaniesService.delete(req.params.id);
-            res.status(204).send();
-        } catch (error: any) {
-            if (error.message === 'Company not found') {
-                res.status(404).json({ error: error.message });
-            } else {
-                res.status(500).json({ error: 'Internal Server Error' });
-            }
-        }
-    }
-}
+// Eliminar
+export const remove = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    await deleteCompany(id);
+    res.json({ message: 'Empresa eliminada correctamente' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al eliminar empresa' });
+  }
+};
