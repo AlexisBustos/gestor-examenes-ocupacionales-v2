@@ -3,32 +3,31 @@ import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// DICCIONARIO MÉDICO COMPLETO
+// --- DICCIONARIO MÉDICO COMPLETO ---
 const PROTOCOLOS = [
-  { agente: "Ruido", bateria: "Evaluación Ocupacional Auditiva PREXOR", examenes: ["Encuesta de salud", "Enfermería", "Audiometría en cámara", "Consulta médica"] },
-  { agente: "Sílice", bateria: "Vigilancia de Neumoconiosis (Polvos/Sílice)", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Lectura OIT", "Consulta médica"] },
-  { agente: "Plaguicidas", bateria: "Vigilancia por Intoxicación de Plaguicidas", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Creatinina", "SGOT", "SGPT", "Protrombina", "Actividad de acetilcolinesterasa plasmática", "Consulta médica"] },
-  { agente: "Citostáticos", bateria: "Vigilancia de Exposición a Citostáticos", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "GPT/SGPT", "Consulta médica"] },
-  { agente: "Arsénico", bateria: "Biomonitorización de Arsénico", examenes: ["Encuesta de salud", "Enfermería", "Arsénico inorgánico en orina", "Creatinina", "GPT/SGPT", "Consulta médica"] },
-  { agente: "Plomo", bateria: "Biomonitorización de Plomo", examenes: ["Encuesta de salud", "Enfermería", "Hemoglobina", "SGPT", "Protrombina", "Creatinina", "Plomo en sangre", "Consulta médica"] },
-  { agente: "Cromo", bateria: "Biomonitorización de Cromo", examenes: ["Encuesta de salud", "Enfermería", "Espirometría", "Radiografía de tórax", "Creatinina", "SGPT", "Cromo en orina", "Consulta médica"] },
-  { agente: "Manganeso", bateria: "Biomonitorización de Manganeso", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "FA (Fosfatasa Alcalina)", "GGT", "Hemoglobina", "Manganeso en orina", "Consulta médica"] },
-  { agente: "Asma", bateria: "Vigilancia Asma Ocupacional", examenes: ["Encuesta de salud", "Enfermería", "Optometría", "Hemograma completo con recuento de plaquetas", "Recuento de reticulocitos", "Consulta médica"] },
-  { agente: "Radiaciones Ionizantes", bateria: "Vigilancia Radiológica", examenes: ["Encuesta de salud", "Enfermería", "Espirometría completa", "Consulta médica"] },
-  { agente: "Vibraciones", bateria: "Batería Osteomuscular Vibraciones", examenes: ["Encuesta de salud", "Consulta médica", "Evaluación Musculoesquelética"] },
-  { agente: "Solventes", bateria: "Batería Solventes General", examenes: ["Encuesta de salud", "Enfermería", "Hemograma", "Perfil Hepático", "Consulta médica"] },
-  { agente: "Humos Metálicos", bateria: "Batería Humos Metálicos", examenes: ["Encuesta de salud", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Consulta médica"] },
-  { agente: "Trabajo en Altura Geográfica", bateria: "Batería Gran Altura", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Creatinina", "Consulta médica"] },
-  { agente: "Trabajo en Altura Física", bateria: "Batería Altura Física", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Visiometría", "Consulta médica"] },
+  { agente: "Ruido", bateria: "Protocolo RUIDO (Prexor)", examenes: ["Encuesta de salud", "Enfermería", "Audiometría en cámara", "Consulta médica"] },
+  { agente: "Sílice", bateria: "Protocolo SÍLICE (Neumoconiosis)", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Lectura OIT", "Consulta médica"] },
+  { agente: "Plaguicidas", bateria: "Protocolo PLAGUICIDAS", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Creatinina", "SGOT", "SGPT", "Protrombina", "Actividad de acetilcolinesterasa plasmática", "Consulta médica"] },
+  { agente: "Citostáticos", bateria: "Protocolo CITOSTÁTICOS", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "GPT/SGPT", "Consulta médica"] },
+  { agente: "Arsénico", bateria: "Protocolo ARSÉNICO", examenes: ["Encuesta de salud", "Enfermería", "Arsénico inorgánico en orina", "Creatinina", "GPT/SGPT", "Consulta médica"] },
+  { agente: "Plomo", bateria: "Protocolo PLOMO", examenes: ["Encuesta de salud", "Enfermería", "Hemoglobina", "SGPT", "Protrombina", "Creatinina", "Plomo en sangre", "Consulta médica"] },
+  { agente: "Cromo", bateria: "Protocolo CROMO", examenes: ["Encuesta de salud", "Enfermería", "Espirometría", "Radiografía de tórax", "Creatinina", "SGPT", "Cromo en orina", "Consulta médica"] },
+  { agente: "Manganeso", bateria: "Protocolo MANGANESO", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "FA (Fosfatasa Alcalina)", "GGT", "Hemoglobina", "Manganeso en orina", "Consulta médica"] },
+  { agente: "Asma", bateria: "Protocolo ASMA OCUPACIONAL", examenes: ["Encuesta de salud", "Enfermería", "Optometría", "Hemograma completo", "Recuento de reticulocitos", "Consulta médica"] },
+  { agente: "Radiaciones Ionizantes", bateria: "Protocolo RADIACIONES IONIZANTES", examenes: ["Encuesta de salud", "Enfermería", "Espirometría completa", "Consulta médica"] },
+  { agente: "Vibraciones", bateria: "Protocolo VIBRACIONES (Osteomuscular)", examenes: ["Encuesta de salud", "Consulta médica", "Rx Columna", "Evaluación Musculoesquelética"] },
+  { agente: "Solventes", bateria: "Protocolo SOLVENTES General", examenes: ["Encuesta de salud", "Enfermería", "Hemograma", "Perfil Hepático", "Consulta médica"] },
+  { agente: "Humos Metálicos", bateria: "Protocolo HUMOS METÁLICOS", examenes: ["Encuesta de salud", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Consulta médica"] },
+  { agente: "Trabajo en Altura Geográfica", bateria: "Protocolo ALTURA GEOGRÁFICA", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Creatinina", "Consulta médica"] },
+  { agente: "Trabajo en Altura Física", bateria: "Protocolo ALTURA FÍSICA", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Visiometría", "Consulta médica"] },
   { agente: "Estrés Térmico Calor", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Encuesta de salud", "Enfermería", "Creatinina", "Electrolitos plasmáticos", "Consulta médica"] }
 ];
 
 async function main() {
-  console.log('🌱 Iniciando Limpieza y Carga...');
+  console.log('🌱 Iniciando Restauración del Sistema...');
 
-  // 1. BORRADO TOTAL
+  // 1. LIMPIEZA (Intentamos borrar todo)
   try {
-    await prisma.technicalReport.deleteMany();
     await prisma.examOrder.deleteMany();
     await prisma.riskExposure.deleteMany();
     await prisma.batteryExam.deleteMany();
@@ -37,33 +36,42 @@ async function main() {
     await prisma.ges.deleteMany();
     await prisma.area.deleteMany();
     await prisma.workCenter.deleteMany();
-    await prisma.user.deleteMany();
     await prisma.company.deleteMany();
     await prisma.riskAgent.deleteMany();
     await prisma.medicalExam.deleteMany();
-  } catch (e) { console.log('Limpieza inicial saltada o parcial.'); }
+    // NO borramos la tabla User aquí para usar upsert abajo
+  } catch (e) { console.log('Limpieza parcial.'); }
 
-  // 2. USUARIO ADMIN
+  // 2. RESCATAR USUARIO ADMIN (Lógica Blindada) 🛡️
   const hashedPassword = await bcrypt.hash('123456', 10);
-  await prisma.user.create({
-    data: { email: 'admin@vitam.cl', password: hashedPassword, name: 'Admin Vitam', role: UserRole.ADMIN_VITAM },
+  
+  await prisma.user.upsert({
+    where: { email: 'admin@vitam.cl' },
+    update: { 
+        password: hashedPassword, // Si existe, LE RESETEA LA CLAVE
+        role: UserRole.ADMIN_VITAM 
+    }, 
+    create: {
+      email: 'admin@vitam.cl',
+      password: hashedPassword,
+      name: 'Administrador Vitam',
+      role: UserRole.ADMIN_VITAM,
+    },
   });
+  console.log('👤 Admin restaurado: admin@vitam.cl / 123456');
 
   // 3. CARGA MÉDICA
   for (const proto of PROTOCOLOS) {
-    // Riesgo
-    const risk = await prisma.riskAgent.upsert({
+    await prisma.riskAgent.upsert({
       where: { name: proto.agente }, update: {}, create: { name: proto.agente }
     });
 
-    // Exámenes
     const examIds = [];
-    for (const exName of proto.examenes) {
-      const ex = await prisma.medicalExam.upsert({ where: { name: exName }, update: {}, create: { name: exName } });
+    for (const nombreExamen of proto.examenes) {
+      const ex = await prisma.medicalExam.upsert({ where: { name: nombreExamen }, update: {}, create: { name: nombreExamen } });
       examIds.push(ex.id);
     }
 
-    // Batería (Conectada al Riesgo indirectamente por nombre o lógica futura)
     const bat = await prisma.examBattery.findFirst({ where: { name: proto.bateria } });
     if (!bat) {
       await prisma.examBattery.create({
@@ -75,7 +83,13 @@ async function main() {
       });
     }
   }
-  console.log('✅ Sistema reiniciado y listo.');
+
+  // 4. EMPRESA BASE
+  await prisma.company.create({
+    data: { rut: '99.999.999-9', name: 'EMPRESA DEMO VACIA', contactEmail: 'demo@vitam.cl' }
+  });
+
+  console.log('✅ Sistema listo y desbloqueado.');
 }
 
 main().catch(e => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });

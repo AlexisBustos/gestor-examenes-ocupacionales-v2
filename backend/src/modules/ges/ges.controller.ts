@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { getAllGes, getGesById, createGes, uploadGesReport } from './ges.service';
+import { getAllGes, getGesById, createGes, uploadGesReport, getSuggestedBatteries } from './ges.service';
 
 export const list = async (req: Request, res: Response) => {
   try {
@@ -21,6 +21,18 @@ export const getOne = async (req: Request, res: Response) => {
   }
 };
 
+// 👇 NUEVO ENDPOINT: SUGERENCIAS DE BATERÍAS
+export const getSuggestions = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const suggestions = await getSuggestedBatteries(id);
+    res.json(suggestions);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error obteniendo sugerencias' });
+  }
+};
+
 export const create = async (req: Request, res: Response) => {
   try {
     const ges = await createGes(req.body);
@@ -30,12 +42,10 @@ export const create = async (req: Request, res: Response) => {
   }
 };
 
-// CONTROLADOR DE SUBIDA (CORREGIDO)
 export const uploadReport = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const file = req.file;
-    // Aquí recibimos los datos del formulario
     const { reportDate, reportNumber, applyToArea } = req.body;
 
     if (!file) {
@@ -46,7 +56,6 @@ export const uploadReport = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Faltan datos del informe (Fecha o Número)' });
     }
 
-    // CONVERSIÓN CRÍTICA: FormData envía "true" (string), lo pasamos a boolean
     const shouldApplyToArea = applyToArea === 'true';
 
     const result = await uploadGesReport(
@@ -55,7 +64,7 @@ export const uploadReport = async (req: Request, res: Response) => {
       { 
         reportDate, 
         reportNumber, 
-        applyToArea: shouldApplyToArea // <--- Pasamos la bandera correcta
+        applyToArea: shouldApplyToArea 
       }
     );
 
