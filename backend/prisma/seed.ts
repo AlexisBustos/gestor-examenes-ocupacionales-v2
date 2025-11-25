@@ -27,7 +27,9 @@ async function main() {
   console.log('🌱 Iniciando Restauración del Sistema...');
 
   // 1. LIMPIEZA (Intentamos borrar todo)
+  // Usamos try-catch para que no falle si hay relaciones complejas pendientes
   try {
+    await prisma.technicalReport.deleteMany();
     await prisma.examOrder.deleteMany();
     await prisma.riskExposure.deleteMany();
     await prisma.batteryExam.deleteMany();
@@ -36,19 +38,25 @@ async function main() {
     await prisma.ges.deleteMany();
     await prisma.area.deleteMany();
     await prisma.workCenter.deleteMany();
+    
+    // Limpieza de Centros de Costos (Si ya existe la tabla)
+    // await prisma.costCenter.deleteMany(); 
+    
+    await prisma.user.deleteMany();
     await prisma.company.deleteMany();
     await prisma.riskAgent.deleteMany();
     await prisma.medicalExam.deleteMany();
-    // NO borramos la tabla User aquí para usar upsert abajo
-  } catch (e) { console.log('Limpieza parcial.'); }
+  } catch (e) { 
+    console.log('⚠️ Limpieza parcial (algunos datos se mantuvieron por seguridad).'); 
+  }
 
-  // 2. RESCATAR USUARIO ADMIN (Lógica Blindada) 🛡️
+  // 2. RESCATAR USUARIO ADMIN (Lógica Blindada UPSERT) 🛡️
   const hashedPassword = await bcrypt.hash('123456', 10);
   
   await prisma.user.upsert({
     where: { email: 'admin@vitam.cl' },
     update: { 
-        password: hashedPassword, // Si existe, LE RESETEA LA CLAVE
+        password: hashedPassword,
         role: UserRole.ADMIN_VITAM 
     }, 
     create: {
@@ -84,9 +92,16 @@ async function main() {
     }
   }
 
-  // 4. EMPRESA BASE
-  await prisma.company.create({
-    data: { rut: '99.999.999-9', name: 'EMPRESA DEMO VACIA', contactEmail: 'demo@vitam.cl' }
+  // 4. EMPRESA BASE (CORREGIDO: UPSERT en lugar de CREATE)
+  // Esto evita el error "Unique constraint failed" si ya existe el RUT
+  await prisma.company.upsert({
+    where: { rut: '99.999.999-9' },
+    update: {}, // Si existe, no hacemos nada
+    create: { 
+        rut: '99.999.999-9', 
+        name: 'EMPRESA DEMO VACIA', 
+        contactEmail: 'demo@vitam.cl' 
+    }
   });
 
   console.log('✅ Sistema listo y desbloqueado.');

@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import { AreasController } from './areas.controller';
+import { list, create, update } from './areas.controller';
 
-export const areasRouter = Router();
+const router = Router();
 
-areasRouter.post('/', AreasController.create);
-areasRouter.get('/', AreasController.findAll);
-areasRouter.get('/:id', AreasController.findById);
-areasRouter.put('/:id', AreasController.update);
-areasRouter.delete('/:id', AreasController.delete);
+router.get('/', list);
+router.post('/', create);
+router.patch('/:id', update); // <--- Ruta para editar
+
+export const areasRouter = router;

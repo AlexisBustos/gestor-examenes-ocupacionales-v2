@@ -2,14 +2,17 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 
+// PÁGINAS
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage';
-import ImportPage from '@/pages/ImportPage';
 import CompaniesPage from '@/pages/admin/CompaniesPage';
+import ImportPage from '@/pages/ImportPage';
 
-// 1. Layout Global
+// 👇 AQUÍ ESTÁ LA CORRECCIÓN: Apuntamos a la carpeta 'admin'
+import CostCentersPage from '@/pages/admin/CostCentersPage';
+
 const AppLayout = () => (
   <AuthProvider>
     <Toaster position="top-center" />
@@ -17,25 +20,17 @@ const AppLayout = () => (
   </AuthProvider>
 );
 
-// 2. Protección
 const ProtectedRoute = () => {
-  const { isAuthenticated } = useAuth();
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-  return <Outlet />;
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <div className="h-screen flex items-center justify-center">Cargando...</div>;
+  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
 };
 
-// 3. Rutas
 export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      {
-        path: '/login',
-        element: <LoginPage />,
-      },
+      { path: '/login', element: <LoginPage /> },
       {
         path: '/dashboard',
         element: <ProtectedRoute />,
@@ -47,14 +42,12 @@ export const router = createBrowserRouter([
               { path: 'orders', element: <OrdersPage /> },
               { path: 'companies', element: <CompaniesPage /> },
               { path: 'import', element: <ImportPage /> },
+              { path: 'cost-centers', element: <CostCentersPage /> },
             ],
           },
         ],
       },
-      {
-        path: '*',
-        element: <Navigate to="/dashboard" replace />,
-      },
+      { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],
   },
 ]);

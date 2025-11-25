@@ -7,7 +7,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --- ORGANIZACIÓN ---
+// --------------------------------------
+// Estructura Organizacional
+// --------------------------------------
 
 model Company {
   id               String            @id @default(uuid())
@@ -16,11 +18,13 @@ model Company {
   contactEmail     String
   address          String?
   phone            String?
+  
   workCenters      WorkCenter[]
   examOrders       ExamOrder[]
   workers          Worker[]     
   users            User[]
   technicalReports TechnicalReport[]
+
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -42,9 +46,30 @@ model Area {
   workCenterId String
   workCenter   WorkCenter @relation(fields: [workCenterId], references: [id])
   gesGroups    Ges[]
+  
+  // RELACIÓN CON CENTRO DE COSTOS
+  costCenterId String?
+  costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
+
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
+
+// MODELO NUEVO: CENTRO DE COSTOS
+model CostCenter {
+  id        String   @id @default(uuid())
+  code      String   @unique
+  name      String
+  
+  areas     Area[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// --------------------------------------
+// Gestión Documental
+// --------------------------------------
 
 model TechnicalReport {
   id           String   @id @default(uuid())
@@ -58,7 +83,9 @@ model TechnicalReport {
   updatedAt    DateTime @updatedAt
 }
 
-// --- GES Y RIESGOS ---
+// --------------------------------------
+// Núcleo GES
+// --------------------------------------
 
 model Ges {
   id               String         @id @default(uuid())
@@ -71,17 +98,21 @@ model Ges {
   machineryUsed    String?        @db.Text 
   controlMeasures  String?        @db.Text 
   subArea          String?
+  
   validityYears    Int?
   nextEvaluationDate DateTime?
   risksResume      String?
   prescriptions    String?
+  
   technicalReportId String?
   technicalReport   TechnicalReport? @relation(fields: [technicalReportId], references: [id])
+  
   areaId           String
   area             Area           @relation(fields: [areaId], references: [id])
   riskExposures    RiskExposure[]
   workers          Worker[]       @relation("CurrentGes")
   examOrders       ExamOrder[]
+  
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -114,7 +145,9 @@ model RiskExposure {
   updatedAt            DateTime      @updatedAt
 }
 
-// --- MÉDICO ---
+// --------------------------------------
+// Definición Médica
+// --------------------------------------
 
 enum EvaluationType {
   PRE_OCUPACIONAL
@@ -136,10 +169,7 @@ model ExamBattery {
   evaluationType EvaluationType? 
   batteryExams   BatteryExam[]
   riskExposures  RiskExposure[]
-  
-  // CAMBIO: Relación implícita muchos-a-muchos con Órdenes
   examOrders     ExamOrder[]    
-
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
@@ -155,7 +185,9 @@ model BatteryExam {
   @@unique([examBatteryId, medicalExamId])
 }
 
-// --- OPERACIÓN ---
+// --------------------------------------
+// Operación
+// --------------------------------------
 
 enum UserRole {
   ADMIN_VITAM
@@ -181,6 +213,7 @@ model Worker {
   phone          String?  
   position       String?  
   managementArea String?  
+  
   currentGesId   String?
   currentGes     Ges?     @relation("CurrentGes", fields: [currentGesId], references: [id])
   companyId      String
@@ -207,7 +240,6 @@ model ExamOrder {
   gesId         String
   ges           Ges         @relation(fields: [gesId], references: [id])
   
-  // CAMBIO CRÍTICO: Esto es una lista [], ya no un String único
   examBatteries ExamBattery[] 
   
   status        OrderStatus @default(SOLICITADO)
@@ -216,12 +248,4 @@ model ExamOrder {
   externalId    String?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
-}
-
-model CostCenter {
-  id        String   @id @default(uuid())
-  code      String   @unique
-  name      String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
 }

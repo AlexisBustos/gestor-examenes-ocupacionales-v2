@@ -7,14 +7,14 @@ import {
   Building2,
   Upload,
   LogOut,
-  Stethoscope
+  Receipt // Icono para Centro de Costos
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet },
   { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
-  // { name: 'Baterías', href: '/dashboard/batteries', icon: Stethoscope },
+  { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt }, // <--- NUEVO BOTÓN
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
 ];
 
@@ -24,7 +24,7 @@ export function Sidebar() {
   return (
     <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64">
       
-      {/* 1. HEADER CON LOGO Y NOMBRE NUEVO */}
+      {/* 1. HEADER CON LOGO VITAM */}
       <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
         <img 
           src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
@@ -36,7 +36,7 @@ export function Sidebar() {
             if (span) span.classList.remove('hidden');
           }}
         />
-        {/* Texto de respaldo o Complementario */}
+        {/* Texto de respaldo */}
         <span className="font-bold text-lg text-blue-900 leading-tight hidden md:block">
           GES <span className="text-xs block font-normal text-slate-500">Gestor Ocupacional</span>
         </span>

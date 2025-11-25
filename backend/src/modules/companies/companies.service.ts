@@ -29,9 +29,9 @@ export const getCompanyById = async (id: string) => {
   const gesList = await prisma.ges.findMany({
     where: { area: { workCenter: { companyId: id } } },
     include: {
-        area: true,
-        technicalReport: true, // Incluimos el reporte para saber si tiene PDF
-        _count: { select: { riskExposures: true } },
+      area: { include: { costCenter: true } },
+      technicalReport: true, // Incluimos el reporte para saber si tiene PDF
+      _count: { select: { riskExposures: true } },
     },
     orderBy: { name: 'asc' }
   });
@@ -56,7 +56,7 @@ export const deleteCompany = async (id: string) => {
   return await prisma.$transaction(async (tx) => {
     // 1. Borrar Órdenes
     await tx.examOrder.deleteMany({ where: { companyId: id } });
-    
+
     // 2. Borrar Trabajadores
     await tx.worker.deleteMany({ where: { companyId: id } });
 
@@ -80,16 +80,16 @@ export const deleteCompany = async (id: string) => {
 
     // Borrar Riesgos
     await tx.riskExposure.deleteMany({ where: { gesId: { in: gesIds } } });
-    
+
     // Borrar GES
     await tx.ges.deleteMany({ where: { areaId: { in: areaIds } } });
-    
+
     // Borrar Áreas
     await tx.area.deleteMany({ where: { workCenterId: { in: workCenterIds } } });
-    
+
     // Borrar Centros
     await tx.workCenter.deleteMany({ where: { companyId: id } });
-    
+
     // 6. Finalmente, borrar la empresa
     return await tx.company.delete({ where: { id } });
   });
