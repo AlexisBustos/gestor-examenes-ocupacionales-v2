@@ -1,5 +1,7 @@
+// 1. Estados posibles de la orden
 export type OrderStatus = 'SOLICITADO' | 'AGENDADO' | 'REALIZADO' | 'CERRADO' | 'ANULADO';
 
+// 2. Sub-Entidades (Riesgos, GES, Baterías)
 export interface RiskAgent {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ export interface RiskAgent {
 export interface RiskExposure {
   id: string;
   riskAgent: RiskAgent;
+  specificAgentDetails?: string;
   exposureType?: string;
 }
 
@@ -16,6 +19,11 @@ export interface Ges {
   name: string;
   riskExposures?: RiskExposure[];
   prescriptions?: string;
+  // Campos documentales
+  reportUrl?: string | null;
+  reportNumber?: string | null;
+  reportDate?: string | null;
+  nextEvaluationDate?: string | null;
 }
 
 export interface ExamBattery {
@@ -37,15 +45,13 @@ export interface Company {
   name: string;
 }
 
+// 3. La Orden Principal
 export interface Order {
   id: string;
   status: OrderStatus;
   worker: Worker;
   company: Company;
-  
-  // CAMBIO: Ahora es un array (Lista)
-  examBatteries: ExamBattery[]; 
-  
+  examBatteries: ExamBattery[]; // Array de baterías
   ges: Ges;
   createdAt: string;
   updatedAt: string;

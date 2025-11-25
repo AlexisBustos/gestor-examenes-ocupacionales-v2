@@ -24,11 +24,11 @@ export const create = async (req: Request, res: Response) => {
   }
 };
 
-// 3. Actualizar estado (Agendar)
+// 3. Actualizar estado (Agendar o Anular)
 export const updateStatus = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Aquí recibimos los datos extra del agendamiento
+    // Aquí recibimos los datos. Si es Anular, solo viene "status".
     const { status, scheduledAt, providerName, externalId } = req.body;
     
     const order = await updateOrderStatus(id, status, scheduledAt, providerName, externalId);
@@ -39,7 +39,7 @@ export const updateStatus = async (req: Request, res: Response) => {
   }
 };
 
-// 4. Eliminar (Placeholder para evitar error de ruta)
+// 4. Eliminar (Opcional)
 export const remove = async (req: Request, res: Response) => {
   try {
     res.status(200).json({ message: "Orden eliminada (Simulado)" });

@@ -1,47 +1,38 @@
-import axiosInstance from '../lib/axios';
-import type { Order } from '../types/order.types';
+import axios from '@/lib/axios';
+import type { Order } from '@/types/order.types';
 
-/**
- * Orders API Service
- * Handles all API calls related to exam orders
- */
+// --- FUNCIONES INDIVIDUALES ---
+
+export const getOrders = async (): Promise<Order[]> => {
+  const { data } = await axios.get('/orders');
+  return data;
+};
+
+export const createOrder = async (orderData: any) => {
+  const { data } = await axios.post('/orders', orderData);
+  return data;
+};
+
+export const updateOrderStatus = async (
+  id: string, 
+  status: string, 
+  scheduledAt?: string, 
+  providerName?: string,
+  externalId?: string
+) => {
+  const { data } = await axios.patch(`/orders/${id}/status`, {
+    status,
+    scheduledAt,
+    providerName,
+    externalId
+  });
+  return data;
+};
+
+// --- EL PARCHE MÁGICO (Retro-compatibilidad) ---
+// Esto agrupa las funciones en un objeto para que los archivos viejos no fallen
 export const ordersService = {
-    /**
-     * Fetch all orders with nested relations (worker, company, examBattery, ges)
-     * @returns Promise with array of orders
-     */
-    async getOrders(): Promise<Order[]> {
-        const response = await axiosInstance.get<Order[]>('/orders');
-        return response.data;
-    },
-
-    /**
-     * Fetch a single order by ID
-     * @param id - Order ID
-     * @returns Promise with order data
-     */
-    async getOrderById(id: string): Promise<Order> {
-        const response = await axiosInstance.get<Order>(`/orders/${id}`);
-        return response.data;
-    },
-
-    /**
-     * Create a new order
-     * @param data - Order data
-     * @returns Promise with created order
-     */
-    async create(data: any) {
-        const response = await axiosInstance.post<Order>('/orders', data);
-        return response.data;
-    },
-
-    async updateStatus(id: string, status: string, scheduledAt?: string, providerName?: string, externalId?: string) {
-        const response = await axiosInstance.patch<Order>(`/orders/${id}/status`, {
-            status,
-            scheduledAt,
-            providerName,
-            externalId
-        });
-        return response.data;
-    }
+  getOrders,
+  createOrder,
+  updateOrderStatus
 };

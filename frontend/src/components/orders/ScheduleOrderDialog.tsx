@@ -1,134 +1,156 @@
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import * as OrdersService from '@/services/orders.service';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { es } from 'date-fns/locale';
+import { toast } from 'sonner';
+import type { Order } from '@/types/order.types';
 
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from '@/components/ui/Dialog';
-import {
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-} from '@/components/ui/Select';
-import { ordersService } from '@/services/orders.service';
-
-const formSchema = z.object({
-    scheduledAt: z.string().min(1, 'La fecha y hora son requeridas'),
-    providerName: z.string().min(1, 'El proveedor es requerido'),
-    externalId: z.string().optional(),
-});
-
-type FormValues = z.infer<typeof formSchema>;
-
-interface ScheduleOrderDialogProps {
-    order: any;
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
+interface Props {
+  order: Order;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
 }
 
-export function ScheduleOrderDialog({ order, open, onOpenChange }: ScheduleOrderDialogProps) {
-    const queryClient = useQueryClient();
+export function ScheduleOrderDialog({ order, open, onOpenChange }: Props) {
+  const queryClient = useQueryClient();
+  
+  // Estados del formulario
+  const [date, setDate] = useState('');
+  const [time, setTime] = useState('');
+  const [provider, setProvider] = useState('');
+  const [externalId, setExternalId] = useState('');
 
-    const form = useForm<FormValues>({
-        resolver: zodResolver(formSchema),
-        defaultValues: {
-            scheduledAt: '',
-            providerName: '',
-            externalId: '',
-        },
-    });
+  const scheduleMutation = useMutation({
+    mutationFn: async () => {
+      // Combinar fecha y hora en un ISO string
+      const scheduledAt = new Date(`${date}T${time}`).toISOString();
+      
+      await OrdersService.updateOrderStatus(
+        order.id, 
+        'AGENDADO', 
+        scheduledAt, 
+        provider, 
+        externalId
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      toast.success("Cita agendada correctamente");
+      onOpenChange(false);
+      // Reset form
+      setDate('');
+      setTime('');
+      setProvider('');
+      setExternalId('');
+    },
+    onError: () => {
+      toast.error("Error al agendar la cita");
+    }
+  });
 
-    const updateStatusMutation = useMutation({
-        mutationFn: (data: FormValues) => {
-            return ordersService.updateStatus(order.id, 'AGENDADO', data.scheduledAt, data.providerName, data.externalId);
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['orders'] });
-            onOpenChange(false);
-            form.reset();
-        },
-    });
+  const handleSubmit = () => {
+    if (!date || !time || !provider) {
+      toast.error("Fecha, hora y proveedor son obligatorios");
+      return;
+    }
+    scheduleMutation.mutate();
+  };
 
-    const onSubmit = (data: FormValues) => {
-        updateStatusMutation.mutate(data);
-    };
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5 text-blue-600" />
+            Agendar Examen
+          </DialogTitle>
+          <DialogDescription>
+            Asigna fecha y proveedor para <strong>{order.worker.name}</strong>.
+          </DialogDescription>
+        </DialogHeader>
 
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Agendar Examen</DialogTitle>
-                    <DialogDescription>
-                        Ingresa los datos de la cita para cambiar el estado a AGENDADO.
-                    </DialogDescription>
-                </DialogHeader>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="scheduledAt">Fecha y Hora</Label>
-                        <Input
-                            id="scheduledAt"
-                            type="datetime-local"
-                            {...form.register('scheduledAt')}
-                        />
-                        {form.formState.errors.scheduledAt && (
-                            <p className="text-xs text-destructive">{form.formState.errors.scheduledAt.message}</p>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="providerName">Proveedor</Label>
-                        <Select
-                            onValueChange={(value) => form.setValue('providerName', value)}
-                            defaultValue={form.getValues('providerName')}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Selecciona proveedor" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="ACHS">ACHS</SelectItem>
-                                <SelectItem value="Mutual de Seguridad">Mutual de Seguridad</SelectItem>
-                                <SelectItem value="IST">IST</SelectItem>
-                                <SelectItem value="ISL">ISL</SelectItem>
-                                <SelectItem value="Clínica Privada">Clínica Privada</SelectItem>
-                            </SelectContent>
-                        </Select>
-                        {form.formState.errors.providerName && (
-                            <p className="text-xs text-destructive">{form.formState.errors.providerName.message}</p>
-                        )}
-                    </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="externalId">Folio / ID Externo (Opcional)</Label>
-                        <Input
-                            id="externalId"
-                            placeholder="Ej: 123456"
-                            {...form.register('externalId')}
-                        />
-                    </div>
-                    <DialogFooter>
-                        <Button type="submit" disabled={updateStatusMutation.isPending}>
-                            {updateStatusMutation.isPending && (
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            )}
-                            Confirmar Agendamiento
-                        </Button>
-                    </DialogFooter>
-                </form>
-            </DialogContent>
-        </Dialog>
-    );
+        <div className="grid gap-4 py-4">
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="date">Fecha</Label>
+              <Input 
+                id="date" 
+                type="date" 
+                value={date} 
+                onChange={(e) => setDate(e.target.value)} 
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="time">Hora</Label>
+              <Input 
+                id="time" 
+                type="time" 
+                value={time} 
+                onChange={(e) => setTime(e.target.value)} 
+              />
+            </div>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="provider">Proveedor / Mutualidad</Label>
+            <Select onValueChange={setProvider} value={provider}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecciona proveedor" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACHS">ACHS</SelectItem>
+                <SelectItem value="MUTUAL">Mutual de Seguridad</SelectItem>
+                <SelectItem value="IST">IST</SelectItem>
+                <SelectItem value="ISL">ISL</SelectItem>
+                <SelectItem value="CLINICA_PRIVADA">Clínica Privada</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid gap-2">
+            <Label htmlFor="folio">N° Folio / ID Externo (Opcional)</Label>
+            <Input 
+              id="folio" 
+              placeholder="Ej: RES-12345" 
+              value={externalId}
+              onChange={(e) => setExternalId(e.target.value)}
+            />
+          </div>
+
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+          <Button onClick={handleSubmit} disabled={scheduleMutation.isPending}>
+            {scheduleMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Guardando...
+              </>
+            ) : (
+              "Confirmar Agendamiento"
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 }
