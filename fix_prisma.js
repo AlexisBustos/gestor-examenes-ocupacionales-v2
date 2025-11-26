@@ -1,4 +1,9 @@
-generator client {
+const fs = require('fs');
+const path = require('path');
+
+const envContent = `DATABASE_URL="postgresql://postgres:Vitamhealthcare2025@gestor-examenes-db.cgbkgeo4gv71.us-east-1.rds.amazonaws.com:5432/gestor_examenes_ocupacionales?schema=public"`;
+
+const schemaContent = `generator client {
   provider = "prisma-client-js"
 }
 
@@ -59,7 +64,7 @@ model CostCenter {
   updatedAt DateTime @updatedAt
 }
 
-// --- GESTIÓN DOCUMENTAL (INFORMES GES) ---
+// --- GESTIÓN DOCUMENTAL ---
 model TechnicalReport {
   id                  String               @id @default(uuid())
   reportNumber        String
@@ -137,20 +142,16 @@ model Ges {
   updatedAt        DateTime       @updatedAt
 }
 
-// --- BIBLIOTECA TÉCNICA (RIESGOS) ---
 model RiskAgent {
   id            String         @id @default(uuid())
   name          String         @unique
-  
-  // Relación 1-a-N: Un riesgo tiene muchos protocolos
+  protocolUrl   String?        
   protocols     RiskProtocol[] 
-  
   riskExposures RiskExposure[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
 
-// NUEVA TABLA
 model RiskProtocol {
   id          String    @id @default(uuid())
   name        String    
@@ -160,7 +161,6 @@ model RiskProtocol {
   createdAt   DateTime  @default(now())
 }
 
-// --- EXPOSICIÓN ---
 enum ExposureType {
   AGUDA
   CRONICA
@@ -296,3 +296,16 @@ model ExamOrder {
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }
+`;
+
+// Paths
+const envPath = path.join(__dirname, 'backend', '.env');
+const schemaPath = path.join(__dirname, 'backend', 'prisma', 'schema.prisma');
+
+console.log('Writing .env to:', envPath);
+fs.writeFileSync(envPath, envContent, { encoding: 'utf8' });
+
+console.log('Writing schema.prisma to:', schemaPath);
+fs.writeFileSync(schemaPath, schemaContent, { encoding: 'utf8' });
+
+console.log('Files written successfully.');

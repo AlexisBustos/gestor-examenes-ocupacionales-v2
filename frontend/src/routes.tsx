@@ -6,18 +6,18 @@ import { Toaster } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
-import OrdersPage from '@/pages/OrdersPage';
-import CompaniesPage from '@/pages/admin/CompaniesPage';
 import ImportPage from '@/pages/ImportPage';
-import CostCentersPage from '@/pages/admin/CostCentersPage';
-// 👇 AQUÍ IMPORTAMOS TU ARCHIVO
-import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
+
+// 👇 AQUÍ ESTABA LA CONFUSIÓN DE RUTAS. ASÍ ES COMO DEBE QUEDAR:
+// Asumimos que estas páginas están en 'pages/admin' si las moviste ahí, 
+// o en 'pages' si no. Ajusta si te sale error rojo.
+import OrdersPage from '@/pages/OrdersPage'; 
+import CompaniesPage from '@/pages/admin/CompaniesPage';
+import CostCentersPage from '@/pages/admin/CostCentersPage'; 
+import RisksLibraryPage from '@/pages/admin/RisksLibraryPage'; 
 
 const AppLayout = () => (
-  <AuthProvider>
-    <Toaster position="top-center" />
-    <Outlet />
-  </AuthProvider>
+  <AuthProvider><Toaster position="top-center" /><Outlet /></AuthProvider>
 );
 
 const ProtectedRoute = () => {
@@ -43,8 +43,7 @@ export const router = createBrowserRouter([
               { path: 'companies', element: <CompaniesPage /> },
               { path: 'import', element: <ImportPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
-              // 👇 LA RUTA NUEVA
-              { path: 'risks-library', element: <RisksLibraryPage /> }, 
+              { path: 'risks-library', element: <RisksLibraryPage /> },
             ],
           },
         ],

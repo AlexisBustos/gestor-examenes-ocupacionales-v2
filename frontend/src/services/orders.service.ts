@@ -14,9 +14,9 @@ export const createOrder = async (orderData: any) => {
 };
 
 export const updateOrderStatus = async (
-  id: string, 
-  status: string, 
-  scheduledAt?: string, 
+  id: string,
+  status: string,
+  scheduledAt?: string,
   providerName?: string,
   externalId?: string
 ) => {
@@ -29,10 +29,19 @@ export const updateOrderStatus = async (
   return data;
 };
 
+export const updateBatteryResult = async (batteryId: string, status: string, expirationDate?: string) => {
+  const { data } = await axios.patch(`/orders/battery/${batteryId}/result`, {
+    status,
+    expirationDate
+  });
+  return data;
+};
+
 // --- EL PARCHE MÁGICO (Retro-compatibilidad) ---
 // Esto agrupa las funciones en un objeto para que los archivos viejos no fallen
 export const ordersService = {
   getOrders,
   createOrder,
-  updateOrderStatus
+  updateOrderStatus,
+  updateBatteryResult
 };

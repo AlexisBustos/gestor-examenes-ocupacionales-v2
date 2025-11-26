@@ -20,38 +20,33 @@ const navigation = [
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
 ];
 
-interface SidebarProps {
-  className?: string;
-}
-
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar() {
   const { logout, user } = useAuth();
 
   return (
-    <div className={cn("hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64", className)}>
-
-      {/* 1. HEADER CON LOGO VITAM */}
+    <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl">
+      
+      {/* 1. HEADER (Fondo Blanco para que destaque el Logo) */}
       <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
-        <img
-          src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png"
-          alt="Vitam Healthcare"
-          className="h-10 w-auto object-contain"
+        <img 
+          src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
+          alt="Vitam Healthcare" 
+          className="h-10 w-auto object-contain" 
           onError={(e) => {
             e.currentTarget.style.display = 'none';
             const span = e.currentTarget.nextElementSibling;
             if (span) span.classList.remove('hidden');
           }}
         />
-        {/* Texto de respaldo */}
         <span className="font-bold text-lg text-blue-900 leading-tight hidden md:block">
           GES <span className="text-xs block font-normal text-slate-500">Gestor Ocupacional</span>
         </span>
       </div>
 
-      {/* 2. USUARIO */}
+      {/* 2. USUARIO (Fondo Oscuro Corporativo) */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">
         <div className="flex items-center gap-3">
-          <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold">
+          <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-slate-700">
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div className="overflow-hidden">
@@ -62,7 +57,7 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       {/* 3. NAVEGACIÓN */}
-      <nav className="flex-1 space-y-1 px-2 py-4 overflow-y-auto">
+      <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto">
         {navigation.map((item) => (
           <NavLink
             key={item.name}
@@ -72,13 +67,15 @@ export function Sidebar({ className }: SidebarProps) {
               cn(
                 "group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
                 isActive
-                  ? "bg-blue-600 text-white shadow-md translate-x-1"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1"
+                  ? "bg-blue-600 text-white shadow-lg translate-x-1" // Activo: Azul Vitam
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1" // Inactivo: Gris a Blanco
               )
             }
           >
             <item.icon
-              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors")}
+              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors", 
+                 // El icono hereda el color del texto
+              )}
               aria-hidden="true"
             />
             {item.name}
@@ -87,10 +84,10 @@ export function Sidebar({ className }: SidebarProps) {
       </nav>
 
       {/* 4. LOGOUT */}
-      <div className="p-4 border-t border-slate-800">
+      <div className="p-4 border-t border-slate-800 bg-slate-900">
         <button
           onClick={logout}
-          className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-400 rounded-md hover:bg-red-950/30 hover:text-red-300 transition-colors"
+          className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-400 rounded-md hover:bg-red-950/30 hover:text-red-300 transition-colors duration-200"
         >
           <LogOut className="mr-3 h-5 w-5" />
           Cerrar Sesión

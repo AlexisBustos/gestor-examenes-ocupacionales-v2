@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { findAllRisks, uploadProtocolDb } from './risks.service';
+import { findAllRisks, addProtocolDb, removeProtocolDb } from './risks.service';
 
 export const list = async (req: Request, res: Response) => {
   try {
@@ -10,20 +10,27 @@ export const list = async (req: Request, res: Response) => {
   }
 };
 
-export const uploadProtocol = async (req: Request, res: Response) => {
+export const addProtocol = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const file = req.file;
     
-    if (!file) {
-      return res.status(400).json({ error: 'No se subió ningún archivo' });
-    }
+    if (!file) return res.status(400).json({ error: 'No se subió ningún archivo' });
 
-    // Guardamos la ruta relativa
-    const result = await uploadProtocolDb(id, file.filename);
+    const result = await addProtocolDb(id, file.filename, file.originalname);
     res.json(result);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al subir protocolo' });
+  }
+};
+
+export const removeProtocol = async (req: Request, res: Response) => {
+  try {
+    const { protocolId } = req.params;
+    await removeProtocolDb(protocolId);
+    res.json({ message: 'Protocolo eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar protocolo' });
   }
 };

@@ -4,48 +4,40 @@
 
 @layer base {
   :root {
-    /* FONDO: Blanco Puro y Limpio */
     --background: 0 0% 100%;
-    --foreground: 215 25% 27%; /* Gris oscuro (no negro puro) para mejor lectura */
+    --foreground: 222.2 84% 4.9%;
 
-    /* TARJETAS: Blancas con borde sutil */
     --card: 0 0% 100%;
-    --card-foreground: 215 25% 27%;
+    --card-foreground: 222.2 84% 4.9%;
 
-    /* POPOVERS (Menús desplegables) */
     --popover: 0 0% 100%;
-    --popover-foreground: 215 25% 27%;
+    --popover-foreground: 222.2 84% 4.9%;
 
-    /* COLOR PRINCIPAL (BOTONES Y ACTIVOS) */
-    /* Azul Vitam Corporativo (Profundo y Serio) */
-    --primary: 220 65% 25%; /* #162e5c */
+    /* COLOR PRINCIPAL (Azul Corporativo Vitam - Profundo) */
+    /* HSL: 221 83% 53% es el brillante. Vamos a oscurecerlo para seriedad */
+    --primary: 220 70% 35%; /* Azul Marino Profesional */
     --primary-foreground: 210 40% 98%;
 
-    /* COLOR SECUNDARIO (Botones grisáceos/fondos suaves) */
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
 
-    /* ACENTOS (Elementos seleccionados) */
     --muted: 210 40% 96.1%;
     --muted-foreground: 215.4 16.3% 46.9%;
 
     --accent: 210 40% 96.1%;
     --accent-foreground: 222.2 47.4% 11.2%;
 
-    /* ALERTAS (Rojo profesional, no chillón) */
-    --destructive: 0 75% 45%;
+    --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    /* BORDES Y SEPARADORES */
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
-    --ring: 220 65% 25%; /* El anillo de foco es del color principal */
+    --ring: 220 70% 35%; /* Coincide con primary */
 
-    --radius: 0.5rem; /* Bordes redondeados suaves (8px) */
+    --radius: 0.5rem;
   }
 
   .dark {
-    /* MODO OSCURO (Profesional / Noche) */
     --background: 222.2 84% 4.9%;
     --foreground: 210 40% 98%;
 
@@ -55,7 +47,7 @@
     --popover: 222.2 84% 4.9%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
     --primary-foreground: 222.2 47.4% 11.2%;
 
     --secondary: 217.2 32.6% 17.5%;

@@ -3,33 +3,19 @@ import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// --- DICCIONARIO MÉDICO COMPLETO ---
 const PROTOCOLOS = [
-  { agente: "Ruido", bateria: "Protocolo RUIDO (Prexor)", examenes: ["Encuesta de salud", "Enfermería", "Audiometría en cámara", "Consulta médica"] },
-  { agente: "Sílice", bateria: "Protocolo SÍLICE (Neumoconiosis)", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Lectura OIT", "Consulta médica"] },
-  { agente: "Plaguicidas", bateria: "Protocolo PLAGUICIDAS", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "Creatinina", "SGOT", "SGPT", "Protrombina", "Actividad de acetilcolinesterasa plasmática", "Consulta médica"] },
-  { agente: "Citostáticos", bateria: "Protocolo CITOSTÁTICOS", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "GPT/SGPT", "Consulta médica"] },
-  { agente: "Arsénico", bateria: "Protocolo ARSÉNICO", examenes: ["Encuesta de salud", "Enfermería", "Arsénico inorgánico en orina", "Creatinina", "GPT/SGPT", "Consulta médica"] },
-  { agente: "Plomo", bateria: "Protocolo PLOMO", examenes: ["Encuesta de salud", "Enfermería", "Hemoglobina", "SGPT", "Protrombina", "Creatinina", "Plomo en sangre", "Consulta médica"] },
-  { agente: "Cromo", bateria: "Protocolo CROMO", examenes: ["Encuesta de salud", "Enfermería", "Espirometría", "Radiografía de tórax", "Creatinina", "SGPT", "Cromo en orina", "Consulta médica"] },
-  { agente: "Manganeso", bateria: "Protocolo MANGANESO", examenes: ["Encuesta de salud", "Enfermería", "Espirometría basal", "FA (Fosfatasa Alcalina)", "GGT", "Hemoglobina", "Manganeso en orina", "Consulta médica"] },
-  { agente: "Asma", bateria: "Protocolo ASMA OCUPACIONAL", examenes: ["Encuesta de salud", "Enfermería", "Optometría", "Hemograma completo", "Recuento de reticulocitos", "Consulta médica"] },
-  { agente: "Radiaciones Ionizantes", bateria: "Protocolo RADIACIONES IONIZANTES", examenes: ["Encuesta de salud", "Enfermería", "Espirometría completa", "Consulta médica"] },
-  { agente: "Vibraciones", bateria: "Protocolo VIBRACIONES (Osteomuscular)", examenes: ["Encuesta de salud", "Consulta médica", "Rx Columna", "Evaluación Musculoesquelética"] },
-  { agente: "Solventes", bateria: "Protocolo SOLVENTES General", examenes: ["Encuesta de salud", "Enfermería", "Hemograma", "Perfil Hepático", "Consulta médica"] },
-  { agente: "Humos Metálicos", bateria: "Protocolo HUMOS METÁLICOS", examenes: ["Encuesta de salud", "Espirometría basal", "Rx Tórax AP con técnica OIT", "Consulta médica"] },
-  { agente: "Trabajo en Altura Geográfica", bateria: "Protocolo ALTURA GEOGRÁFICA", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Creatinina", "Consulta médica"] },
-  { agente: "Trabajo en Altura Física", bateria: "Protocolo ALTURA FÍSICA", examenes: ["Encuesta de salud", "Enfermería", "Electrocardiograma de Reposo (ECG)", "Glicemia", "Visiometría", "Consulta médica"] },
-  { agente: "Estrés Térmico Calor", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Encuesta de salud", "Enfermería", "Creatinina", "Electrolitos plasmáticos", "Consulta médica"] }
+  { agente: "Ruido", bateria: "Protocolo RUIDO (Prexor)", examenes: ["Encuesta de salud", "Audiometría"] },
+  { agente: "Sílice", bateria: "Protocolo SÍLICE", examenes: ["Espirometría", "Rx Tórax"] },
+  { agente: "Solventes", bateria: "Protocolo SOLVENTES", examenes: ["Hemograma", "Perfil Hepático"] },
+  { agente: "Estrés Térmico Calor", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Creatinina", "Electrolitos"] },
 ];
 
 async function main() {
-  console.log('🌱 Iniciando Restauración del Sistema...');
+  console.log('🌱 Restaurando sistema...');
 
-  // 1. LIMPIEZA (Intentamos borrar todo)
-  // Usamos try-catch para que no falle si hay relaciones complejas pendientes
+  // 1. LIMPIEZA
   try {
-    await prisma.technicalReport.deleteMany();
+    await prisma.orderBattery.deleteMany();
     await prisma.examOrder.deleteMany();
     await prisma.riskExposure.deleteMany();
     await prisma.batteryExam.deleteMany();
@@ -38,73 +24,95 @@ async function main() {
     await prisma.ges.deleteMany();
     await prisma.area.deleteMany();
     await prisma.workCenter.deleteMany();
-    
-    // Limpieza de Centros de Costos (Si ya existe la tabla)
-    // await prisma.costCenter.deleteMany(); 
-    
-    await prisma.user.deleteMany();
-    await prisma.company.deleteMany();
-    await prisma.riskAgent.deleteMany();
-    await prisma.medicalExam.deleteMany();
-  } catch (e) { 
-    console.log('⚠️ Limpieza parcial (algunos datos se mantuvieron por seguridad).'); 
-  }
+    // No borramos user/company para usar upsert
+  } catch (e) { console.log('Limpieza parcial.'); }
 
-  // 2. RESCATAR USUARIO ADMIN (Lógica Blindada UPSERT) 🛡️
+  // 2. ADMIN
   const hashedPassword = await bcrypt.hash('123456', 10);
-  
   await prisma.user.upsert({
     where: { email: 'admin@vitam.cl' },
-    update: { 
-        password: hashedPassword,
-        role: UserRole.ADMIN_VITAM 
-    }, 
-    create: {
-      email: 'admin@vitam.cl',
-      password: hashedPassword,
-      name: 'Administrador Vitam',
-      role: UserRole.ADMIN_VITAM,
-    },
+    update: { password: hashedPassword, role: UserRole.ADMIN_VITAM },
+    create: { email: 'admin@vitam.cl', password: hashedPassword, name: 'Admin', role: UserRole.ADMIN_VITAM },
   });
-  console.log('👤 Admin restaurado: admin@vitam.cl / 123456');
+  console.log('👤 Admin restaurado.');
 
-  // 3. CARGA MÉDICA
+  // 3. PROTOCOLOS
+  let bateriaEjemploId = '';
   for (const proto of PROTOCOLOS) {
-    await prisma.riskAgent.upsert({
-      where: { name: proto.agente }, update: {}, create: { name: proto.agente }
-    });
-
+    await prisma.riskAgent.upsert({ where: { name: proto.agente }, update: {}, create: { name: proto.agente } });
+    
     const examIds = [];
-    for (const nombreExamen of proto.examenes) {
-      const ex = await prisma.medicalExam.upsert({ where: { name: nombreExamen }, update: {}, create: { name: nombreExamen } });
+    for (const exName of proto.examenes) {
+      const ex = await prisma.medicalExam.upsert({ where: { name: exName }, update: {}, create: { name: exName } });
       examIds.push(ex.id);
     }
 
     const bat = await prisma.examBattery.findFirst({ where: { name: proto.bateria } });
     if (!bat) {
-      await prisma.examBattery.create({
+      const newBat = await prisma.examBattery.create({
         data: {
           name: proto.bateria,
           evaluationType: EvaluationType.OCUPACIONAL,
           batteryExams: { create: examIds.map(id => ({ medicalExamId: id })) }
         }
       });
+      bateriaEjemploId = newBat.id;
+    } else {
+      bateriaEjemploId = bat.id;
     }
   }
 
-  // 4. EMPRESA BASE (CORREGIDO: UPSERT en lugar de CREATE)
-  // Esto evita el error "Unique constraint failed" si ya existe el RUT
-  await prisma.company.upsert({
+  // 4. EMPRESA BASE Y ESTRUCTURA (Necesario para la orden)
+  const company = await prisma.company.upsert({
     where: { rut: '99.999.999-9' },
-    update: {}, // Si existe, no hacemos nada
-    create: { 
-        rut: '99.999.999-9', 
-        name: 'EMPRESA DEMO VACIA', 
-        contactEmail: 'demo@vitam.cl' 
+    update: {},
+    create: { rut: '99.999.999-9', name: 'EMPRESA DEMO', contactEmail: 'demo@vitam.cl' }
+  });
+
+  const workCenter = await prisma.workCenter.create({
+    data: { name: 'Centro Base', companyId: company.id }
+  });
+
+  const area = await prisma.area.create({
+    data: { name: 'Area Base', workCenterId: workCenter.id }
+  });
+
+  // 👇 CREAMOS UN GES DE PRUEBA (Obligatorio para la orden)
+  const ges = await prisma.ges.create({
+    data: {
+      name: 'GES PRUEBA',
+      reportDate: new Date(),
+      reportNumber: '001',
+      menCount: 1,
+      womenCount: 0,
+      areaId: area.id
     }
   });
 
-  console.log('✅ Sistema listo y desbloqueado.');
+  // 5. CREAR ORDEN DE PRUEBA
+  const worker = await prisma.worker.upsert({
+    where: { rut: '11.222.333-4' },
+    update: {},
+    create: { rut: '11.222.333-4', name: 'Trabajador Prueba', companyId: company.id }
+  });
+
+  await prisma.examOrder.create({
+    data: {
+      workerId: worker.id,
+      companyId: company.id,
+      gesId: ges.id, // <--- AHORA SÍ LO TENEMOS
+      status: 'AGENDADO',
+      scheduledAt: new Date(),
+      providerName: 'ACHS',
+      orderBatteries: {
+        create: [
+            { batteryId: bateriaEjemploId, status: 'PENDIENTE' }
+        ]
+      }
+    }
+  });
+
+  console.log('✅ Sistema actualizado y datos de prueba creados.');
 }
 
 main().catch(e => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });

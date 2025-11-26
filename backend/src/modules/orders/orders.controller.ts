@@ -1,49 +1,33 @@
 import { Request, Response } from 'express';
-import { createOrder, getAllOrders, updateOrderStatus } from './orders.service';
+import { createOrder, getAllOrders, updateOrderStatus, updateBatteryResult } from './orders.service';
 
-// 1. Obtener todas las órdenes
 export const getOrders = async (req: Request, res: Response) => {
   try {
-    const status = req.query.status as string;
-    const orders = await getAllOrders(status);
+    const orders = await getAllOrders(req.query.status as string);
     res.json(orders);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al obtener órdenes' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error al obtener órdenes' }); }
 };
 
-// 2. Crear nueva orden
 export const create = async (req: Request, res: Response) => {
   try {
     const order = await createOrder(req.body);
     res.status(201).json(order);
-  } catch (error: any) {
-    console.error(error);
-    res.status(400).json({ error: error.message || 'Error al crear la orden' });
-  }
+  } catch (error) { res.status(400).json({ error: 'Error al crear' }); }
 };
 
-// 3. Actualizar estado (Agendar o Anular)
 export const updateStatus = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    // Aquí recibimos los datos. Si es Anular, solo viene "status".
     const { status, scheduledAt, providerName, externalId } = req.body;
-    
-    const order = await updateOrderStatus(id, status, scheduledAt, providerName, externalId);
+    const order = await updateOrderStatus(req.params.id, status, scheduledAt, providerName, externalId);
     res.json(order);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al actualizar la orden' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error al actualizar' }); }
 };
 
-// 4. Eliminar (Opcional)
-export const remove = async (req: Request, res: Response) => {
-  try {
-    res.status(200).json({ message: "Orden eliminada (Simulado)" });
-  } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar' });
-  }
-};
+// NUEVO: GUARDAR RESULTADO
+export const setResult = async (req: Request, res: Response) => {
+    try {
+        const { status, expirationDate } = req.body;
+        const result = await updateBatteryResult(req.params.batteryId, status, expirationDate);
+        res.json(result);
+    } catch (error) { res.status(500).json({ error: 'Error al guardar resultado' }); }
+}
