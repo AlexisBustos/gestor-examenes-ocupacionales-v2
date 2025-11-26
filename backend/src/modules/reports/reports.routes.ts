@@ -1,16 +1,17 @@
 import { Router } from 'express';
-import { upload } from '../../middlewares/upload.middleware';
-import * as ReportsController from './reports.controller';
+import multer from 'multer';
+import { addPrescription, removePrescription, updateStatus, addQuantitative, removeQuantitative } from './reports.controller';
 
 const router = Router();
+const upload = multer({ dest: 'uploads/' });
 
-// Upload a new report for a company
-router.post('/companies/:companyId/reports', upload.single('file'), ReportsController.uploadReport);
+// Prescripciones
+router.post('/prescriptions', addPrescription);
+router.delete('/prescriptions/:id', removePrescription);
+router.patch('/prescriptions/:id', updateStatus);
 
-// Get all reports for a company
-router.get('/companies/:companyId/reports', ReportsController.getCompanyReports);
-
-// Link a report to a GES (or Area)
-router.post('/ges/:gesId/link-report', ReportsController.linkReport);
+// Cuantitativos
+router.post('/quantitative', upload.single('file'), addQuantitative);
+router.delete('/quantitative/:id', removeQuantitative);
 
 export default router;

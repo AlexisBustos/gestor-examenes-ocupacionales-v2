@@ -1,16 +1,16 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as OrdersService from '@/services/orders.service';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/Input';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/Table';
+import { Badge } from '@/components/ui/Badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Plus, Search, Eye, Calendar, Ban, CheckCircle } from 'lucide-react';
 import { NewOrderSheet } from '@/components/orders/NewOrderSheet';
 import { OrderDetailsSheet } from '@/components/orders/OrderDetailsSheet';
 import { ScheduleOrderDialog } from '@/components/orders/ScheduleOrderDialog';
-import { Skeleton } from '@/components/ui/skeleton'; // <--- IMPORTANTE
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -20,7 +20,7 @@ import type { OrderStatus } from '@/types/order.types';
 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
-  
+
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<any>(null);
   const [selectedOrderForSchedule, setSelectedOrderForSchedule] = useState<any>(null);
@@ -62,7 +62,7 @@ export default function OrdersPage() {
     return new Date(dateString).toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const filteredOrders = orders?.filter((order: any) => 
+  const filteredOrders = orders?.filter((order: any) =>
     order.worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.worker.rut.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -79,24 +79,24 @@ export default function OrdersPage() {
           <Skeleton className="h-10 w-40" />
         </div>
         <div className="border rounded-md p-4 space-y-4">
-           <div className="flex justify-between mb-6">
-              <Skeleton className="h-10 w-64" /> 
-           </div>
-           {[...Array(5)].map((_, i) => (
-             <div key={i} className="flex justify-between items-center py-4 border-b last:border-0">
-                <div className="space-y-2">
-                   <Skeleton className="h-4 w-32" />
-                   <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-4 w-20" />
+          <div className="flex justify-between mb-6">
+            <Skeleton className="h-10 w-64" />
+          </div>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex justify-between items-center py-4 border-b last:border-0">
+              <div className="space-y-2">
                 <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-6 w-24 rounded-full" />
-                <div className="flex gap-2">
-                   <Skeleton className="h-8 w-8 rounded-md" />
-                   <Skeleton className="h-8 w-8 rounded-md" />
-                </div>
-             </div>
-           ))}
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -156,7 +156,7 @@ export default function OrdersPage() {
                       <TableCell>
                         <div className="font-medium">{order.ges.name}</div>
                         <div className="text-xs text-muted-foreground max-w-[200px] truncate">
-                            {order.examBatteries && order.examBatteries.length > 0 ? order.examBatteries.map((b: any) => b.name).join(', ') : 'Sin baterías'}
+                          {order.examBatteries && order.examBatteries.length > 0 ? order.examBatteries.map((b: any) => b.name).join(', ') : 'Sin baterías'}
                         </div>
                       </TableCell>
                       <TableCell><Badge className={getStatusColor(order.status)} variant="outline">{order.status}</Badge></TableCell>

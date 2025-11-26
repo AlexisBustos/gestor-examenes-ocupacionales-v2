@@ -6,9 +6,9 @@ import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription
-} from '@/components/ui/sheet';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+} from '@/components/ui/Sheet';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
 import {
   Form, FormControl, FormField, FormItem, FormLabel, FormMessage
 } from '@/components/ui/form';
@@ -61,7 +61,7 @@ export function CompanyFormSheet({ companyId, open, onOpenChange }: Props) {
         address: company.address || '',
       });
     } else {
-        form.reset({ rut: '', name: '', contactEmail: '', phone: '', address: '' });
+      form.reset({ rut: '', name: '', contactEmail: '', phone: '', address: '' });
     }
   }, [company, form, open]);
 

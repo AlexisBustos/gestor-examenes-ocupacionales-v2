@@ -1,26 +1,25 @@
+import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { useOrders } from '@/hooks/useOrders';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { 
-  Activity, Clock, Calendar, CheckCircle2, FileText, 
-  Users, AlertTriangle, ArrowRight, Building2, FileSpreadsheet, Upload
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
+import {
+  Activity, Clock, Calendar, CheckCircle2, Building2, FileSpreadsheet, FileText, Upload, AlertTriangle, ArrowRight
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
-import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+} from '@/components/ui/Table';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton'; // <--- IMPORTANTE
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-  
+
   // 1. CARGAR TODOS LOS DATOS
   const { data: orders, isLoading: loadingOrders } = useOrders();
-  
+
   const { data: gesList, isLoading: loadingGes } = useQuery({
     queryKey: ['all-ges'],
     queryFn: async () => (await axios.get('/ges')).data,
@@ -50,12 +49,12 @@ export default function DashboardPage() {
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="p-6 border rounded-xl space-y-3 bg-slate-50/50">
-               <div className="flex justify-between">
-                 <Skeleton className="h-4 w-24" />
-                 <Skeleton className="h-5 w-5 rounded-full" />
-               </div>
-               <Skeleton className="h-8 w-16" />
-               <Skeleton className="h-3 w-32" />
+              <div className="flex justify-between">
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-5 w-5 rounded-full" />
+              </div>
+              <Skeleton className="h-8 w-16" />
+              <Skeleton className="h-3 w-32" />
             </div>
           ))}
         </div>
@@ -64,14 +63,14 @@ export default function DashboardPage() {
 
         {/* Estructura Central Skeletons */}
         <div className="grid gap-6 md:grid-cols-2">
-           <Skeleton className="h-48 w-full rounded-xl" />
-           <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
+          <Skeleton className="h-48 w-full rounded-xl" />
         </div>
-        
+
         {/* Tabla Skeleton */}
         <div className="space-y-4">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-64 w-full rounded-xl" />
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-64 w-full rounded-xl" />
         </div>
       </div>
     );
@@ -101,12 +100,12 @@ export default function DashboardPage() {
       if (new Date(ges.nextEvaluationDate) > new Date()) statsLegal.vigentes++;
       else statsLegal.vencidos++;
     } else {
-      statsLegal.vencidos++; 
+      statsLegal.vencidos++;
     }
   });
 
-  const complianceRate = statsInfra.totalGes > 0 
-    ? Math.round((statsLegal.vigentes / statsInfra.totalGes) * 100) 
+  const complianceRate = statsInfra.totalGes > 0
+    ? Math.round((statsLegal.vigentes / statsInfra.totalGes) * 100)
     : 0;
 
   // D. Actividad Reciente
@@ -124,7 +123,7 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-      
+
       {/* ENCABEZADO */}
       <div className="flex justify-between items-center">
         <div>
@@ -217,17 +216,17 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-4">
-               <div>
-                 <p className="text-sm font-medium text-slate-600">Índice Global</p>
-                 <p className="text-4xl font-extrabold text-slate-900">{complianceRate}%</p>
-               </div>
-               <div className="h-14 w-14 rounded-full border-4 border-white shadow-sm flex items-center justify-center bg-slate-100">
-                  <span className="text-2xl">{complianceRate === 100 ? '🌟' : (complianceRate < 50 ? '⚠️' : '👍')}</span>
-               </div>
+              <div>
+                <p className="text-sm font-medium text-slate-600">Índice Global</p>
+                <p className="text-4xl font-extrabold text-slate-900">{complianceRate}%</p>
+              </div>
+              <div className="h-14 w-14 rounded-full border-4 border-white shadow-sm flex items-center justify-center bg-slate-100">
+                <span className="text-2xl">{complianceRate === 100 ? '🌟' : (complianceRate < 50 ? '⚠️' : '👍')}</span>
+              </div>
             </div>
             <div className="flex gap-2 text-xs">
-               <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">{statsLegal.vigentes} Vigentes</span>
-               <span className="px-2 py-1 bg-red-100 text-red-700 rounded font-medium">{statsLegal.vencidos} Pendientes</span>
+              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">{statsLegal.vigentes} Vigentes</span>
+              <span className="px-2 py-1 bg-red-100 text-red-700 rounded font-medium">{statsLegal.vencidos} Pendientes</span>
             </div>
           </CardContent>
         </Card>
@@ -268,9 +267,9 @@ export default function DashboardPage() {
               </TableBody>
             </Table>
             <div className="mt-4 flex justify-end">
-                <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/orders')} className="text-blue-600 hover:bg-blue-50">
-                    Ver historial completo <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/orders')} className="text-blue-600 hover:bg-blue-50">
+                Ver historial completo <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -280,31 +279,31 @@ export default function DashboardPage() {
             <CardTitle>Accesos Rápidos</CardTitle>
           </CardHeader>
           <CardContent className="grid gap-4">
-             <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-blue-50 border-blue-200 shadow-sm" onClick={() => navigate('/dashboard/orders')}>
-                <div className="bg-blue-100 p-2 rounded-full mr-3"><FileText className="h-5 w-5 text-blue-600" /></div>
-                <div className="text-left">
-                    <div className="font-semibold text-slate-800">Nueva Solicitud</div>
-                    <div className="text-xs text-muted-foreground">Crear orden para trabajador</div>
-                </div>
-             </Button>
+            <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-blue-50 border-blue-200 shadow-sm" onClick={() => navigate('/dashboard/orders')}>
+              <div className="bg-blue-100 p-2 rounded-full mr-3"><FileText className="h-5 w-5 text-blue-600" /></div>
+              <div className="text-left">
+                <div className="font-semibold text-slate-800">Nueva Solicitud</div>
+                <div className="text-xs text-muted-foreground">Crear orden para trabajador</div>
+              </div>
+            </Button>
 
-             <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-green-50 border-green-200 shadow-sm" onClick={() => navigate('/dashboard/import')}>
-                <div className="bg-green-100 p-2 rounded-full mr-3"><Upload className="h-5 w-5 text-green-600" /></div>
-                <div className="text-left">
-                    <div className="font-semibold text-slate-800">Carga Masiva</div>
-                    <div className="text-xs text-muted-foreground">Importar Excel de dotación</div>
-                </div>
-             </Button>
-             
-             <div className="rounded-md bg-amber-50 p-4 border border-amber-100 flex gap-3 items-start">
-                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                <div>
-                    <h4 className="text-sm font-semibold text-amber-800">Recordatorio</h4>
-                    <p className="text-xs text-amber-700 mt-1">
-                        Mantén actualizados los informes de higiene para evitar multas.
-                    </p>
-                </div>
-             </div>
+            <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-green-50 border-green-200 shadow-sm" onClick={() => navigate('/dashboard/import')}>
+              <div className="bg-green-100 p-2 rounded-full mr-3"><Upload className="h-5 w-5 text-green-600" /></div>
+              <div className="text-left">
+                <div className="font-semibold text-slate-800">Carga Masiva</div>
+                <div className="text-xs text-muted-foreground">Importar Excel de dotación</div>
+              </div>
+            </Button>
+
+            <div className="rounded-md bg-amber-50 p-4 border border-amber-100 flex gap-3 items-start">
+              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+              <div>
+                <h4 className="text-sm font-semibold text-amber-800">Recordatorio</h4>
+                <p className="text-xs text-amber-700 mt-1">
+                  Mantén actualizados los informes de higiene para evitar multas.
+                </p>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>

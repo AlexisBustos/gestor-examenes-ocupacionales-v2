@@ -1,6 +1,7 @@
 export interface RiskAgent {
   id: string;
   name: string;
+  protocolUrl?: string;
 }
 
 export interface RiskExposure {
@@ -8,47 +9,56 @@ export interface RiskExposure {
   riskAgent: RiskAgent;
   specificAgentDetails?: string;
   exposureType?: string;
+  examBatteries?: { id: string; name: string }[];
 }
 
-// NUEVA ENTIDAD: El Informe Técnico Compartido
+// Definición de Prescripción
+export interface Prescription {
+  id: string;
+  folio?: string;
+  description: string;
+  measureType?: string;
+  isImmediate: boolean;
+  implementationDate: string;
+  observation?: string;
+  status: 'PENDIENTE' | 'REALIZADA' | 'EN_PROCESO' | 'VENCIDA';
+}
+
+// Definición de Informe Cuantitativo
+export interface QuantitativeReport {
+  id: string;
+  name: string;
+  reportDate: string;
+  pdfUrl: string;
+  prescriptions: Prescription[];
+}
+
+// Definición de Informe Técnico (Cualitativo)
 export interface TechnicalReport {
   id: string;
   reportNumber: string;
   reportDate: string;
   pdfUrl: string;
+  // Relaciones
+  quantitativeReports: QuantitativeReport[];
+  prescriptions: Prescription[];
 }
 
 export interface Ges {
   id: string;
   name: string;
-
-  // Datos operativos
   areaId?: string;
   menCount?: number;
   womenCount?: number;
   tasksDescription?: string;
-  subArea?: string; // <--- Nuevo campo
-  machineryUsed?: string;
-  controlMeasures?: string;
 
-  // CONEXIÓN NUEVA: Apunta al informe centralizado
+  // Relación con Informe Técnico (Centralizado)
   technicalReportId?: string | null;
   technicalReport?: TechnicalReport | null;
 
-  // Vigencia
   nextEvaluationDate?: string | null;
   validityYears?: number | null;
 
-  // Relaciones
   riskExposures?: RiskExposure[];
   prescriptions?: string;
-
-  // Relaciones expandidas (opcionales)
-  area?: {
-    id: string;
-    name: string;
-  };
-  _count?: {
-    riskExposures: number;
-  };
 }

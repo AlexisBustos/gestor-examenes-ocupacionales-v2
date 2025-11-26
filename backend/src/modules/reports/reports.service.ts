@@ -1,35 +1,64 @@
-import prisma from '../../lib/prisma';
+import { PrismaClient } from '@prisma/client';
 
-export const createReport = async (data: {
-    reportNumber: string;
-    reportDate: Date;
-    pdfUrl: string;
-    companyId: string;
+const prisma = new PrismaClient();
+
+// --- PRESCRIPCIONES ---
+
+export const createPrescription = async (data: {
+  technicalReportId?: string;
+  quantitativeReportId?: string;
+  folio?: string;
+  description: string;
+  measureType?: string;
+  isImmediate: boolean;
+  implementationDate: string;
+  observation?: string;
 }) => {
-    return await prisma.technicalReport.create({
-        data,
-    });
+  return await prisma.prescription.create({
+    data: {
+      folio: data.folio,
+      description: data.description,
+      measureType: data.measureType,
+      isImmediate: data.isImmediate,
+      implementationDate: new Date(data.implementationDate),
+      observation: data.observation,
+      status: 'PENDIENTE',
+      technicalReportId: data.technicalReportId || undefined,
+      quantitativeReportId: data.quantitativeReportId || undefined,
+    }
+  });
 };
 
-export const getReportsByCompany = async (companyId: string) => {
-    return await prisma.technicalReport.findMany({
-        where: { companyId },
-        orderBy: { reportDate: 'desc' },
-    });
+export const deletePrescription = async (id: string) => {
+  return await prisma.prescription.delete({ where: { id } });
 };
 
-export const linkReportToGes = async (gesId: string, technicalReportId: string) => {
-    return await prisma.ges.update({
-        where: { id: gesId },
-        data: { technicalReportId },
-        include: { technicalReport: true },
-    });
+export const togglePrescriptionStatus = async (id: string, currentStatus: string) => {
+  const newStatus = currentStatus === 'PENDIENTE' ? 'REALIZADA' : 'PENDIENTE';
+  return await prisma.prescription.update({
+    where: { id },
+    data: { status: newStatus as any }
+  });
 };
 
-export const linkReportToArea = async (areaId: string, technicalReportId: string) => {
-    // Update all GES in the area
-    return await prisma.ges.updateMany({
-        where: { areaId },
-        data: { technicalReportId },
-    });
+// --- INFORMES CUANTITATIVOS ---
+
+export const createQuantitativeReport = async (data: {
+  technicalReportId: string;
+  name: string;
+  reportDate: string;
+  filename: string;
+}) => {
+  return await prisma.quantitativeReport.create({
+    data: {
+      name: data.name,
+      reportDate: new Date(data.reportDate),
+      pdfUrl: `/uploads/${data.filename}`,
+      technicalReportId: data.technicalReportId
+    }
+  });
 };
+
+export const deleteQuantitativeReport = async (id: string) => {
+    return await prisma.quantitativeReport.delete({ where: { id }});
+}

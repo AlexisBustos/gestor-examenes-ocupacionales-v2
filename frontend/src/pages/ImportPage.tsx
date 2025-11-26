@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -20,10 +20,10 @@ export default function ImportPage() {
     // Generar un CSV simple de ejemplo
     const headers = ['Empresa', 'Centro', 'Area', 'GES', 'Descripcion Tareas', 'Agentes', 'Agente Especifico', 'Tipo Exposicion'];
     const row = ['WEIR', 'Planta 1', 'Prensa', 'Operador', 'Soldadura MIG', 'Ruido, Humos', 'Tolueno', 'Cronica'];
-    
-    const csvContent = "data:text/csv;charset=utf-8," 
-        + headers.join(",") + "\n" 
-        + row.join(",");
+
+    const csvContent = "data:text/csv;charset=utf-8,"
+      + headers.join(",") + "\n"
+      + row.join(",");
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -63,11 +63,11 @@ export default function ImportPage() {
 
       const data = await response.json();
       console.log("✅ Datos recibidos:", data);
-      
+
       toast.success("Archivo procesado correctamente");
       setStats(data.stats);
       setFile(null);
-      
+
       // Limpiar el input file visualmente (truco rápido)
       const fileInput = document.getElementById('file-upload') as HTMLInputElement;
       if (fileInput) fileInput.value = '';
@@ -100,7 +100,7 @@ export default function ImportPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            
+
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-gray-200 rounded-lg p-10 hover:bg-gray-50 transition-colors">
               <FileSpreadsheet className="h-10 w-10 text-gray-400 mb-2" />
               <p className="text-sm text-gray-500 mb-4 text-center">
@@ -110,9 +110,9 @@ export default function ImportPage() {
                   "Arrastra tu archivo aquí o haz clic para seleccionar"
                 )}
               </p>
-              <input 
+              <input
                 id="file-upload"
-                type="file" 
+                type="file"
                 accept=".xlsx, .xls, .csv"
                 onChange={handleFileChange}
                 className="block w-full text-sm text-slate-500
@@ -126,9 +126,9 @@ export default function ImportPage() {
             </div>
 
             <div className="flex gap-3">
-              <Button 
-                className="flex-1" 
-                onClick={handleUpload} 
+              <Button
+                className="flex-1"
+                onClick={handleUpload}
                 disabled={!file || isUploading}
               >
                 {isUploading ? (
@@ -139,7 +139,7 @@ export default function ImportPage() {
                   "Procesar Archivo"
                 )}
               </Button>
-              
+
               <Button variant="outline" onClick={handleDownloadTemplate} title="Descargar Plantilla">
                 <Download className="h-4 w-4" />
               </Button>

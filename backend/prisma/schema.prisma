@@ -7,10 +7,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// --------------------------------------
-// Estructura Organizacional
-// --------------------------------------
-
+// --- ORGANIZACIÓN ---
 model Company {
   id               String            @id @default(uuid())
   rut              String            @unique
@@ -18,13 +15,12 @@ model Company {
   contactEmail     String
   address          String?
   phone            String?
-  
   workCenters      WorkCenter[]
   examOrders       ExamOrder[]
   workers          Worker[]     
   users            User[]
   technicalReports TechnicalReport[]
-
+  costCenters      CostCenter[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -46,46 +42,76 @@ model Area {
   workCenterId String
   workCenter   WorkCenter @relation(fields: [workCenterId], references: [id])
   gesGroups    Ges[]
-  
-  // RELACIÓN CON CENTRO DE COSTOS
   costCenterId String?
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
-
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
 }
 
-// MODELO NUEVO: CENTRO DE COSTOS
 model CostCenter {
   id        String   @id @default(uuid())
   code      String   @unique
   name      String
-  
+  companyId String?
+  company   Company? @relation(fields: [companyId], references: [id])
   areas     Area[]
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// --------------------------------------
-// Gestión Documental
-// --------------------------------------
+// --- GESTIÓN DOCUMENTAL JERÁRQUICA ---
 
 model TechnicalReport {
-  id           String   @id @default(uuid())
-  reportNumber String
-  reportDate   DateTime
-  pdfUrl       String
-  companyId    String
-  company      Company  @relation(fields: [companyId], references: [id])
-  gesGroups    Ges[]    
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String               @id @default(uuid())
+  reportNumber        String
+  reportDate          DateTime
+  pdfUrl              String
+  companyId           String
+  company             Company              @relation(fields: [companyId], references: [id])
+  gesGroups           Ges[]    
+  quantitativeReports QuantitativeReport[] 
+  prescriptions       Prescription[]       
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
 }
 
-// --------------------------------------
-// Núcleo GES
-// --------------------------------------
+model QuantitativeReport {
+  id                String          @id @default(uuid())
+  name              String          
+  reportDate        DateTime
+  pdfUrl            String
+  technicalReportId String
+  technicalReport   TechnicalReport @relation(fields: [technicalReportId], references: [id], onDelete: Cascade)
+  prescriptions     Prescription[]  
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+}
+
+enum PrescriptionStatus {
+  PENDIENTE
+  EN_PROCESO
+  REALIZADA
+  VENCIDA
+}
+
+model Prescription {
+  id                   String              @id @default(uuid())
+  folio                String?             
+  description          String              @db.Text 
+  measureType          String?             
+  isImmediate          Boolean             @default(false)
+  implementationDate   DateTime            
+  observation          String?             @db.Text
+  status               PrescriptionStatus  @default(PENDIENTE)
+  technicalReportId    String?
+  technicalReport      TechnicalReport?    @relation(fields: [technicalReportId], references: [id], onDelete: Cascade)
+  quantitativeReportId String?
+  quantitativeReport   QuantitativeReport? @relation(fields: [quantitativeReportId], references: [id], onDelete: Cascade)
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+}
+
+// --- GES ---
 
 model Ges {
   id               String         @id @default(uuid())
@@ -98,21 +124,17 @@ model Ges {
   machineryUsed    String?        @db.Text 
   controlMeasures  String?        @db.Text 
   subArea          String?
-  
   validityYears    Int?
   nextEvaluationDate DateTime?
   risksResume      String?
   prescriptions    String?
-  
   technicalReportId String?
   technicalReport   TechnicalReport? @relation(fields: [technicalReportId], references: [id])
-  
   areaId           String
   area             Area           @relation(fields: [areaId], references: [id])
   riskExposures    RiskExposure[]
   workers          Worker[]       @relation("CurrentGes")
   examOrders       ExamOrder[]
-  
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -120,6 +142,7 @@ model Ges {
 model RiskAgent {
   id            String         @id @default(uuid())
   name          String         @unique
+  protocolUrl   String?        // <--- CAMPO PROMPT 32 (Biblioteca)
   riskExposures RiskExposure[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -145,9 +168,7 @@ model RiskExposure {
   updatedAt            DateTime      @updatedAt
 }
 
-// --------------------------------------
-// Definición Médica
-// --------------------------------------
+// --- MÉDICO ---
 
 enum EvaluationType {
   PRE_OCUPACIONAL
@@ -185,9 +206,7 @@ model BatteryExam {
   @@unique([examBatteryId, medicalExamId])
 }
 
-// --------------------------------------
-// Operación
-// --------------------------------------
+// --- OPERACIÓN ---
 
 enum UserRole {
   ADMIN_VITAM
@@ -213,7 +232,6 @@ model Worker {
   phone          String?  
   position       String?  
   managementArea String?  
-  
   currentGesId   String?
   currentGes     Ges?     @relation("CurrentGes", fields: [currentGesId], references: [id])
   companyId      String
@@ -239,9 +257,7 @@ model ExamOrder {
   company       Company     @relation(fields: [companyId], references: [id])
   gesId         String
   ges           Ges         @relation(fields: [gesId], references: [id])
-  
   examBatteries ExamBattery[] 
-  
   status        OrderStatus @default(SOLICITADO)
   scheduledAt   DateTime?
   providerName  String?

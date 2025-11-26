@@ -7,11 +7,11 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
-} from '@/components/ui/sheet';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+} from '@/components/ui/Sheet';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
 import { Building2, FileSpreadsheet, Loader2, FileText, Edit2, Wallet } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/ui/Badge';
 import { GesDocumentsSheet } from '@/components/ges/GesDocumentsSheet';
 import { AssignCostCenterDialog } from '@/components/finance/AssignCostCenterDialog';
 

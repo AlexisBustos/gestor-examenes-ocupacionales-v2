@@ -8,17 +8,17 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+} from '@/components/ui/Dialog';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Label } from '@/components/ui/Label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/Select';
 import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import type { Order } from '@/types/order.types';
@@ -31,7 +31,7 @@ interface Props {
 
 export function ScheduleOrderDialog({ order, open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
-  
+
   // Estados del formulario
   const [date, setDate] = useState('');
   const [time, setTime] = useState('');
@@ -42,12 +42,12 @@ export function ScheduleOrderDialog({ order, open, onOpenChange }: Props) {
     mutationFn: async () => {
       // Combinar fecha y hora en un ISO string
       const scheduledAt = new Date(`${date}T${time}`).toISOString();
-      
+
       await OrdersService.updateOrderStatus(
-        order.id, 
-        'AGENDADO', 
-        scheduledAt, 
-        provider, 
+        order.id,
+        'AGENDADO',
+        scheduledAt,
+        provider,
         externalId
       );
     },
@@ -88,24 +88,24 @@ export function ScheduleOrderDialog({ order, open, onOpenChange }: Props) {
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
-          
+
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">
               <Label htmlFor="date">Fecha</Label>
-              <Input 
-                id="date" 
-                type="date" 
-                value={date} 
-                onChange={(e) => setDate(e.target.value)} 
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <Label htmlFor="time">Hora</Label>
-              <Input 
-                id="time" 
-                type="time" 
-                value={time} 
-                onChange={(e) => setTime(e.target.value)} 
+              <Input
+                id="time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
               />
             </div>
           </div>
@@ -128,9 +128,9 @@ export function ScheduleOrderDialog({ order, open, onOpenChange }: Props) {
 
           <div className="grid gap-2">
             <Label htmlFor="folio">N° Folio / ID Externo (Opcional)</Label>
-            <Input 
-              id="folio" 
-              placeholder="Ej: RES-12345" 
+            <Input
+              id="folio"
+              placeholder="Ej: RES-12345"
               value={externalId}
               onChange={(e) => setExternalId(e.target.value)}
             />

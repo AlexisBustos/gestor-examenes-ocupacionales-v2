@@ -6,7 +6,6 @@ const normalizeText = (text: string) => {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
 
-// EL MISMO MAPA EXACTO (Sin 'quimico')
 const KEYWORD_MAP: Record<string, string> = {
   'tolueno': 'TOLUENO',
   'xileno': 'XILENO',
@@ -29,7 +28,6 @@ const KEYWORD_MAP: Record<string, string> = {
   'asma': 'ASMA',
   'vibracion': 'VIBRACIONES',
   'solvente': 'SOLVENTES',
-  // 'quimico': 'SOLVENTES', <--- ELIMINADO AQUÍ TAMBIÉN
   'metal': 'METALES',
   'humo': 'HUMOS',
   'soldad': 'HUMOS',
@@ -44,7 +42,15 @@ const KEYWORD_MAP: Record<string, string> = {
 
 export const getAllGes = async () => {
   return await prisma.ges.findMany({
-    include: { riskExposures: { include: { riskAgent: true } }, technicalReport: true },
+    include: {
+      riskExposures: { include: { riskAgent: true } },
+      technicalReport: {
+        include: {
+          prescriptions: true,
+          quantitativeReports: { include: { prescriptions: true } }
+        }
+      }
+    },
   });
 };
 
@@ -53,7 +59,12 @@ export const getGesById = async (id: string) => {
     where: { id },
     include: {
       riskExposures: { include: { riskAgent: true } },
-      technicalReport: true,
+      technicalReport: {
+        include: {
+          prescriptions: true,
+          quantitativeReports: { include: { prescriptions: true } }
+        }
+      },
       area: { include: { workCenter: true } }
     },
   });
@@ -61,7 +72,6 @@ export const getGesById = async (id: string) => {
 
 export const createGes = async (data: any) => { return await prisma.ges.create({ data }); };
 
-// SUGERENCIAS (Lógica idéntica a createOrder)
 export const getSuggestedBatteries = async (gesId: string) => {
   const ges = await prisma.ges.findUnique({
     where: { id: gesId },
@@ -77,7 +87,7 @@ export const getSuggestedBatteries = async (gesId: string) => {
     const riskNameClean = normalizeText(riskExp.riskAgent.name);
     const detailClean = normalizeText(riskExp.specificAgentDetails || '');
     const textToAnalyze = `${riskNameClean} ${detailClean}`;
-    
+
     let foundMatch = false;
 
     // 1. Mapa
@@ -93,8 +103,8 @@ export const getSuggestedBatteries = async (gesId: string) => {
     }
     // 2. Directo
     if (!foundMatch) {
-       const bat = allBatteries.find(b => normalizeText(b.name).includes(riskNameClean));
-       if (bat) suggestions.push(bat);
+      const bat = allBatteries.find(b => normalizeText(b.name).includes(riskNameClean));
+      if (bat) suggestions.push(bat);
     }
   }
 

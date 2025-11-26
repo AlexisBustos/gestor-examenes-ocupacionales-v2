@@ -3,9 +3,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+} from '@/components/ui/Table';
+import { Button } from '@/components/ui/Button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Trash2, Eye, Pencil, Plus } from 'lucide-react';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
 import { CompanyDetailsSheet } from '@/components/companies/CompanyDetailsSheet';
-// 👇 AQUÍ ESTÁ LA CLAVE: Importamos el formulario
 import { CompanyFormSheet } from '@/components/companies/CompanyFormSheet';
 
 export default function CompaniesPage() {
@@ -77,12 +76,12 @@ export default function CompaniesPage() {
                     <Button variant="ghost" size="icon" onClick={() => setViewId(company.id)} title="Ver Detalles">
                       <Eye className="h-4 w-4 text-blue-600" />
                     </Button>
-                    
+
                     {/* Botón Lápiz */}
                     <Button variant="ghost" size="icon" onClick={() => setEditId(company.id)} title="Editar">
                       <Pencil className="h-4 w-4 text-amber-600" />
                     </Button>
-                    
+
                     <Button variant="ghost" size="icon" onClick={() => setDeleteId(company.id)} title="Eliminar">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
@@ -96,13 +95,13 @@ export default function CompaniesPage() {
 
       {/* Modal Ver Detalles */}
       {viewId && <CompanyDetailsSheet companyId={viewId} open={!!viewId} onOpenChange={(open) => !open && setViewId(null)} />}
-      
+
       {/* Modal Editar/Crear */}
       {editId && (
-        <CompanyFormSheet 
-          companyId={editId === 'new' ? null : editId} 
-          open={!!editId} 
-          onOpenChange={(open) => !open && setEditId(null)} 
+        <CompanyFormSheet
+          companyId={editId === 'new' ? null : editId}
+          open={!!editId}
+          onOpenChange={(open) => !open && setEditId(null)}
         />
       )}
 

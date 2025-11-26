@@ -9,9 +9,9 @@ import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage';
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import ImportPage from '@/pages/ImportPage';
-
-// 👇 AQUÍ ESTÁ LA CORRECCIÓN: Apuntamos a la carpeta 'admin'
 import CostCentersPage from '@/pages/admin/CostCentersPage';
+// 👇 AQUÍ IMPORTAMOS TU ARCHIVO
+import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
 
 const AppLayout = () => (
   <AuthProvider>
@@ -43,6 +43,8 @@ export const router = createBrowserRouter([
               { path: 'companies', element: <CompaniesPage /> },
               { path: 'import', element: <ImportPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
+              // 👇 LA RUTA NUEVA
+              { path: 'risks-library', element: <RisksLibraryPage /> }, 
             ],
           },
         ],

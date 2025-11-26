@@ -8,15 +8,15 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
-} from '@/components/ui/dialog';
+} from '@/components/ui/Dialog';
 import {
     Select,
     SelectContent,
     SelectItem,
     SelectTrigger,
     SelectValue,
-} from '@/components/ui/select';
-import { Button } from '@/components/ui/button';
+} from '@/components/ui/Select';
+import { Button } from '@/components/ui/Button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 

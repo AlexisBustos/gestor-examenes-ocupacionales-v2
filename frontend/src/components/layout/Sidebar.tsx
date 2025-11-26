@@ -7,29 +7,35 @@ import {
   Building2,
   Upload,
   LogOut,
-  Receipt // Icono para Centro de Costos
+  Receipt,
+  BookOpen
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet },
   { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
-  { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt }, // <--- NUEVO BOTÓN
+  { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt },
+  { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen },
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  className?: string;
+}
+
+export function Sidebar({ className }: SidebarProps) {
   const { logout, user } = useAuth();
 
   return (
-    <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64">
-      
+    <div className={cn("hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64", className)}>
+
       {/* 1. HEADER CON LOGO VITAM */}
       <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
-        <img 
-          src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
-          alt="Vitam Healthcare" 
-          className="h-10 w-auto object-contain" 
+        <img
+          src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png"
+          alt="Vitam Healthcare"
+          className="h-10 w-auto object-contain"
           onError={(e) => {
             e.currentTarget.style.display = 'none';
             const span = e.currentTarget.nextElementSibling;

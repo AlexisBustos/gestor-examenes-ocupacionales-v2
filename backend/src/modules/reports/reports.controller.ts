@@ -1,65 +1,64 @@
 import { Request, Response } from 'express';
-import * as ReportsService from './reports.service';
-import path from 'path';
+import { createPrescription, deletePrescription, togglePrescriptionStatus, createQuantitativeReport, deleteQuantitativeReport } from './reports.service';
 
-export const uploadReport = async (req: Request, res: Response) => {
+// Prescripciones
+export const addPrescription = async (req: Request, res: Response) => {
+  try {
+    const result = await createPrescription(req.body);
+    res.status(201).json(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error al crear prescripción' });
+  }
+};
+
+export const removePrescription = async (req: Request, res: Response) => {
+  try {
+    await deletePrescription(req.params.id);
+    res.json({ message: 'Eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar' });
+  }
+};
+
+export const updateStatus = async (req: Request, res: Response) => {
+  try {
+    const { status } = req.body;
+    const result = await togglePrescriptionStatus(req.params.id, status);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar estado' });
+  }
+};
+
+// Cuantitativos
+export const addQuantitative = async (req: Request, res: Response) => {
     try {
-        const { companyId } = req.params;
-        const { reportNumber, reportDate } = req.body;
         const file = req.file;
-
-        if (!file) {
-            return res.status(400).json({ error: 'No file uploaded' });
+        const { name, reportDate, technicalReportId } = req.body;
+        
+        if (!file || !technicalReportId) {
+            return res.status(400).json({ error: "Faltan datos o archivo" });
         }
 
-        const pdfUrl = `/uploads/${file.filename}`;
-
-        const report = await ReportsService.createReport({
-            reportNumber,
-            reportDate: new Date(reportDate),
-            pdfUrl,
-            companyId,
+        const result = await createQuantitativeReport({
+            technicalReportId,
+            name,
+            reportDate,
+            filename: file.filename
         });
-
-        res.json(report);
+        res.json(result);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error uploading report' });
+        res.status(500).json({ error: "Error al subir cuantitativo" });
     }
-};
+}
 
-export const getCompanyReports = async (req: Request, res: Response) => {
+export const removeQuantitative = async (req: Request, res: Response) => {
     try {
-        const { companyId } = req.params;
-        const reports = await ReportsService.getReportsByCompany(companyId);
-        res.json(reports);
+        await deleteQuantitativeReport(req.params.id);
+        res.json({ message: "Eliminado" });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error fetching reports' });
+        res.status(500).json({ error: "Error al eliminar" });
     }
-};
-
-export const linkReport = async (req: Request, res: Response) => {
-    try {
-        const { gesId } = req.params;
-        const { technicalReportId, applyToArea } = req.body;
-
-        if (applyToArea) {
-            // We need to find the areaId for this GES first to apply to all
-            // For now, let's assume the frontend sends areaId or we fetch the GES first.
-            // To keep it simple and robust, let's fetch the GES to get the areaId
-            const prisma = require('../../lib/prisma').default; // Lazy load to avoid circular deps if any
-            const ges = await prisma.ges.findUnique({ where: { id: gesId } });
-            if (!ges) return res.status(404).json({ error: 'GES not found' });
-
-            await ReportsService.linkReportToArea(ges.areaId, technicalReportId);
-            res.json({ message: 'Report linked to all GES in area' });
-        } else {
-            const updatedGes = await ReportsService.linkReportToGes(gesId, technicalReportId);
-            res.json(updatedGes);
-        }
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error linking report' });
-    }
-};
+}
