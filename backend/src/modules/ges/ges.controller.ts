@@ -3,7 +3,9 @@ import { getAllGes, getGesById, createGes, uploadGesReport, getSuggestedBatterie
 
 export const list = async (req: Request, res: Response) => {
   try {
-    const gesList = await getAllGes();
+    // 👇 AQUÍ CAPTURAMOS EL FILTRO
+    const { areaId } = req.query;
+    const gesList = await getAllGes(areaId as string);
     res.json(gesList);
   } catch (error) {
     res.status(500).json({ error: 'Error al listar GES' });
@@ -21,14 +23,12 @@ export const getOne = async (req: Request, res: Response) => {
   }
 };
 
-// 👇 NUEVO ENDPOINT: SUGERENCIAS DE BATERÍAS
 export const getSuggestions = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const suggestions = await getSuggestedBatteries(id);
     res.json(suggestions);
   } catch (error) {
-    console.error(error);
     res.status(500).json({ error: 'Error obteniendo sugerencias' });
   }
 };
@@ -48,25 +48,11 @@ export const uploadReport = async (req: Request, res: Response) => {
     const file = req.file;
     const { reportDate, reportNumber, applyToArea } = req.body;
 
-    if (!file) {
-      return res.status(400).json({ error: 'No se subió ningún archivo PDF' });
-    }
-
-    if (!reportDate || !reportNumber) {
-      return res.status(400).json({ error: 'Faltan datos del informe (Fecha o Número)' });
-    }
+    if (!file) return res.status(400).json({ error: 'No se subió ningún archivo PDF' });
+    if (!reportDate || !reportNumber) return res.status(400).json({ error: 'Faltan datos del informe' });
 
     const shouldApplyToArea = applyToArea === 'true';
-
-    const result = await uploadGesReport(
-      id, 
-      { path: file.path, filename: file.filename }, 
-      { 
-        reportDate, 
-        reportNumber, 
-        applyToArea: shouldApplyToArea 
-      }
-    );
+    const result = await uploadGesReport(id, { path: file.path, filename: file.filename }, { reportDate, reportNumber, applyToArea: shouldApplyToArea });
 
     res.json(result);
   } catch (error: any) {

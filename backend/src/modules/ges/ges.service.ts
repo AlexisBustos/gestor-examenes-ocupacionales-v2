@@ -2,54 +2,34 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// --- HERRAMIENTAS DE INTELIGENCIA ---
 const normalizeText = (text: string) => {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
 
 const KEYWORD_MAP: Record<string, string> = {
-  'tolueno': 'TOLUENO',
-  'xileno': 'XILENO',
-  'hexano': 'HEXANO',
-  'metiletilcetona': 'METILETILCETONA',
-  'manganeso': 'MANGANESO',
-  'plomo': 'PLOMO',
-  'arsenico': 'ARSÉNICO',
-  'cromo': 'CROMO',
-  'mercurio': 'MERCURIO',
-  'ruido': 'RUIDO',
-  'prexor': 'RUIDO',
-  'silice': 'SÍLICE',
-  'polvo': 'SÍLICE',
-  'neumo': 'SÍLICE',
-  'plaguicida': 'PLAGUICIDAS',
-  'citostatico': 'CITOSTÁTICOS',
-  'radiacion': 'RADIACIONES',
-  'ionizante': 'RADIACIONES',
-  'asma': 'ASMA',
-  'vibracion': 'VIBRACIONES',
-  'solvente': 'SOLVENTES',
-  'metal': 'METALES',
-  'humo': 'HUMOS',
-  'soldad': 'HUMOS',
-  'calor': 'ESTRÉS',
-  'frio': 'ESTRÉS',
-  'estres': 'ESTRÉS',
-  'termico': 'ESTRÉS',
-  'geografica': 'GEOGRÁFICA',
-  'fisica': 'FÍSICA',
-  'altura': 'ALTURA'
+  'calor': 'ESTRÉS', 'termico': 'ESTRÉS', 'frio': 'ESTRÉS', 'estres': 'ESTRÉS',
+  'ruido': 'RUIDO', 'prexor': 'RUIDO', 'sordera': 'RUIDO',
+  'silice': 'SÍLICE', 'polvo': 'SÍLICE', 'neumo': 'SÍLICE',
+  'solvente': 'SOLVENTES', 'tolueno': 'TOLUENO', 'xileno': 'XILENO', 'hexano': 'HEXANO', 'metiletilcetona': 'METILETILCETONA',
+  'plaguicida': 'PLAGUICIDAS', 'citostatico': 'CITOSTÁTICOS',
+  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'arsenico': 'ARSÉNICO', 'cromo': 'CROMO',
+  'metal': 'METALES', 'humo': 'HUMOS', 'soldad': 'HUMOS',
+  'geografica': 'GEOGRÁFICA', 'fisica': 'FÍSICA', 'altura': 'ALTURA',
+  'radiacion': 'RADIACIONES', 'ionizante': 'RADIACIONES', 'uv': 'UV', 'asma': 'ASMA',
+  'vibracion': 'VIBRACIONES'
 };
 
-export const getAllGes = async () => {
+// 1. OBTENER TODOS LOS GES (CON FILTRO OPCIONAL) <--- AQUÍ ESTABA EL ERROR
+export const getAllGes = async (areaId?: string) => {
+  // Si viene areaId, filtramos. Si no, traemos todo.
+  const where = areaId ? { areaId } : {};
+
   return await prisma.ges.findMany({
+    where, 
     include: {
       riskExposures: { include: { riskAgent: true } },
-      technicalReport: {
-        include: {
-          prescriptions: true,
-          quantitativeReports: { include: { prescriptions: true } }
-        }
-      }
+      technicalReport: true,
     },
   });
 };
@@ -59,12 +39,7 @@ export const getGesById = async (id: string) => {
     where: { id },
     include: {
       riskExposures: { include: { riskAgent: true } },
-      technicalReport: {
-        include: {
-          prescriptions: true,
-          quantitativeReports: { include: { prescriptions: true } }
-        }
-      },
+      technicalReport: true,
       area: { include: { workCenter: true } }
     },
   });
@@ -72,6 +47,7 @@ export const getGesById = async (id: string) => {
 
 export const createGes = async (data: any) => { return await prisma.ges.create({ data }); };
 
+// SUGERENCIAS BATERÍAS
 export const getSuggestedBatteries = async (gesId: string) => {
   const ges = await prisma.ges.findUnique({
     where: { id: gesId },
@@ -86,31 +62,24 @@ export const getSuggestedBatteries = async (gesId: string) => {
   for (const riskExp of ges.riskExposures) {
     const riskNameClean = normalizeText(riskExp.riskAgent.name);
     const detailClean = normalizeText(riskExp.specificAgentDetails || '');
-    const textToAnalyze = `${riskNameClean} ${detailClean}`;
-
-    let foundMatch = false;
-
-    // 1. Mapa
+    const fullText = `${riskNameClean} ${detailClean}`;
+    
+    let matched = false;
     for (const [trigger, target] of Object.entries(KEYWORD_MAP)) {
-      const targetClean = normalizeText(target);
-      if (textToAnalyze.includes(trigger)) {
-        const bat = allBatteries.find(b => normalizeText(b.name).includes(targetClean));
-        if (bat) {
-          suggestions.push(bat);
-          foundMatch = true;
-        }
+      if (fullText.includes(trigger)) {
+        const bat = allBatteries.find(b => normalizeText(b.name).includes(normalizeText(target)));
+        if (bat) { suggestions.push(bat); matched = true; }
       }
     }
-    // 2. Directo
-    if (!foundMatch) {
-      const bat = allBatteries.find(b => normalizeText(b.name).includes(riskNameClean));
-      if (bat) suggestions.push(bat);
+    if (!matched) {
+       const bat = allBatteries.find(b => normalizeText(b.name).includes(riskNameClean));
+       if (bat) suggestions.push(bat);
     }
   }
-
   return [...new Map(suggestions.map(item => [item['id'], item])).values()];
 };
 
+// SUBIDA REPORTE
 export const uploadGesReport = async (gesId: string, fileData: any, meta: any) => {
   const ges = await prisma.ges.findUnique({ where: { id: gesId }, include: { area: { include: { workCenter: true } } } });
   if (!ges) throw new Error("GES no encontrado");
