@@ -2,67 +2,43 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- HERRAMIENTAS DE LIMPIEZA ---
+// --- HERRAMIENTAS DE INTELIGENCIA ---
 const normalizeText = (text: string) => {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
 
-// --- DICCIONARIO MAESTRO (ESPECÍFICO -> GENERAL) ---
 const KEYWORD_MAP: Record<string, string> = {
-  // FÍSICOS
-  'ruido': 'RUIDO',
-  'prexor': 'RUIDO',
-  'sordera': 'RUIDO',
-  'vibracion': 'VIBRACIONES', // Cubre "Vibración" y "Vibraciones"
-  
-  // RADIACIÓN
-  'uv': 'UV',
-  'solar': 'UV', 
-  'radiacion': 'RADIACIÓN',
-  'ionizante': 'RADIACIÓN',
-
-  // METALES ESPECÍFICOS (Prioridad Alta)
-  'manganeso': 'MANGANESO', // Busca "Protocolo ... MANGANESO"
-  'plomo': 'PLOMO',
-  'arsenico': 'ARSÉNICO',
-  'cromo': 'CROMO',
-  'mercurio': 'METALES', 
-  
-  // METALES GENERALES
-  'hierro': 'HUMOS',        // Hierro -> Humos Metálicos
-  'soldad': 'HUMOS',
-  'humo': 'HUMOS',
-  'metal': 'METALES',       // Fallback si no encuentra específico
-
-  // QUÍMICOS ESPECÍFICOS
-  'tolueno': 'TOLUENO',
-  'xileno': 'XILENO',
-  'hexano': 'HEXANO',
-  'metiletilcetona': 'SOLVENTES', // O crear batería específica si existe
-  
-  // QUÍMICOS GENERALES
-  'solvente': 'SOLVENTES',
-
-  // OTROS
-  'calor': 'ESTRÉS',
-  'frio': 'ESTRÉS',
-  'termico': 'ESTRÉS',
-  'estres': 'ESTRÉS',
-  'silice': 'SÍLICE',
-  'polvo': 'SÍLICE',
-  'neumo': 'SÍLICE',
-  'plaguicida': 'PLAGUICIDAS',
-  'altura': 'ALTURA', // Cubre Física y Geográfica si el nombre coincide
-  'geografica': 'GEOGRÁFICA',
-  'fisica': 'FÍSICA'
+  'calor': 'ESTRÉS', 'termico': 'ESTRÉS', 'frio': 'ESTRÉS', 'estres': 'ESTRÉS',
+  'ruido': 'RUIDO', 'prexor': 'RUIDO', 'sordera': 'RUIDO',
+  'silice': 'SÍLICE', 'polvo': 'SÍLICE', 'neumo': 'SÍLICE',
+  'solvente': 'SOLVENTES', 'tolueno': 'TOLUENO', 'xileno': 'XILENO', 'hexano': 'HEXANO', 'metiletilcetona': 'METILETILCETONA',
+  'plaguicida': 'PLAGUICIDAS', 'citostatico': 'CITOSTÁTICOS',
+  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'arsenico': 'ARSÉNICO', 'cromo': 'CROMO',
+  'metal': 'METALES', 'humo': 'HUMOS', 'soldad': 'HUMOS',
+  'geografica': 'GEOGRÁFICA', 'fisica': 'FÍSICA', 'altura': 'ALTURA',
+  'radiacion': 'RADIACIONES', 'ionizante': 'RADIACIONES', 'uv': 'UV', 'asma': 'ASMA',
+  'vibracion': 'VIBRACIONES'
 };
 
-// --- CONSULTAS ---
+// --- CONSULTAS (AQUÍ ESTABA EL PROBLEMA DE VISUALIZACIÓN) ---
+
 export const getAllGes = async (areaId?: string) => {
   const where = areaId ? { areaId } : {};
   return await prisma.ges.findMany({
     where,
-    include: { riskExposures: { include: { riskAgent: true } }, technicalReport: true },
+    include: { 
+      riskExposures: { include: { riskAgent: true } }, 
+      technicalReport: { // Traemos el reporte
+        include: {
+           prescriptions: true, // Traemos las prescripciones del cualitativo
+           quantitativeReports: { // Traemos los cuantitativos
+             include: {
+               prescriptions: true // Traemos las prescripciones de los cuantitativos
+             }
+           }
+        }
+      }
+    },
   });
 };
 
@@ -71,7 +47,18 @@ export const getGesById = async (id: string) => {
     where: { id },
     include: {
       riskExposures: { include: { riskAgent: true } },
-      technicalReport: true,
+      technicalReport: {
+        include: {
+           // 👇 ESTO ES LO QUE FALTABA PARA QUE SE VEAN LOS DATOS
+           prescriptions: { orderBy: { createdAt: 'desc' } },
+           quantitativeReports: {
+             include: {
+               prescriptions: { orderBy: { createdAt: 'desc' } }
+             },
+             orderBy: { reportDate: 'desc' }
+           }
+        }
+      },
       area: { include: { workCenter: true } }
     },
   });
@@ -79,46 +66,31 @@ export const getGesById = async (id: string) => {
 
 export const createGes = async (data: any) => { return await prisma.ges.create({ data }); };
 
-// --- LÓGICA DE SUGERENCIA (Con Logs para verificar) ---
+// --- SUGERENCIAS ---
 const findBatteriesForRisks = async (riskExposures: any[]) => {
   const allBatteries = await prisma.examBattery.findMany();
   let suggestions: any[] = [];
 
-  console.log(`🔎 Analizando ${riskExposures.length} riesgos...`);
-
   for (const riskExp of riskExposures) {
     const riskNameClean = normalizeText(riskExp.riskAgent.name);
     const detailClean = normalizeText(riskExp.specificAgentDetails || '');
-    const fullText = `${riskNameClean} ${detailClean}`; // Ej: "metales manganeso"
+    const fullText = `${riskNameClean} ${detailClean}`;
     
     let matched = false;
-
-    // 1. Búsqueda por Mapa
     for (const [trigger, target] of Object.entries(KEYWORD_MAP)) {
-      if (fullText.includes(trigger)) { // Si el riesgo dice "manganeso"
-        const targetClean = normalizeText(target);
-        // Busca batería que diga "MANGANESO"
-        const bat = allBatteries.find(b => normalizeText(b.name).includes(targetClean));
-        if (bat) { 
-            suggestions.push(bat); 
-            matched = true; 
-            console.log(`   ✅ Match: "${trigger}" -> "${bat.name}"`);
-        }
+      if (fullText.includes(trigger)) {
+        const bat = allBatteries.find(b => normalizeText(b.name).includes(normalizeText(target)));
+        if (bat) { suggestions.push(bat); matched = true; }
       }
     }
-    
-    // 2. Fallback Directo
     if (!matched) {
        const bat = allBatteries.find(b => normalizeText(b.name).includes(riskNameClean));
        if (bat) suggestions.push(bat);
     }
   }
-  
-  // Eliminar duplicados
   return [...new Map(suggestions.map(item => [item['id'], item])).values()];
 };
 
-// 1. SUGERIR POR GES
 export const getSuggestedBatteries = async (gesId: string) => {
   const ges = await prisma.ges.findUnique({
     where: { id: gesId },
@@ -128,7 +100,6 @@ export const getSuggestedBatteries = async (gesId: string) => {
   return findBatteriesForRisks(ges.riskExposures);
 };
 
-// 2. SUGERIR POR ÁREA
 export const getBatteriesByArea = async (areaId: string) => {
   const gesList = await prisma.ges.findMany({
     where: { areaId },
@@ -138,10 +109,14 @@ export const getBatteriesByArea = async (areaId: string) => {
   return findBatteriesForRisks(allRisks);
 };
 
-// Subida reporte (sin cambios)
+// --- SUBIDA REPORTE ---
 export const uploadGesReport = async (gesId: string, fileData: any, meta: any) => {
   const ges = await prisma.ges.findUnique({ where: { id: gesId }, include: { area: { include: { workCenter: true } } } });
   if (!ges) throw new Error("GES no encontrado");
+
+  // Verificar si ya existe un reporte para actualizarlo en lugar de crear otro
+  // (Opcional, pero recomendado para mantener historial limpio en este modelo simple)
+  // Por ahora creamos uno nuevo y actualizamos la referencia.
 
   const report = await prisma.technicalReport.create({
     data: {
@@ -152,8 +127,7 @@ export const uploadGesReport = async (gesId: string, fileData: any, meta: any) =
       gesGroups: { connect: { id: gesId } }
     }
   });
-  
-  // Lógica de vigencia y replicación...
+
   const nextDate = new Date(meta.reportDate);
   nextDate.setFullYear(nextDate.getFullYear() + 3);
 

@@ -1,84 +1,36 @@
-import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { useOrders } from '@/hooks/useOrders';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Badge } from '@/components/ui/Badge';
-import {
-  Activity, Clock, Calendar, CheckCircle2, Building2, FileSpreadsheet, FileText, Upload, AlertTriangle, ArrowRight
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { 
+  Activity, Clock, Calendar, CheckCircle2, FileText, 
+  Building2, FileSpreadsheet, Upload, HeartPulse, AlertTriangle, ArrowRight // <--- AQUÍ ESTABA EL ERROR
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
+import { Badge } from '@/components/ui/badge';
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/Table';
+} from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
-
-  // 1. CARGAR TODOS LOS DATOS
+  
+  // 1. CARGA DE DATOS
   const { data: orders, isLoading: loadingOrders } = useOrders();
-
-  const { data: gesList, isLoading: loadingGes } = useQuery({
-    queryKey: ['all-ges'],
-    queryFn: async () => (await axios.get('/ges')).data,
+  const { data: gesList, isLoading: loadingGes } = useQuery({ queryKey: ['all-ges'], queryFn: async () => (await axios.get('/ges')).data });
+  const { data: companies, isLoading: loadingCompanies } = useQuery({ queryKey: ['all-companies'], queryFn: async () => (await axios.get('/companies')).data });
+  
+  const { data: surveillance, isLoading: loadingSurv } = useQuery({
+    queryKey: ['surveillance'],
+    queryFn: async () => (await axios.get('/analytics/surveillance')).data,
   });
 
-  const { data: companies, isLoading: loadingCompanies } = useQuery({
-    queryKey: ['all-companies'],
-    queryFn: async () => (await axios.get('/companies')).data,
-  });
+  const isLoading = loadingOrders || loadingGes || loadingCompanies || loadingSurv;
 
-  const isLoading = loadingOrders || loadingGes || loadingCompanies;
-
-  // --- ESTADO DE CARGA (SKELETONS) ---
-  if (isLoading) {
-    return (
-      <div className="space-y-8 p-2 animate-pulse">
-        {/* Header Skeleton */}
-        <div className="flex justify-between items-center">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-96" />
-          </div>
-          <Skeleton className="h-10 w-40" />
-        </div>
-
-        {/* KPIs Skeletons */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="p-6 border rounded-xl space-y-3 bg-slate-50/50">
-              <div className="flex justify-between">
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-5 w-5 rounded-full" />
-              </div>
-              <Skeleton className="h-8 w-16" />
-              <Skeleton className="h-3 w-32" />
-            </div>
-          ))}
-        </div>
-
-        <Separator />
-
-        {/* Estructura Central Skeletons */}
-        <div className="grid gap-6 md:grid-cols-2">
-          <Skeleton className="h-48 w-full rounded-xl" />
-          <Skeleton className="h-48 w-full rounded-xl" />
-        </div>
-
-        {/* Tabla Skeleton */}
-        <div className="space-y-4">
-          <Skeleton className="h-8 w-48" />
-          <Skeleton className="h-64 w-full rounded-xl" />
-        </div>
-      </div>
-    );
-  }
-
-  // --- LÓGICA DE DATOS ---
-
-  // A. Órdenes
+  // --- CÁLCULOS ---
   const statsOrders = {
     total: orders?.length || 0,
     pending: orders?.filter((o: any) => o.status === 'SOLICITADO').length || 0,
@@ -86,29 +38,23 @@ export default function DashboardPage() {
     completed: orders?.filter((o: any) => o.status === 'REALIZADO' || o.status === 'CERRADO').length || 0,
   };
 
-  // B. Infraestructura
+  const statsHealth = {
+    total: surveillance?.length || 0,
+    vigentes: surveillance?.filter((s: any) => s.surveillanceStatus === 'VIGENTE').length || 0,
+    porVencer: surveillance?.filter((s: any) => s.surveillanceStatus === 'POR_VENCER').length || 0,
+    vencidos: surveillance?.filter((s: any) => s.surveillanceStatus === 'VENCIDO').length || 0,
+  };
+
+  const healthScore = statsHealth.total > 0 
+    ? Math.round((statsHealth.vigentes / statsHealth.total) * 100) 
+    : 100;
+
   const statsInfra = {
     companies: companies?.length || 0,
     totalGes: gesList?.length || 0,
     totalRisks: gesList?.reduce((acc: number, ges: any) => acc + (ges.riskExposures?.length || 0), 0) || 0
   };
 
-  // C. Cumplimiento Legal
-  const statsLegal = { vigentes: 0, vencidos: 0 };
-  gesList?.forEach((ges: any) => {
-    if (ges.technicalReport && ges.nextEvaluationDate) {
-      if (new Date(ges.nextEvaluationDate) > new Date()) statsLegal.vigentes++;
-      else statsLegal.vencidos++;
-    } else {
-      statsLegal.vencidos++;
-    }
-  });
-
-  const complianceRate = statsInfra.totalGes > 0
-    ? Math.round((statsLegal.vigentes / statsInfra.totalGes) * 100)
-    : 0;
-
-  // D. Actividad Reciente
   const recentOrders = orders?.slice(0, 5) || [];
 
   const getStatusColor = (status: string) => {
@@ -121,14 +67,24 @@ export default function DashboardPage() {
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="space-y-8 p-2 animate-pulse">
+        <div className="flex justify-between"><Skeleton className="h-8 w-64" /><Skeleton className="h-10 w-40" /></div>
+        <div className="grid gap-4 md:grid-cols-4"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div>
+        <div className="grid gap-6 md:grid-cols-2"><Skeleton className="h-64"/><Skeleton className="h-64"/></div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
-
-      {/* ENCABEZADO */}
+      
+      {/* HEADER */}
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-slate-900">Panel de Control</h2>
-          <p className="text-muted-foreground">Bienvenido al <strong>Gestor de Exámenes Ocupacionales (GES)</strong>.</p>
+          <p className="text-muted-foreground">Resumen ejecutivo de gestión HSEC.</p>
         </div>
         <div className="flex gap-2">
           <Button onClick={() => navigate('/dashboard/orders')} className="bg-slate-900">
@@ -137,97 +93,101 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 1. KPIs DE ÓRDENES */}
+      {/* 1. KPIs SUPERIORES */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-l-4 border-l-blue-500 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Solicitudes</CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{statsOrders.total}</div>
-          </CardContent>
+        <Card className="border-l-4 border-l-blue-600 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Solicitudes</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold">{statsOrders.total}</div></CardContent>
         </Card>
-
-        <Card className="border-l-4 border-l-yellow-500 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Pendientes</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-700">{statsOrders.pending}</div>
-          </CardContent>
+        <Card className="border-l-4 border-l-amber-500 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Pendientes</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-amber-700">{statsOrders.pending}</div></CardContent>
         </Card>
-
-        <Card className="border-l-4 border-l-indigo-500 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Agendadas</CardTitle>
-            <Calendar className="h-4 w-4 text-indigo-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-indigo-700">{statsOrders.scheduled}</div>
-          </CardContent>
+        <Card className="border-l-4 border-l-indigo-500 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Agendadas</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-indigo-700">{statsOrders.scheduled}</div></CardContent>
         </Card>
-
-        <Card className="border-l-4 border-l-green-500 shadow-sm hover:shadow-md transition-shadow">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Realizadas</CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-green-600" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-700">{statsOrders.completed}</div>
-          </CardContent>
+        <Card className="border-l-4 border-l-emerald-500 shadow-sm">
+          <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Realizadas</CardTitle></CardHeader>
+          <CardContent><div className="text-2xl font-bold text-emerald-700">{statsOrders.completed}</div></CardContent>
         </Card>
       </div>
 
-      {/* 2. SECCIÓN DE DATOS ESTRUCTURALES */}
+      <Separator />
+
+      {/* 2. SEMÁFORO DE SALUD */}
       <div className="grid gap-6 md:grid-cols-2">
-        <Card className="shadow-sm">
+        
+        <Card className="shadow-md border-emerald-100 bg-gradient-to-br from-white to-emerald-50/30">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Building2 className="h-5 w-5 text-slate-500" /> Estado de la Planta
+            <CardTitle className="flex items-center gap-2 text-emerald-900">
+              <HeartPulse className="h-5 w-5 text-emerald-600" /> Estado de Salud Dotación
             </CardTitle>
-            <CardDescription>Dimensionamiento actual.</CardDescription>
+            <CardDescription>Cumplimiento de exámenes ocupacionales vigentes.</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <div className="text-2xl font-bold text-slate-800">{statsInfra.companies}</div>
-                <div className="text-xs text-muted-foreground uppercase font-semibold mt-1">Empresas</div>
+            <div className="flex items-center justify-between mb-6">
+               <div>
+                 <p className="text-sm font-medium text-slate-600">Cumplimiento Global</p>
+                 <p className={`text-4xl font-extrabold ${healthScore >= 90 ? 'text-emerald-600' : (healthScore >= 70 ? 'text-amber-600' : 'text-red-600')}`}>
+                    {healthScore}%
+                 </p>
+               </div>
+               <div className="relative h-20 w-20 rounded-full border-8 border-slate-100 flex items-center justify-center"
+                    style={{ background: `conic-gradient(${healthScore >= 90 ? '#10b981' : '#f59e0b'} ${healthScore * 3.6}deg, transparent 0deg)` }}>
+                  <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center font-bold text-slate-400">
+                    {healthScore}%
+                  </div>
+               </div>
+            </div>
+            
+            <div className="space-y-3">
+              <div>
+                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-emerald-800">Vigentes</span> <span>{statsHealth.vigentes}</span></div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${(statsHealth.vigentes/statsHealth.total)*100}%` }}></div></div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <div className="text-2xl font-bold text-blue-600">{statsInfra.totalGes}</div>
-                <div className="text-xs text-muted-foreground uppercase font-semibold mt-1">GES Totales</div>
+              <div>
+                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-amber-800">Por Vencer (30 días)</span> <span>{statsHealth.porVencer}</span></div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${(statsHealth.porVencer/statsHealth.total)*100}%` }}></div></div>
               </div>
-              <div className="p-3 bg-slate-50 rounded-lg border">
-                <div className="text-2xl font-bold text-red-600">{statsInfra.totalRisks}</div>
-                <div className="text-xs text-muted-foreground uppercase font-semibold mt-1">Riesgos</div>
+              <div>
+                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-red-800">Vencidos</span> <span>{statsHealth.vencidos}</span></div>
+                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-red-500" style={{ width: `${(statsHealth.vencidos/statsHealth.total)*100}%` }}></div></div>
               </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t">
+                <Button variant="outline" size="sm" className="w-full text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={() => navigate('/dashboard/surveillance')}>
+                    Ver Detalle de Vigilancia <ArrowRight className="ml-2 h-4 w-4"/>
+                </Button>
             </div>
           </CardContent>
         </Card>
 
-        <Card className="shadow-sm border-blue-100 bg-blue-50/30">
+        {/* Tarjeta de Infraestructura */}
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-blue-900">
-              <FileSpreadsheet className="h-5 w-5 text-blue-600" /> Cumplimiento Documental
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Building2 className="h-5 w-5 text-slate-500" /> Mapa de Riesgos
             </CardTitle>
-            <CardDescription>Informes Técnicos Vigentes.</CardDescription>
+            <CardDescription>Cobertura de la planta.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <p className="text-sm font-medium text-slate-600">Índice Global</p>
-                <p className="text-4xl font-extrabold text-slate-900">{complianceRate}%</p>
-              </div>
-              <div className="h-14 w-14 rounded-full border-4 border-white shadow-sm flex items-center justify-center bg-slate-100">
-                <span className="text-2xl">{complianceRate === 100 ? '🌟' : (complianceRate < 50 ? '⚠️' : '👍')}</span>
-              </div>
-            </div>
-            <div className="flex gap-2 text-xs">
-              <span className="px-2 py-1 bg-green-100 text-green-700 rounded font-medium">{statsLegal.vigentes} Vigentes</span>
-              <span className="px-2 py-1 bg-red-100 text-red-700 rounded font-medium">{statsLegal.vencidos} Pendientes</span>
-            </div>
+          <CardContent className="grid grid-cols-2 gap-4">
+             <div className="p-4 bg-slate-50 rounded border text-center">
+                <div className="text-3xl font-bold text-blue-600">{statsInfra.totalGes}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase">Puestos (GES)</div>
+             </div>
+             <div className="p-4 bg-slate-50 rounded border text-center">
+                <div className="text-3xl font-bold text-red-500">{statsInfra.totalRisks}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase">Riesgos Totales</div>
+             </div>
+             <div className="col-span-2 p-4 bg-slate-50 rounded border flex items-center justify-between px-6">
+                <div className="text-left">
+                    <div className="text-2xl font-bold text-slate-800">{statsInfra.companies}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase">Empresas</div>
+                </div>
+                <Building2 className="h-8 w-8 text-slate-300" />
+             </div>
           </CardContent>
         </Card>
       </div>
@@ -237,73 +197,44 @@ export default function DashboardPage() {
       {/* 3. ACTIVIDAD Y ACCESOS */}
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="col-span-4 shadow-sm">
-          <CardHeader>
-            <CardTitle>Actividad Reciente</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Actividad Reciente</CardTitle></CardHeader>
           <CardContent>
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Trabajador</TableHead>
-                  <TableHead>GES</TableHead>
-                  <TableHead>Estado</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Trabajador</TableHead><TableHead>GES</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
               <TableBody>
-                {recentOrders.map((order: any) => (
+                {recentOrders.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-4 text-muted-foreground">Sin actividad.</TableCell></TableRow> :
+                recentOrders.map((order: any) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.worker.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{order.ges.name}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={getStatusColor(order.status)}>
-                        {order.status}
-                      </Badge>
-                    </TableCell>
+                    <TableCell><Badge variant="outline" className={getStatusColor(order.status)}>{order.status}</Badge></TableCell>
                   </TableRow>
                 ))}
-                {recentOrders.length === 0 && (
-                  <TableRow><TableCell colSpan={3} className="text-center py-4 text-muted-foreground">Sin movimientos recientes.</TableCell></TableRow>
-                )}
               </TableBody>
             </Table>
             <div className="mt-4 flex justify-end">
-              <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/orders')} className="text-blue-600 hover:bg-blue-50">
-                Ver historial completo <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+                <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/orders')} className="text-blue-600 hover:bg-blue-50">
+                    Ver historial completo <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
             </div>
           </CardContent>
         </Card>
 
         <Card className="col-span-3 shadow-sm bg-slate-50 border-slate-100">
-          <CardHeader>
-            <CardTitle>Accesos Rápidos</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle>Accesos Rápidos</CardTitle></CardHeader>
           <CardContent className="grid gap-4">
-            <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-blue-50 border-blue-200 shadow-sm" onClick={() => navigate('/dashboard/orders')}>
-              <div className="bg-blue-100 p-2 rounded-full mr-3"><FileText className="h-5 w-5 text-blue-600" /></div>
-              <div className="text-left">
-                <div className="font-semibold text-slate-800">Nueva Solicitud</div>
-                <div className="text-xs text-muted-foreground">Crear orden para trabajador</div>
-              </div>
-            </Button>
-
-            <Button variant="outline" className="h-auto py-4 justify-start bg-white hover:bg-green-50 border-green-200 shadow-sm" onClick={() => navigate('/dashboard/import')}>
-              <div className="bg-green-100 p-2 rounded-full mr-3"><Upload className="h-5 w-5 text-green-600" /></div>
-              <div className="text-left">
-                <div className="font-semibold text-slate-800">Carga Masiva</div>
-                <div className="text-xs text-muted-foreground">Importar Excel de dotación</div>
-              </div>
-            </Button>
-
-            <div className="rounded-md bg-amber-50 p-4 border border-amber-100 flex gap-3 items-start">
-              <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-              <div>
-                <h4 className="text-sm font-semibold text-amber-800">Recordatorio</h4>
-                <p className="text-xs text-amber-700 mt-1">
-                  Mantén actualizados los informes de higiene para evitar multas.
-                </p>
-              </div>
-            </div>
+             <Button variant="outline" className="h-auto py-3 justify-start bg-white hover:bg-blue-50 border-blue-200" onClick={() => navigate('/dashboard/orders')}>
+                <div className="bg-blue-100 p-2 rounded-full mr-3"><FileText className="h-4 w-4 text-blue-600" /></div>
+                <div className="text-left"><div className="font-semibold text-slate-800">Nueva Solicitud</div></div>
+             </Button>
+             <Button variant="outline" className="h-auto py-3 justify-start bg-white hover:bg-emerald-50 border-emerald-200" onClick={() => navigate('/dashboard/surveillance')}>
+                <div className="bg-emerald-100 p-2 rounded-full mr-3"><Activity className="h-4 w-4 text-emerald-600" /></div>
+                <div className="text-left"><div className="font-semibold text-slate-800">Vigilancia Médica</div></div>
+             </Button>
+             <Button variant="outline" className="h-auto py-3 justify-start bg-white hover:bg-purple-50 border-purple-200" onClick={() => navigate('/dashboard/import')}>
+                <div className="bg-purple-100 p-2 rounded-full mr-3"><Upload className="h-4 w-4 text-purple-600" /></div>
+                <div className="text-left"><div className="font-semibold text-slate-800">Carga Masiva</div></div>
+             </Button>
           </CardContent>
         </Card>
       </div>

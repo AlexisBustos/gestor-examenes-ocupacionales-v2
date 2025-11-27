@@ -9,14 +9,16 @@ import {
   LogOut,
   Receipt,
   BookOpen,
-  Users // <--- Icono para Nómina
+  Users,
+  Activity // <--- Icono Nuevo
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet },
+  { name: 'Vigilancia Médica', href: '/dashboard/surveillance', icon: Activity }, // <--- BOTÓN NUEVO
   { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
-  { name: 'Nómina', href: '/dashboard/workers', icon: Users }, // <--- BOTÓN NUEVO
+  { name: 'Nómina', href: '/dashboard/workers', icon: Users },
   { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt },
   { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen },
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },

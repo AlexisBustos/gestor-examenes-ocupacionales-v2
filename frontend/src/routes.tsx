@@ -6,20 +6,18 @@ import { Toaster } from 'sonner';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
-import OrdersPage from '@/pages/OrdersPage'; // <--- CORREGIDO (Estaba en /admin)
 import ImportPage from '@/pages/ImportPage';
+import OrdersPage from '@/pages/OrdersPage'; // <--- CORREGIDO: Estaba en /admin
 
-// PÁGINAS ADMINISTRATIVAS (En la carpeta /admin)
+// PÁGINAS ADMINISTRATIVAS (En carpeta /admin)
 import CompaniesPage from '@/pages/admin/CompaniesPage';
+import WorkersPage from '@/pages/admin/WorkersPage';
 import CostCentersPage from '@/pages/admin/CostCentersPage';
 import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
-import WorkersPage from '@/pages/admin/WorkersPage';
+import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage'; // <--- NUEVA
 
 const AppLayout = () => (
-  <AuthProvider>
-    <Toaster position="top-center" />
-    <Outlet />
-  </AuthProvider>
+  <AuthProvider><Toaster position="top-center" /><Outlet /></AuthProvider>
 );
 
 const ProtectedRoute = () => {
@@ -44,13 +42,14 @@ export const router = createBrowserRouter([
               
               // Operación
               { path: 'orders', element: <OrdersPage /> },
+              { path: 'surveillance', element: <MedicalSurveillancePage /> }, // <--- CONECTADO
               { path: 'import', element: <ImportPage /> },
-              
+
               // Administración
               { path: 'companies', element: <CompaniesPage /> },
+              { path: 'workers', element: <WorkersPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
               { path: 'risks-library', element: <RisksLibraryPage /> },
-              { path: 'workers', element: <WorkersPage /> },
             ],
           },
         ],

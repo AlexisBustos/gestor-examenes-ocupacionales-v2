@@ -4,15 +4,16 @@ import authRouter from './modules/auth/auth.routes';
 import { companiesRouter } from './modules/companies/companies.routes';
 import { workCentersRouter } from './modules/work-centers/work-centers.routes';
 import { areasRouter } from './modules/areas/areas.routes';
+
+// 👇 CORRECCIONES DE IMPORTACIÓN (Algunos son default, otros no)
+import gesRouter from './modules/ges/ges.routes'; 
 import ordersRouter from './modules/orders/orders.routes';
 import importRouter from './modules/import/import.routes';
 import costCentersRouter from './modules/finance/cost-centers.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import risksRouter from './modules/risks/risks.routes';
 import workersRouter from './modules/workers/workers.routes';
-
-// 👇 AQUÍ ESTÁ LA CORRECCIÓN (Sin llaves)
-import gesRouter from './modules/ges/ges.routes'; 
+import analyticsRouter from './modules/analytics/analytics.routes'; // <--- NUEVO DE VIGILANCIA
 
 const router = Router();
 
@@ -21,6 +22,8 @@ router.use('/auth', authRouter);
 router.use('/companies', companiesRouter);
 router.use('/work-centers', workCentersRouter);
 router.use('/areas', areasRouter);
+
+// Conexiones
 router.use('/ges', gesRouter);
 router.use('/orders', ordersRouter);
 router.use('/import', importRouter);
@@ -28,5 +31,6 @@ router.use('/cost-centers', costCentersRouter);
 router.use('/reports', reportsRouter);
 router.use('/risks', risksRouter);
 router.use('/workers', workersRouter);
+router.use('/analytics', analyticsRouter);
 
 export default router;
