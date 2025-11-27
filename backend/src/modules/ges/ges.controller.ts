@@ -1,45 +1,42 @@
 import { Request, Response } from 'express';
-import { getAllGes, getGesById, createGes, uploadGesReport, getSuggestedBatteries } from './ges.service';
+import { getAllGes, getGesById, createGes, uploadGesReport, getSuggestedBatteries, getBatteriesByArea } from './ges.service';
 
 export const list = async (req: Request, res: Response) => {
   try {
-    // 👇 AQUÍ CAPTURAMOS EL FILTRO
     const { areaId } = req.query;
     const gesList = await getAllGes(areaId as string);
     res.json(gesList);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al listar GES' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error al listar GES' }); }
 };
 
 export const getOne = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const ges = await getGesById(id);
+    const ges = await getGesById(req.params.id);
     if (!ges) return res.status(404).json({ error: 'GES no encontrado' });
     res.json(ges);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al obtener GES' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error al obtener GES' }); }
 };
 
 export const getSuggestions = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const suggestions = await getSuggestedBatteries(id);
+    const suggestions = await getSuggestedBatteries(req.params.id);
     res.json(suggestions);
-  } catch (error) {
-    res.status(500).json({ error: 'Error obteniendo sugerencias' });
-  }
+  } catch (error) { res.status(500).json({ error: 'Error sugerencias GES' }); }
+};
+
+// 👇 NUEVO: SUGERENCIAS POR ÁREA
+export const getAreaSuggestions = async (req: Request, res: Response) => {
+  try {
+    const suggestions = await getBatteriesByArea(req.params.id);
+    res.json(suggestions);
+  } catch (error) { res.status(500).json({ error: 'Error sugerencias Área' }); }
 };
 
 export const create = async (req: Request, res: Response) => {
   try {
     const ges = await createGes(req.body);
     res.status(201).json(ges);
-  } catch (error) {
-    res.status(400).json({ error: 'Error al crear GES' });
-  }
+  } catch (error) { res.status(400).json({ error: 'Error al crear GES' }); }
 };
 
 export const uploadReport = async (req: Request, res: Response) => {
@@ -47,16 +44,9 @@ export const uploadReport = async (req: Request, res: Response) => {
     const { id } = req.params;
     const file = req.file;
     const { reportDate, reportNumber, applyToArea } = req.body;
+    if (!file) return res.status(400).json({ error: 'Falta archivo' });
 
-    if (!file) return res.status(400).json({ error: 'No se subió ningún archivo PDF' });
-    if (!reportDate || !reportNumber) return res.status(400).json({ error: 'Faltan datos del informe' });
-
-    const shouldApplyToArea = applyToArea === 'true';
-    const result = await uploadGesReport(id, { path: file.path, filename: file.filename }, { reportDate, reportNumber, applyToArea: shouldApplyToArea });
-
+    const result = await uploadGesReport(id, { path: file.path, filename: file.filename }, { reportDate, reportNumber, applyToArea: applyToArea === 'true' });
     res.json(result);
-  } catch (error: any) {
-    console.error("Error subiendo reporte:", error);
-    res.status(500).json({ error: 'Error al subir informe', details: error.message });
-  }
+  } catch (error: any) { res.status(500).json({ error: 'Error subir reporte' }); }
 };

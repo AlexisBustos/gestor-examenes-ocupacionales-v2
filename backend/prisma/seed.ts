@@ -1,44 +1,61 @@
-import { PrismaClient, EvaluationType, UserRole, OrderStatus } from '@prisma/client';
+import { PrismaClient, EvaluationType, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
+// NOMBRES ESTANDARIZADOS (EN MAYÚSCULAS PARA FACILITAR MATCH)
 const PROTOCOLOS = [
-  { agente: "Ruido", bateria: "Protocolo RUIDO (Prexor)", examenes: ["Encuesta de salud", "Audiometría"] },
-  { agente: "Sílice", bateria: "Protocolo SÍLICE", examenes: ["Espirometría", "Rx Tórax"] },
-  { agente: "Solventes", bateria: "Protocolo SOLVENTES", examenes: ["Hemograma", "Perfil Hepático"] },
-  { agente: "Estrés Térmico Calor", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Creatinina", "Electrolitos"] },
+  // --- RUIDO ---
+  { agente: "Ruido", bateria: "Protocolo RUIDO (Prexor)", examenes: ["Audiometría", "Consulta médica"] },
+  
+  // --- SÍLICE ---
+  { agente: "Sílice", bateria: "Protocolo SÍLICE (Planesi)", examenes: ["Espirometría", "Rx Tórax", "Encuesta Salud"] },
+
+  // --- SOLVENTES (Específicos y General) ---
+  { agente: "Tolueno", bateria: "Protocolo SOLVENTES - TOLUENO", examenes: ["Orina Tolueno", "Hemograma"] },
+  { agente: "Xileno", bateria: "Protocolo SOLVENTES - XILENO", examenes: ["Ácido Metilhipúrico", "Hemograma"] },
+  { agente: "Hexano", bateria: "Protocolo SOLVENTES - HEXANO", examenes: ["2,5 Hexanodiona", "Perfil Hepático"] },
+  { agente: "Solventes", bateria: "Protocolo SOLVENTES (General)", examenes: ["Perfil Hepático", "Hemograma"] },
+  
+  // --- METALES (Específicos y General) ---
+  { agente: "Manganeso", bateria: "Protocolo METALES - MANGANESO", examenes: ["Manganeso Orina", "Evaluación Neurológica", "Hemograma"] },
+  { agente: "Plomo", bateria: "Protocolo METALES - PLOMO", examenes: ["Plomo Sangre", "Hemoglobina", "Creatinina"] },
+  { agente: "Arsénico", bateria: "Protocolo METALES - ARSÉNICO", examenes: ["Arsénico Orina", "Examen Físico"] },
+  { agente: "Cromo", bateria: "Protocolo METALES - CROMO", examenes: ["Cromo Orina", "Espirometría"] },
+  // Hierro y Humos van a la genérica
+  { agente: "Humos Metálicos", bateria: "Protocolo HUMOS METÁLICOS", examenes: ["Espirometría", "Rx Tórax"] },
+
+  // --- OTROS ---
+  { agente: "Vibraciones", bateria: "Protocolo VIBRACIONES", examenes: ["Rx Columna", "Eval. Musculoesquelética"] },
+  { agente: "Radiación UV", bateria: "Protocolo RADIACIÓN UV SOLAR", examenes: ["Eval. Piel", "Oftalmología"] },
+  { agente: "Estrés Térmico", bateria: "Protocolo ESTRÉS TÉRMICO", examenes: ["Creatinina", "Electrolitos"] },
+  { agente: "Plaguicidas", bateria: "Protocolo PLAGUICIDAS", examenes: ["Colinesterasa", "Hemograma"] },
+  { agente: "Altura Física", bateria: "Protocolo ALTURA FÍSICA", examenes: ["Glicemia", "ECG", "Visiometría"] },
+  { agente: "Altura Geográfica", bateria: "Protocolo ALTURA GEOGRÁFICA", examenes: ["Glicemia", "ECG", "Hemoglobina"] },
 ];
 
 async function main() {
-  console.log('🌱 Restaurando sistema...');
+  console.log('🌱 Re-calibrando Base de Datos Médica...');
 
-  // 1. LIMPIEZA
+  // Limpieza de baterías para evitar duplicados viejos
   try {
-    await prisma.orderBattery.deleteMany();
-    await prisma.examOrder.deleteMany();
-    await prisma.riskExposure.deleteMany();
-    await prisma.batteryExam.deleteMany();
-    await prisma.examBattery.deleteMany();
-    await prisma.worker.deleteMany();
-    await prisma.ges.deleteMany();
-    await prisma.area.deleteMany();
-    await prisma.workCenter.deleteMany();
-    // No borramos user/company para usar upsert
-  } catch (e) { console.log('Limpieza parcial.'); }
+      await prisma.orderBattery.deleteMany(); // Limpiamos referencias en órdenes
+      await prisma.batteryExam.deleteMany();
+      await prisma.examBattery.deleteMany();
+      // No borramos empresas ni trabajadores
+  } catch(e) {}
 
-  // 2. ADMIN
+  // Asegurar Admin
   const hashedPassword = await bcrypt.hash('123456', 10);
   await prisma.user.upsert({
     where: { email: 'admin@vitam.cl' },
-    update: { password: hashedPassword, role: UserRole.ADMIN_VITAM },
-    create: { email: 'admin@vitam.cl', password: hashedPassword, name: 'Admin', role: UserRole.ADMIN_VITAM },
+    update: {},
+    create: { email: 'admin@vitam.cl', password: hashedPassword, name: 'Admin', role: UserRole.ADMIN_VITAM }
   });
-  console.log('👤 Admin restaurado.');
 
-  // 3. PROTOCOLOS
-  let bateriaEjemploId = '';
+  // Cargar Protocolos
   for (const proto of PROTOCOLOS) {
+    // Upsert del riesgo (si no existe lo crea)
     await prisma.riskAgent.upsert({ where: { name: proto.agente }, update: {}, create: { name: proto.agente } });
     
     const examIds = [];
@@ -47,72 +64,17 @@ async function main() {
       examIds.push(ex.id);
     }
 
-    const bat = await prisma.examBattery.findFirst({ where: { name: proto.bateria } });
-    if (!bat) {
-      const newBat = await prisma.examBattery.create({
-        data: {
-          name: proto.bateria,
-          evaluationType: EvaluationType.OCUPACIONAL,
-          batteryExams: { create: examIds.map(id => ({ medicalExamId: id })) }
-        }
-      });
-      bateriaEjemploId = newBat.id;
-    } else {
-      bateriaEjemploId = bat.id;
-    }
+    // Crear Batería
+    await prisma.examBattery.create({
+      data: {
+        name: proto.bateria,
+        evaluationType: EvaluationType.OCUPACIONAL,
+        batteryExams: { create: examIds.map(id => ({ medicalExamId: id })) }
+      }
+    });
   }
 
-  // 4. EMPRESA BASE Y ESTRUCTURA (Necesario para la orden)
-  const company = await prisma.company.upsert({
-    where: { rut: '99.999.999-9' },
-    update: {},
-    create: { rut: '99.999.999-9', name: 'EMPRESA DEMO', contactEmail: 'demo@vitam.cl' }
-  });
-
-  const workCenter = await prisma.workCenter.create({
-    data: { name: 'Centro Base', companyId: company.id }
-  });
-
-  const area = await prisma.area.create({
-    data: { name: 'Area Base', workCenterId: workCenter.id }
-  });
-
-  // 👇 CREAMOS UN GES DE PRUEBA (Obligatorio para la orden)
-  const ges = await prisma.ges.create({
-    data: {
-      name: 'GES PRUEBA',
-      reportDate: new Date(),
-      reportNumber: '001',
-      menCount: 1,
-      womenCount: 0,
-      areaId: area.id
-    }
-  });
-
-  // 5. CREAR ORDEN DE PRUEBA
-  const worker = await prisma.worker.upsert({
-    where: { rut: '11.222.333-4' },
-    update: {},
-    create: { rut: '11.222.333-4', name: 'Trabajador Prueba', companyId: company.id }
-  });
-
-  await prisma.examOrder.create({
-    data: {
-      workerId: worker.id,
-      companyId: company.id,
-      gesId: ges.id, // <--- AHORA SÍ LO TENEMOS
-      status: 'AGENDADO',
-      scheduledAt: new Date(),
-      providerName: 'ACHS',
-      orderBatteries: {
-        create: [
-            { batteryId: bateriaEjemploId, status: 'PENDIENTE' }
-        ]
-      }
-    }
-  });
-
-  console.log('✅ Sistema actualizado y datos de prueba creados.');
+  console.log('✅ Baterías Específicas Cargadas.');
 }
 
-main().catch(e => { console.error(e); process.exit(1); }).finally(async () => { await prisma.$disconnect(); });
+main().catch(e => process.exit(1)).finally(async () => await prisma.$disconnect());

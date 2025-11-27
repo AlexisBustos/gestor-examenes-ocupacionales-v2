@@ -4,13 +4,15 @@ import authRouter from './modules/auth/auth.routes';
 import { companiesRouter } from './modules/companies/companies.routes';
 import { workCentersRouter } from './modules/work-centers/work-centers.routes';
 import { areasRouter } from './modules/areas/areas.routes';
-import { gesRouter } from './modules/ges/ges.routes';
 import ordersRouter from './modules/orders/orders.routes';
 import importRouter from './modules/import/import.routes';
 import costCentersRouter from './modules/finance/cost-centers.routes';
 import reportsRouter from './modules/reports/reports.routes';
 import risksRouter from './modules/risks/risks.routes';
-import workersRouter from './modules/workers/workers.routes'; // <--- NUEVO
+import workersRouter from './modules/workers/workers.routes';
+
+// 👇 AQUÍ ESTÁ LA CORRECCIÓN (Sin llaves)
+import gesRouter from './modules/ges/ges.routes'; 
 
 const router = Router();
 
@@ -25,6 +27,6 @@ router.use('/import', importRouter);
 router.use('/cost-centers', costCentersRouter);
 router.use('/reports', reportsRouter);
 router.use('/risks', risksRouter);
-router.use('/workers', workersRouter); // <--- CONECTADO
+router.use('/workers', workersRouter);
 
 export default router;
