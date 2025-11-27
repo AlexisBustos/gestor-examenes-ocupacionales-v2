@@ -8,13 +8,15 @@ import {
   Upload,
   LogOut,
   Receipt,
-  BookOpen
+  BookOpen,
+  Users // <--- Icono para Nómina
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet },
   { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
+  { name: 'Nómina', href: '/dashboard/workers', icon: Users }, // <--- BOTÓN NUEVO
   { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt },
   { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen },
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
@@ -26,7 +28,7 @@ export function Sidebar() {
   return (
     <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl">
       
-      {/* 1. HEADER (Fondo Blanco para que destaque el Logo) */}
+      {/* HEADER */}
       <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
         <img 
           src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
@@ -43,7 +45,7 @@ export function Sidebar() {
         </span>
       </div>
 
-      {/* 2. USUARIO (Fondo Oscuro Corporativo) */}
+      {/* USUARIO */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-slate-700">
@@ -56,7 +58,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* 3. NAVEGACIÓN */}
+      {/* NAVEGACIÓN */}
       <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto">
         {navigation.map((item) => (
           <NavLink
@@ -67,23 +69,18 @@ export function Sidebar() {
               cn(
                 "group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
                 isActive
-                  ? "bg-blue-600 text-white shadow-lg translate-x-1" // Activo: Azul Vitam
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1" // Inactivo: Gris a Blanco
+                  ? "bg-blue-600 text-white shadow-lg translate-x-1"
+                  : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1"
               )
             }
           >
-            <item.icon
-              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors", 
-                 // El icono hereda el color del texto
-              )}
-              aria-hidden="true"
-            />
+            <item.icon className="mr-3 h-5 w-5 flex-shrink-0 transition-colors" aria-hidden="true" />
             {item.name}
           </NavLink>
         ))}
       </nav>
 
-      {/* 4. LOGOUT */}
+      {/* LOGOUT */}
       <div className="p-4 border-t border-slate-800 bg-slate-900">
         <button
           onClick={logout}

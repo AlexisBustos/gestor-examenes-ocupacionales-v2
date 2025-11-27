@@ -4,7 +4,7 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { 
-  User, FileText, Calendar, Activity, AlertTriangle, CheckCircle2, AlertCircle 
+  User, FileText, Calendar, Activity, AlertTriangle, CheckCircle2, AlertCircle, XCircle
 } from 'lucide-react';
 import type { Order } from '@/types/order.types';
 
@@ -23,9 +23,9 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
   };
 
   const getResultColor = (status: string) => {
-      if (status === 'APTO') return 'bg-green-100 text-green-800';
-      if (status === 'NO_APTO') return 'bg-red-100 text-red-800';
-      if (status === 'APTO_CON_OBSERVACIONES') return 'bg-yellow-100 text-yellow-800';
+      if (status === 'APTO') return 'bg-green-100 text-green-800 hover:bg-green-200';
+      if (status === 'NO_APTO') return 'bg-red-100 text-red-800 hover:bg-red-200';
+      if (status === 'APTO_CON_OBSERVACIONES') return 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200';
       return 'bg-slate-100 text-slate-600';
   };
 
@@ -41,12 +41,31 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
         </SheetHeader>
 
         <div className="space-y-6">
-          {/* 1. TRABAJADOR */}
+          
+          {/* 1. INFORMACIÓN DEL PUESTO (GES) - DESTACADO */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+             <div className="flex items-start gap-3">
+                <div className="p-2 bg-blue-100 rounded-full text-blue-700 mt-1">
+                    <FileText className="h-5 w-5" />
+                </div>
+                <div>
+                    <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider">Grupo de Exposición Similar (GES)</h4>
+                    <p className="text-lg font-bold text-slate-900 leading-tight mt-1">
+                        {order.ges?.name || 'GES No Asignado'}
+                    </p>
+                    <div className="text-xs text-slate-600 mt-2">
+                        <strong>Riesgos Asociados:</strong> {order.ges?.riskExposures?.map(r => r.riskAgent.name).join(', ') || 'Sin riesgos'}
+                    </div>
+                </div>
+             </div>
+          </div>
+
+          {/* 2. TRABAJADOR */}
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <User className="h-4 w-4" /> Trabajador
             </h3>
-            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg">
+            <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg border">
               <div><span className="text-xs text-muted-foreground block">Nombre</span><span className="font-medium">{order.worker.name}</span></div>
               <div><span className="text-xs text-muted-foreground block">RUT</span><span className="font-mono">{order.worker.rut}</span></div>
               <div><span className="text-xs text-muted-foreground block">Cargo</span><span>{order.worker.position || '-'}</span></div>
@@ -56,84 +75,54 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
 
           <Separator />
 
-          {/* 2. RIESGOS */}
-          <section className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4" /> Riesgos del Puesto
-            </h3>
-            <div className="border rounded-lg divide-y">
-              {!order.ges.riskExposures || order.ges.riskExposures.length === 0 ? (
-                <div className="p-3 text-sm text-muted-foreground">Sin riesgos registrados</div>
-              ) : (
-                order.ges.riskExposures.map((risk, idx) => (
-                  <div key={idx} className="p-3 flex flex-col gap-1">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-red-700">{risk.riskAgent.name}</span>
-                      {risk.exposureType && <Badge variant="outline" className="text-xs">{risk.exposureType}</Badge>}
-                    </div>
-                    {risk.specificAgentDetails && (
-                      <div className="text-sm text-slate-600">
-                        <span className="text-xs text-muted-foreground">Detalle:</span> {risk.specificAgentDetails}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          {/* 3. RESULTADOS POR BATERÍA (AQUÍ ESTABA EL ERROR) */}
+          {/* 3. RESULTADOS / BATERÍAS (Tabla Detallada) */}
           <section className="space-y-3">
              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Activity className="h-4 w-4" /> Baterías y Resultados
+              <Activity className="h-4 w-4" /> Resultados Clínicos
             </h3>
-            <div className="flex flex-col gap-2">
-                {order.orderBatteries && order.orderBatteries.length > 0 ? (
+            
+            <div className="space-y-3">
+                {/* Usamos orderBatteries (nuevo) o examBatteries (viejo fallback) */}
+                {(order.orderBatteries && order.orderBatteries.length > 0) ? (
                     order.orderBatteries.map(ob => (
                         <div key={ob.id} className="flex flex-col gap-2 bg-white border p-3 rounded-md shadow-sm">
                             <div className="flex justify-between items-start">
                                 <div className="flex items-center gap-2 font-medium text-slate-800">
-                                    <CheckCircle2 className="h-4 w-4 text-blue-600" />
-                                    {ob.battery?.name || 'Batería Desconocida'}
+                                    {ob.status === 'APTO' ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : 
+                                     ob.status === 'NO_APTO' ? <XCircle className="h-4 w-4 text-red-600" /> :
+                                     <AlertCircle className="h-4 w-4 text-slate-400" />}
+                                    {ob.battery?.name || 'Batería'}
                                 </div>
-                                <Badge className={getResultColor(ob.status)}>{ob.status.replace('_', ' ')}</Badge>
+                                <Badge className={getResultColor(ob.status)}>{ob.status.replace(/_/g, ' ')}</Badge>
                             </div>
                             {ob.expirationDate && (
-                                <div className="text-xs text-muted-foreground flex gap-1 ml-6">
-                                    <AlertCircle className="h-3 w-3" />
-                                    Vence el: <span className="font-mono">{formatDate(ob.expirationDate)}</span>
+                                <div className="text-xs text-muted-foreground flex gap-1 ml-6 bg-slate-50 px-2 py-1 rounded w-fit">
+                                    <Calendar className="h-3 w-3" />
+                                    Vencimiento: <span className="font-mono font-bold text-slate-700">{new Date(ob.expirationDate).toLocaleDateString()}</span>
                                 </div>
                             )}
                         </div>
                     ))
                 ) : (
-                    // FALLBACK: Si es una orden antigua sin OrderBattery, intentamos mostrar examBatteries
-                    order.examBatteries && order.examBatteries.length > 0 ? (
-                        order.examBatteries.map(bat => (
-                            <div key={bat.id} className="bg-slate-50 p-3 rounded border text-sm text-slate-600">{bat.name}</div>
-                        ))
-                    ) : (
-                        <div className="text-sm text-muted-foreground italic">Sin baterías asignadas</div>
-                    )
+                    order.examBatteries?.map(bat => (
+                        <div key={bat.id} className="bg-slate-50 p-3 rounded border text-sm text-slate-600 flex justify-between">
+                            {bat.name}
+                            <Badge variant="outline">Sin resultado</Badge>
+                        </div>
+                    )) || <div className="text-sm italic text-muted-foreground">Sin información.</div>
                 )}
             </div>
           </section>
 
-          {/* 4. AGENDAMIENTO */}
+          {/* 4. CITA */}
           {order.scheduledAt && (
             <section className="space-y-3 pt-4 border-t">
                 <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <Calendar className="h-4 w-4" /> Cita Agendada
+                  <Calendar className="h-4 w-4" /> Agenda
                 </h3>
                 <div className="bg-slate-100 p-4 rounded-lg flex justify-between items-center border border-slate-200">
-                   <div>
-                     <div className="text-xs text-muted-foreground">Fecha y Hora</div>
-                     <div className="font-medium text-slate-900">{formatDate(order.scheduledAt)}</div>
-                   </div>
-                   <div className="text-right">
-                     <div className="text-xs text-muted-foreground">Proveedor</div>
-                     <div className="font-medium text-slate-900">{order.providerName || 'No especificado'}</div>
-                   </div>
+                   <div><div className="text-xs text-muted-foreground">Fecha</div><div className="font-medium">{formatDate(order.scheduledAt)}</div></div>
+                   <div className="text-right"><div className="text-xs text-muted-foreground">Proveedor</div><div className="font-medium">{order.providerName}</div></div>
                 </div>
             </section>
           )}

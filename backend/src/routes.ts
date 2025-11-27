@@ -9,7 +9,8 @@ import ordersRouter from './modules/orders/orders.routes';
 import importRouter from './modules/import/import.routes';
 import costCentersRouter from './modules/finance/cost-centers.routes';
 import reportsRouter from './modules/reports/reports.routes';
-import risksRouter from './modules/risks/risks.routes'; // <--- NUEVO
+import risksRouter from './modules/risks/risks.routes';
+import workersRouter from './modules/workers/workers.routes'; // <--- NUEVO
 
 const router = Router();
 
@@ -23,6 +24,7 @@ router.use('/orders', ordersRouter);
 router.use('/import', importRouter);
 router.use('/cost-centers', costCentersRouter);
 router.use('/reports', reportsRouter);
-router.use('/risks', risksRouter); // <--- CONECTADO
+router.use('/risks', risksRouter);
+router.use('/workers', workersRouter); // <--- CONECTADO
 
 export default router;

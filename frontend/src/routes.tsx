@@ -2,22 +2,24 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 
-// PÁGINAS
+// PÁGINAS GENERALES
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
+import OrdersPage from '@/pages/OrdersPage'; // <--- CORREGIDO (Estaba en /admin)
 import ImportPage from '@/pages/ImportPage';
 
-// 👇 AQUÍ ESTABA LA CONFUSIÓN DE RUTAS. ASÍ ES COMO DEBE QUEDAR:
-// Asumimos que estas páginas están en 'pages/admin' si las moviste ahí, 
-// o en 'pages' si no. Ajusta si te sale error rojo.
-import OrdersPage from '@/pages/OrdersPage'; 
+// PÁGINAS ADMINISTRATIVAS (En la carpeta /admin)
 import CompaniesPage from '@/pages/admin/CompaniesPage';
-import CostCentersPage from '@/pages/admin/CostCentersPage'; 
-import RisksLibraryPage from '@/pages/admin/RisksLibraryPage'; 
+import CostCentersPage from '@/pages/admin/CostCentersPage';
+import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
+import WorkersPage from '@/pages/admin/WorkersPage';
 
 const AppLayout = () => (
-  <AuthProvider><Toaster position="top-center" /><Outlet /></AuthProvider>
+  <AuthProvider>
+    <Toaster position="top-center" />
+    <Outlet />
+  </AuthProvider>
 );
 
 const ProtectedRoute = () => {
@@ -39,11 +41,16 @@ export const router = createBrowserRouter([
             element: <DashboardLayout />,
             children: [
               { index: true, element: <DashboardPage /> },
+              
+              // Operación
               { path: 'orders', element: <OrdersPage /> },
-              { path: 'companies', element: <CompaniesPage /> },
               { path: 'import', element: <ImportPage /> },
+              
+              // Administración
+              { path: 'companies', element: <CompaniesPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
               { path: 'risks-library', element: <RisksLibraryPage /> },
+              { path: 'workers', element: <WorkersPage /> },
             ],
           },
         ],

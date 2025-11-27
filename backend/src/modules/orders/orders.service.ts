@@ -2,29 +2,24 @@ import { PrismaClient, Prisma } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- 1. HERRAMIENTAS DE LIMPIEZA ---
+// --- HERRAMIENTAS DE INTELIGENCIA ---
 const normalizeText = (text: string) => {
-  return text
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .trim();
+  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
 
-// --- 2. DICCIONARIO DE INTELIGENCIA ---
 const KEYWORD_MAP: Record<string, string> = {
   'calor': 'ESTRÉS', 'termico': 'ESTRÉS', 'frio': 'ESTRÉS', 'estres': 'ESTRÉS',
-  'tolueno': 'TOLUENO', 'xileno': 'XILENO', 'hexano': 'HEXANO', 'metiletilcetona': 'METILETILCETONA',
-  'solvente': 'SOLVENTES', 'plaguicida': 'PLAGUICIDAS', 'citostatico': 'CITOSTÁTICOS',
-  'silice': 'SÍLICE', 'polvo': 'SÍLICE', 'neumo': 'SÍLICE', 'cristalizada': 'SÍLICE',
-  'ruido': 'RUIDO', 'prexor': 'RUIDO', 'sordera': 'RUIDO', 'vibracion': 'VIBRACIONES',
-  'radiacion': 'RADIACIONES', 'ionizante': 'RADIACIONES', 'uv': 'UV',
-  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'arsenico': 'ARSÉNICO', 'cromo': 'CROMO', 'mercurio': 'MERCURIO',
+  'ruido': 'RUIDO', 'prexor': 'RUIDO', 'sordera': 'RUIDO',
+  'silice': 'SÍLICE', 'polvo': 'SÍLICE', 'neumo': 'SÍLICE',
+  'plaguicida': 'PLAGUICIDAS', 'citostatico': 'CITOSTÁTICOS',
+  'solvente': 'SOLVENTES', 'tolueno': 'TOLUENO', 'xileno': 'XILENO', 'hexano': 'HEXANO',
   'metal': 'METALES', 'humo': 'HUMOS', 'soldad': 'HUMOS',
-  'geografica': 'GEOGRÁFICA', 'fisica': 'FÍSICA', 'altura': 'ALTURA',
-  'asma': 'ASMA'
+  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'arsenico': 'ARSÉNICO', 'cromo': 'CROMO',
+  'vibracion': 'VIBRACIONES', 'altura': 'ALTURA',
+  'radiacion': 'RADIACIONES', 'ionizante': 'RADIACIONES', 'uv': 'UV', 'asma': 'ASMA'
 };
 
-// OBTENER ÓRDENES (Corrección Crítica Aquí)
+// 1. OBTENER ÓRDENES (CORREGIDO PARA LA NUEVA BD)
 export const getAllOrders = async (status?: string) => {
   const where: Prisma.ExamOrderWhereInput = status ? { status: status as any } : {};
   
@@ -34,21 +29,21 @@ export const getAllOrders = async (status?: string) => {
     include: {
       worker: true,
       company: true,
-      // 👇 ESTO ES LO QUE FALTABA O ESTABA MAL
-      orderBatteries: {
-        include: { battery: true } // Traer el nombre de la batería
-      },
       ges: {
         include: {
           riskExposures: { include: { riskAgent: true } },
           technicalReport: true
         }
       },
+      // 👇 ESTO ES LO NUEVO: Traer las baterías desde la tabla intermedia
+      orderBatteries: {
+        include: { battery: true }
+      }
     },
   });
 };
 
-// CREAR ORDEN
+// 2. CREAR ORDEN
 export const createOrder = async (data: {
   worker: { rut: string; name: string; phone?: string; position?: string };
   gesId: string;
@@ -59,20 +54,8 @@ export const createOrder = async (data: {
   
   const worker = await prisma.worker.upsert({
     where: { rut: data.worker.rut },
-    update: {
-      name: data.worker.name,
-      phone: data.worker.phone || undefined,
-      position: data.worker.position || undefined,
-      currentGesId: data.gesId,
-    },
-    create: {
-      rut: data.worker.rut,
-      name: data.worker.name,
-      phone: data.worker.phone,
-      position: data.worker.position || 'Sin Cargo',
-      companyId: data.companyId,
-      currentGesId: data.gesId,
-    },
+    update: { name: data.worker.name, currentGesId: data.gesId },
+    create: { rut: data.worker.rut, name: data.worker.name, companyId: data.companyId, currentGesId: data.gesId }
   });
 
   const ges = await prisma.ges.findUnique({
@@ -114,7 +97,7 @@ export const createOrder = async (data: {
       workerId: worker.id,
       companyId: data.companyId,
       gesId: data.gesId,
-      // Creamos los registros en la tabla intermedia
+      // 👇 CREAR EN TABLA INTERMEDIA
       orderBatteries: {
           create: batteriesToConnect.map(b => ({
               batteryId: b.id,
@@ -125,6 +108,7 @@ export const createOrder = async (data: {
   });
 };
 
+// 3. ACTUALIZAR ESTADO GENERAL
 export const updateOrderStatus = async (id: string, status: string, scheduledAt?: string, providerName?: string, externalId?: string) => {
   return await prisma.examOrder.update({
     where: { id },
@@ -132,6 +116,7 @@ export const updateOrderStatus = async (id: string, status: string, scheduledAt?
   });
 };
 
+// 4. ACTUALIZAR RESULTADO BATERÍA
 export const updateBatteryResult = async (orderBatteryId: string, status: string, expirationDate?: string) => {
     return await prisma.orderBattery.update({
       where: { id: orderBatteryId },

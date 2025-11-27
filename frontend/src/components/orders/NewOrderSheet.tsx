@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, CheckCircle2, AlertTriangle, FileText } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, FileText, UserCheck, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Tipos
@@ -36,7 +36,13 @@ interface Props { open: boolean; onOpenChange: (o: boolean) => void; }
 
 export function NewOrderSheet({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
-  const form = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: { evaluationType: 'OCUPACIONAL', rut: '', name: '', position: '', phone: '' } });
+  const [workerStatus, setWorkerStatus] = useState<'idle' | 'found' | 'not-found'>('idle');
+  const [isCheckingWorker, setIsCheckingWorker] = useState(false);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: { evaluationType: 'OCUPACIONAL', rut: '', name: '', position: '', phone: '' }
+  });
 
   const selectedCompanyId = form.watch('companyId');
   const selectedWorkCenterId = form.watch('workCenterId');
@@ -44,9 +50,9 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
   const selectedGesId = form.watch('gesId');
 
   const { data: companies } = useQuery<any[]>({ queryKey: ['companies'], queryFn: async () => (await axios.get('/companies')).data, enabled: open });
-  const { data: workCenters } = useQuery<any[]>({ queryKey: ['work-centers', selectedCompanyId], queryFn: async () => { if(!selectedCompanyId) return []; return (await axios.get(`/work-centers?companyId=${selectedCompanyId}`)).data; }, enabled: !!selectedCompanyId });
-  const { data: areas } = useQuery<any[]>({ queryKey: ['areas', selectedWorkCenterId], queryFn: async () => { if(!selectedWorkCenterId) return []; return (await axios.get(`/areas?workCenterId=${selectedWorkCenterId}`)).data; }, enabled: !!selectedWorkCenterId });
-  
+  const { data: workCenters } = useQuery<any[]>({ queryKey: ['work-centers', selectedCompanyId], queryFn: async () => { if (!selectedCompanyId) return []; return (await axios.get(`/work-centers?companyId=${selectedCompanyId}`)).data; }, enabled: !!selectedCompanyId });
+  const { data: areas } = useQuery<any[]>({ queryKey: ['areas', selectedWorkCenterId], queryFn: async () => { if (!selectedWorkCenterId) return []; return (await axios.get(`/areas?workCenterId=${selectedWorkCenterId}`)).data; }, enabled: !!selectedWorkCenterId });
+
   // 👇 AQUÍ ESTÁ EL FILTRO CORRECTO EN EL FRONTEND
   const { data: gesList } = useQuery<GesLocal[]>({
     queryKey: ['ges', selectedAreaId],
@@ -59,7 +65,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
     enabled: open
   });
 
-  const { data: suggestedBatteries, isLoading: isLoadingSuggestions } = useQuery<any[]>({ queryKey: ['suggestions', selectedGesId], queryFn: async () => { if(!selectedGesId) return []; return (await axios.get(`/ges/${selectedGesId}/batteries`)).data; }, enabled: !!selectedGesId });
+  const { data: suggestedBatteries, isLoading: isLoadingSuggestions } = useQuery<any[]>({ queryKey: ['suggestions', selectedGesId], queryFn: async () => { if (!selectedGesId) return []; return (await axios.get(`/ges/${selectedGesId}/batteries`)).data; }, enabled: !!selectedGesId });
 
   const selectedGesData = gesList?.find(g => g.id === selectedGesId);
 
@@ -68,21 +74,87 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       const batteryIds = suggestedBatteries?.map((b: any) => ({ id: b.id })) || [];
       await axios.post('/orders', {
         worker: { rut: values.rut, name: values.name, phone: values.phone, position: values.position },
-        gesId: values.gesId, companyId: values.companyId, evaluationType: values.evaluationType, examBatteries: batteryIds 
+        gesId: values.gesId, companyId: values.companyId, evaluationType: values.evaluationType, examBatteries: batteryIds
       });
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); onOpenChange(false); form.reset(); toast.success("Solicitud creada"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      onOpenChange(false);
+      form.reset();
+      setWorkerStatus('idle');
+      toast.success("Solicitud creada");
+    },
     onError: () => toast.error("Error al crear")
   });
 
+  const handleRutBlur = async () => {
+    const rut = form.getValues('rut');
+    if (!rut || rut.length < 8) return;
+
+    setIsCheckingWorker(true);
+    try {
+      const { data } = await axios.get(`/workers/check/${rut}`);
+      if (data.exists) {
+        setWorkerStatus('found');
+        form.setValue('evaluationType', 'OCUPACIONAL');
+        form.setValue('name', data.worker.name);
+        form.setValue('position', data.worker.position || '');
+        form.setValue('phone', data.worker.phone || '');
+        // toast.success("Trabajador activo encontrado"); // Ya mostramos mensaje en UI
+      } else {
+        setWorkerStatus('not-found');
+        form.setValue('evaluationType', 'PRE_OCUPACIONAL');
+        // toast.info("Trabajador nuevo"); // Ya mostramos mensaje en UI
+      }
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsCheckingWorker(false);
+    }
+  };
+
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
+    <Sheet open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) { form.reset(); setWorkerStatus('idle'); } }}>
       <SheetContent className="overflow-y-auto sm:max-w-[600px]">
         <SheetHeader><SheetTitle>Nueva Solicitud</SheetTitle><SheetDescription>Filtra por ubicación.</SheetDescription></SheetHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((v) => createOrderMutation.mutate(v))} className="space-y-6 py-6">
-            <div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="rut" render={({ field }) => (<FormItem><FormLabel>RUT</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="position" render={({ field }) => (<FormItem><FormLabel>Cargo</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} /></div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField control={form.control} name="rut" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>RUT</FormLabel>
+                  <FormControl>
+                    <div className="relative">
+                      <Input {...field} onBlur={(e) => { field.onBlur(); handleRutBlur(); }} placeholder="12345678-9" />
+                      {isCheckingWorker && <Loader2 className="absolute right-2 top-2.5 h-4 w-4 animate-spin text-slate-400" />}
+                    </div>
+                  </FormControl>
+                  {workerStatus === 'found' && <p className="text-[11px] text-green-600 font-medium flex items-center gap-1"><UserCheck className="h-3 w-3" /> Trabajador activo encontrado. Asignado a Ocupacional.</p>}
+                  {workerStatus === 'not-found' && <p className="text-[11px] text-amber-600 font-medium flex items-center gap-1"><UserPlus className="h-3 w-3" /> Trabajador nuevo. Asignado a Pre-Ocupacional.</p>}
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="evaluationType" render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Tipo Evaluación</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={workerStatus !== 'idle'}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                      <SelectItem value="PRE_OCUPACIONAL">Pre-Ocupacional</SelectItem>
+                      <SelectItem value="OCUPACIONAL">Ocupacional</SelectItem>
+                      <SelectItem value="EXAMEN_SALIDA">Examen de Salida</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </FormItem>
+              )} />
+
+              <FormField control={form.control} name="name" render={({ field }) => (<FormItem><FormLabel>Nombre</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+              <FormField control={form.control} name="position" render={({ field }) => (<FormItem><FormLabel>Cargo</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+              <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Teléfono</FormLabel><FormControl><Input {...field} /></FormControl></FormItem>)} />
+            </div>
+
             <div className="h-px bg-border" />
+
             <div className="space-y-3 bg-slate-50 p-3 rounded-md border"><h3 className="text-xs font-bold text-slate-500 uppercase">Ubicación</h3><FormField control={form.control} name="companyId" render={({ field }) => (<FormItem><FormLabel>Empresa</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{companies?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="workCenterId" render={({ field }) => (<FormItem><FormLabel>Centro</FormLabel><Select onValueChange={field.onChange} disabled={!selectedCompanyId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{workCenters?.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><FormField control={form.control} name="areaId" render={({ field }) => (<FormItem><FormLabel>Área</FormLabel><Select onValueChange={field.onChange} disabled={!selectedWorkCenterId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{areas?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /></div></div>
             <FormField control={form.control} name="gesId" render={({ field }) => (<FormItem><FormLabel className="text-blue-600 font-bold">Seleccionar GES</FormLabel><Select onValueChange={field.onChange} disabled={!selectedAreaId}><FormControl><SelectTrigger><SelectValue placeholder="Busque el GES..." /></SelectTrigger></FormControl><SelectContent>{gesList?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select></FormItem>)} />
 
