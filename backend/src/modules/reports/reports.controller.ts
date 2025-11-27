@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { createPrescription, deletePrescription, togglePrescriptionStatus, createQuantitativeReport, deleteQuantitativeReport } from './reports.service';
+import { createPrescription, deletePrescription, updatePrescriptionStatus, createQuantitativeReport, deleteQuantitativeReport } from './reports.service';
 
 // Prescripciones
 export const addPrescription = async (req: Request, res: Response) => {
@@ -21,10 +21,11 @@ export const removePrescription = async (req: Request, res: Response) => {
   }
 };
 
+// 👇 ACTUALIZADO PARA RECIBIR STATUS
 export const updateStatus = async (req: Request, res: Response) => {
   try {
-    const { status } = req.body;
-    const result = await togglePrescriptionStatus(req.params.id, status);
+    const { status } = req.body; // El frontend debe enviar { status: 'REALIZADA' }
+    const result = await updatePrescriptionStatus(req.params.id, status);
     res.json(result);
   } catch (error) {
     res.status(500).json({ error: 'Error al actualizar estado' });

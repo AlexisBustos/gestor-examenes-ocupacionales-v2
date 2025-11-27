@@ -3,38 +3,25 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const getSurveillanceData = async () => {
-  // 1. Buscamos todos los resultados de baterías que tengan fecha de vencimiento
-  const results = await prisma.orderBattery.findMany({
-    where: {
-      expirationDate: { not: null } // Solo los que tienen fecha
-    },
+  // 1. Vigilancia Médica (Trabajadores)
+  const medicalResults = await prisma.orderBattery.findMany({
+    where: { expirationDate: { not: null } },
     include: {
       battery: true,
-      order: {
-        include: {
-          worker: true,
-          company: true,
-          ges: true
-        }
-      }
+      order: { include: { worker: true, company: true, ges: true } }
     },
-    orderBy: { expirationDate: 'asc' } // Los más urgentes primero
+    orderBy: { expirationDate: 'asc' }
   });
 
-  // 2. Procesamos para determinar el estado del semáforo
   const now = new Date();
   const warningThreshold = new Date();
-  warningThreshold.setDate(now.getDate() + 45); // Alerta 45 días antes (puedes ajustar a 30)
+  warningThreshold.setDate(now.getDate() + 45);
 
-  return results.map(item => {
+  const surveillance = medicalResults.map(item => {
     const expDate = new Date(item.expirationDate!);
-    let surveillanceStatus = 'VIGENTE';
-
-    if (expDate < now) {
-      surveillanceStatus = 'VENCIDO';
-    } else if (expDate <= warningThreshold) {
-      surveillanceStatus = 'POR_VENCER';
-    }
+    let status = 'VIGENTE';
+    if (expDate < now) status = 'VENCIDO';
+    else if (expDate <= warningThreshold) status = 'POR_VENCER';
 
     return {
       id: item.id,
@@ -43,9 +30,36 @@ export const getSurveillanceData = async () => {
       companyName: item.order.company.name,
       gesName: item.order.ges.name,
       batteryName: item.battery.name,
-      medicalStatus: item.status, // APTO, NO_APTO, etc.
+      medicalStatus: item.status,
       expirationDate: item.expirationDate,
-      surveillanceStatus // El color del semáforo
+      surveillanceStatus: status
     };
   });
+
+  // 2. Gestión Documental (Prescripciones)
+  const prescriptions = await prisma.prescription.findMany();
+  
+  const prescriptionStats = {
+    total: prescriptions.length,
+    pendientes: prescriptions.filter(p => p.status === 'PENDIENTE').length,
+    enProceso: prescriptions.filter(p => p.status === 'EN_PROCESO').length,
+    realizadas: prescriptions.filter(p => p.status === 'REALIZADA').length,
+    vencidas: prescriptions.filter(p => p.implementationDate < now && p.status !== 'REALIZADA').length
+  };
+
+  // 3. Cobertura de Informes (GES con PDF)
+  const totalGes = await prisma.ges.count();
+  const gesWithReport = await prisma.ges.count({
+    where: { technicalReportId: { not: null } }
+  });
+
+  return {
+    surveillance,      // Lista detallada médica
+    prescriptionStats, // Resumen medidas de control
+    documentStats: {   // Resumen informes
+        totalGes,
+        withReport: gesWithReport,
+        coverage: totalGes > 0 ? Math.round((gesWithReport / totalGes) * 100) : 0
+    }
+  };
 };

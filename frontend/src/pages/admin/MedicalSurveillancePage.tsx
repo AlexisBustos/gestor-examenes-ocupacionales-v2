@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,16 @@ import { Loader2, Activity, Search, AlertTriangle, CheckCircle2, XCircle } from 
 
 export default function MedicalSurveillancePage() {
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, VIGENTE, POR_VENCER, VENCIDO
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
-  const { data: surveillanceData, isLoading } = useQuery({
+  // 1. CARGA DE DATOS
+  const { data: analyticsData, isLoading } = useQuery({
     queryKey: ['surveillance'],
     queryFn: async () => (await axios.get('/analytics/surveillance')).data,
   });
+
+  // 👇 AQUÍ ESTÁ LA CORRECCIÓN: Extraemos la lista del objeto
+  const surveillanceList = analyticsData?.surveillance || [];
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -28,7 +32,8 @@ export default function MedicalSurveillancePage() {
 
   const formatDate = (date: string) => new Date(date).toLocaleDateString('es-CL');
 
-  const filteredData = surveillanceData?.filter((item: any) => {
+  // Filtrado sobre la lista correcta
+  const filteredData = surveillanceList.filter((item: any) => {
     const matchesSearch = item.workerName.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           item.workerRut.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === 'ALL' || item.surveillanceStatus === statusFilter;

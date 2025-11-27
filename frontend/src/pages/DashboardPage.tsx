@@ -4,16 +4,15 @@ import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { 
   Activity, Clock, Calendar, CheckCircle2, FileText, 
-  Building2, FileSpreadsheet, Upload, HeartPulse, AlertTriangle, ArrowRight // <--- AQUÍ ESTABA EL ERROR
+  Building2, FileSpreadsheet, Upload, HeartPulse, AlertTriangle, ArrowRight, ShieldCheck, LayoutList, UserCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Progress } from '@/components/ui/progress';
 
 export default function DashboardPage() {
   const navigate = useNavigate();
@@ -22,15 +21,13 @@ export default function DashboardPage() {
   const { data: orders, isLoading: loadingOrders } = useOrders();
   const { data: gesList, isLoading: loadingGes } = useQuery({ queryKey: ['all-ges'], queryFn: async () => (await axios.get('/ges')).data });
   const { data: companies, isLoading: loadingCompanies } = useQuery({ queryKey: ['all-companies'], queryFn: async () => (await axios.get('/companies')).data });
-  
-  const { data: surveillance, isLoading: loadingSurv } = useQuery({
-    queryKey: ['surveillance'],
-    queryFn: async () => (await axios.get('/analytics/surveillance')).data,
-  });
+  const { data: analytics, isLoading: loadingSurv } = useQuery({ queryKey: ['analytics'], queryFn: async () => (await axios.get('/analytics/surveillance')).data });
 
   const isLoading = loadingOrders || loadingGes || loadingCompanies || loadingSurv;
 
   // --- CÁLCULOS ---
+
+  // A. Órdenes
   const statsOrders = {
     total: orders?.length || 0,
     pending: orders?.filter((o: any) => o.status === 'SOLICITADO').length || 0,
@@ -38,44 +35,50 @@ export default function DashboardPage() {
     completed: orders?.filter((o: any) => o.status === 'REALIZADO' || o.status === 'CERRADO').length || 0,
   };
 
-  const statsHealth = {
-    total: surveillance?.length || 0,
-    vigentes: surveillance?.filter((s: any) => s.surveillanceStatus === 'VIGENTE').length || 0,
-    porVencer: surveillance?.filter((s: any) => s.surveillanceStatus === 'POR_VENCER').length || 0,
-    vencidos: surveillance?.filter((s: any) => s.surveillanceStatus === 'VENCIDO').length || 0,
+  // B. Salud Ocupacional (Vigencia)
+  const surveillanceList = analytics?.surveillance || [];
+  const healthStats = {
+    total: surveillanceList.length || 0,
+    vigentes: surveillanceList.filter((s: any) => s.surveillanceStatus === 'VIGENTE').length || 0,
+    porVencer: surveillanceList.filter((s: any) => s.surveillanceStatus === 'POR_VENCER').length || 0,
+    vencidos: surveillanceList.filter((s: any) => s.surveillanceStatus === 'VENCIDO').length || 0,
+    
+    // C. Aptitud (Resultados)
+    aptos: surveillanceList.filter((s: any) => s.medicalStatus === 'APTO').length || 0,
+    noAptos: surveillanceList.filter((s: any) => s.medicalStatus === 'NO_APTO').length || 0,
+    observados: surveillanceList.filter((s: any) => s.medicalStatus === 'APTO_CON_OBSERVACIONES').length || 0,
   };
+  const healthScore = healthStats.total > 0 ? Math.round((healthStats.vigentes / healthStats.total) * 100) : 100;
+  const aptitudScore = healthStats.total > 0 ? Math.round((healthStats.aptos / healthStats.total) * 100) : 0;
 
-  const healthScore = statsHealth.total > 0 
-    ? Math.round((statsHealth.vigentes / statsHealth.total) * 100) 
-    : 100;
-
+  // D. Infraestructura
   const statsInfra = {
     companies: companies?.length || 0,
     totalGes: gesList?.length || 0,
     totalRisks: gesList?.reduce((acc: number, ges: any) => acc + (ges.riskExposures?.length || 0), 0) || 0
   };
 
+  // E. Cumplimiento Documental (Informes)
+  const docStats = analytics?.documentStats || { totalGes: 0, withReport: 0, coverage: 0 };
+  
+  // F. Medidas de Control (Prescripciones)
+  const riskStats = analytics?.prescriptionStats || { total: 0, pendientes: 0, enProceso: 0, realizadas: 0, vencidas: 0 };
+  const measuresProgress = riskStats.total > 0 ? Math.round((riskStats.realizadas / riskStats.total) * 100) : 0;
+
+  // G. Recientes
   const recentOrders = orders?.slice(0, 5) || [];
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'SOLICITADO': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'AGENDADO': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'REALIZADO': return 'bg-green-100 text-green-800 border-green-200';
-      case 'ANULADO': return 'bg-red-100 text-red-800 border-red-200';
+      case 'SOLICITADO': return 'bg-yellow-100 text-yellow-800 border-yellow-200 hover:bg-yellow-100';
+      case 'AGENDADO': return 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100';
+      case 'REALIZADO': return 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100';
+      case 'ANULADO': return 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100';
       default: return 'secondary';
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-8 p-2 animate-pulse">
-        <div className="flex justify-between"><Skeleton className="h-8 w-64" /><Skeleton className="h-10 w-40" /></div>
-        <div className="grid gap-4 md:grid-cols-4"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div>
-        <div className="grid gap-6 md:grid-cols-2"><Skeleton className="h-64"/><Skeleton className="h-64"/></div>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="space-y-8 p-2 animate-pulse"><div className="flex justify-between"><Skeleton className="h-8 w-64" /><Skeleton className="h-10 w-40" /></div><div className="grid gap-4 md:grid-cols-4"><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/><Skeleton className="h-32"/></div><div className="grid gap-6 md:grid-cols-2"><Skeleton className="h-64"/><Skeleton className="h-64"/></div></div>;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-10">
@@ -93,7 +96,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 1. KPIs SUPERIORES */}
+      {/* 1. KPIs DE FLUJO */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card className="border-l-4 border-l-blue-600 shadow-sm">
           <CardHeader className="pb-2"><CardTitle className="text-sm font-medium text-muted-foreground">Total Solicitudes</CardTitle></CardHeader>
@@ -115,78 +118,56 @@ export default function DashboardPage() {
 
       <Separator />
 
-      {/* 2. SEMÁFORO DE SALUD */}
+      {/* 2. SALUD Y APTITUD */}
       <div className="grid gap-6 md:grid-cols-2">
         
+        {/* A. ESTADO DE SALUD (Vigencia) */}
         <Card className="shadow-md border-emerald-100 bg-gradient-to-br from-white to-emerald-50/30">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-emerald-900">
-              <HeartPulse className="h-5 w-5 text-emerald-600" /> Estado de Salud Dotación
+              <HeartPulse className="h-5 w-5 text-emerald-600" /> Salud Ocupacional
             </CardTitle>
-            <CardDescription>Cumplimiento de exámenes ocupacionales vigentes.</CardDescription>
+            <CardDescription>Cumplimiento de exámenes vigentes.</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-center justify-between mb-6">
-               <div>
-                 <p className="text-sm font-medium text-slate-600">Cumplimiento Global</p>
-                 <p className={`text-4xl font-extrabold ${healthScore >= 90 ? 'text-emerald-600' : (healthScore >= 70 ? 'text-amber-600' : 'text-red-600')}`}>
-                    {healthScore}%
-                 </p>
-               </div>
-               <div className="relative h-20 w-20 rounded-full border-8 border-slate-100 flex items-center justify-center"
-                    style={{ background: `conic-gradient(${healthScore >= 90 ? '#10b981' : '#f59e0b'} ${healthScore * 3.6}deg, transparent 0deg)` }}>
-                  <div className="absolute inset-2 bg-white rounded-full flex items-center justify-center font-bold text-slate-400">
-                    {healthScore}%
-                  </div>
-               </div>
+               <div><p className="text-sm font-medium text-slate-600">Cumplimiento Global</p><p className={`text-4xl font-extrabold ${healthScore >= 90 ? 'text-emerald-600' : 'text-amber-600'}`}>{healthScore}%</p></div>
+               <div className="relative h-16 w-16 rounded-full border-4 border-slate-100 flex items-center justify-center bg-white"><span className="text-xl font-bold text-slate-400">{healthScore}%</span></div>
             </div>
-            
             <div className="space-y-3">
-              <div>
-                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-emerald-800">Vigentes</span> <span>{statsHealth.vigentes}</span></div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-emerald-500" style={{ width: `${(statsHealth.vigentes/statsHealth.total)*100}%` }}></div></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-amber-800">Por Vencer (30 días)</span> <span>{statsHealth.porVencer}</span></div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-amber-500" style={{ width: `${(statsHealth.porVencer/statsHealth.total)*100}%` }}></div></div>
-              </div>
-              <div>
-                <div className="flex justify-between text-xs mb-1"><span className="font-medium text-red-800">Vencidos</span> <span>{statsHealth.vencidos}</span></div>
-                <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden"><div className="h-full bg-red-500" style={{ width: `${(statsHealth.vencidos/statsHealth.total)*100}%` }}></div></div>
-              </div>
-            </div>
-            
-            <div className="mt-4 pt-4 border-t">
-                <Button variant="outline" size="sm" className="w-full text-emerald-700 border-emerald-200 hover:bg-emerald-50" onClick={() => navigate('/dashboard/surveillance')}>
-                    Ver Detalle de Vigilancia <ArrowRight className="ml-2 h-4 w-4"/>
-                </Button>
+              <div><div className="flex justify-between text-xs mb-1"><span className="font-medium text-emerald-800">Vigentes</span><span>{healthStats.vigentes}</span></div><Progress value={(healthStats.vigentes/healthStats.total)*100} className="h-2 bg-emerald-100" /></div>
+              <div><div className="flex justify-between text-xs mb-1"><span className="font-medium text-amber-800">Por Vencer</span><span>{healthStats.porVencer}</span></div><Progress value={(healthStats.porVencer/healthStats.total)*100} className="h-2 bg-amber-100" /></div>
+              <div><div className="flex justify-between text-xs mb-1"><span className="font-medium text-red-800">Vencidos</span><span>{healthStats.vencidos}</span></div><Progress value={(healthStats.vencidos/healthStats.total)*100} className="h-2 bg-red-100" /></div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Tarjeta de Infraestructura */}
-        <Card className="shadow-sm">
+        {/* B. APTITUD LABORAL (Resultados) */}
+        <Card className="shadow-md border-blue-100 bg-white">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-slate-800">
-              <Building2 className="h-5 w-5 text-slate-500" /> Mapa de Riesgos
+            <CardTitle className="flex items-center gap-2 text-blue-900">
+              <UserCheck className="h-5 w-5 text-blue-600" /> Aptitud Laboral
             </CardTitle>
-            <CardDescription>Cobertura de la planta.</CardDescription>
+            <CardDescription>Resultados médicos de la dotación.</CardDescription>
           </CardHeader>
-          <CardContent className="grid grid-cols-2 gap-4">
-             <div className="p-4 bg-slate-50 rounded border text-center">
-                <div className="text-3xl font-bold text-blue-600">{statsInfra.totalGes}</div>
-                <div className="text-xs font-bold text-slate-500 uppercase">Puestos (GES)</div>
+          <CardContent>
+             <div className="flex items-center justify-between mb-6">
+                <div><p className="text-sm font-medium text-slate-600">Tasa de Aptitud</p><p className="text-4xl font-extrabold text-blue-700">{aptitudScore}%</p></div>
+                <div className="relative h-16 w-16 rounded-full border-4 border-slate-100 flex items-center justify-center bg-blue-50"><span className="text-2xl">🩺</span></div>
              </div>
-             <div className="p-4 bg-slate-50 rounded border text-center">
-                <div className="text-3xl font-bold text-red-500">{statsInfra.totalRisks}</div>
-                <div className="text-xs font-bold text-slate-500 uppercase">Riesgos Totales</div>
-             </div>
-             <div className="col-span-2 p-4 bg-slate-50 rounded border flex items-center justify-between px-6">
-                <div className="text-left">
-                    <div className="text-2xl font-bold text-slate-800">{statsInfra.companies}</div>
-                    <div className="text-xs font-bold text-slate-500 uppercase">Empresas</div>
+             <div className="grid grid-cols-3 gap-3 text-center mt-8">
+                <div className="p-3 bg-green-50 rounded border border-green-100">
+                    <div className="text-2xl font-bold text-green-700">{healthStats.aptos}</div>
+                    <div className="text-[10px] uppercase font-bold text-green-600">Aptos</div>
                 </div>
-                <Building2 className="h-8 w-8 text-slate-300" />
+                <div className="p-3 bg-red-50 rounded border border-red-100">
+                    <div className="text-2xl font-bold text-red-700">{healthStats.noAptos}</div>
+                    <div className="text-[10px] uppercase font-bold text-red-600">No Aptos</div>
+                </div>
+                <div className="p-3 bg-amber-50 rounded border border-amber-100">
+                    <div className="text-2xl font-bold text-amber-700">{healthStats.observados}</div>
+                    <div className="text-[10px] uppercase font-bold text-amber-600">Con Obs.</div>
+                </div>
              </div>
           </CardContent>
         </Card>
@@ -194,7 +175,75 @@ export default function DashboardPage() {
 
       <Separator />
 
-      {/* 3. ACTIVIDAD Y ACCESOS */}
+      {/* 3. GESTIÓN DE RIESGOS Y PLANTA (LO QUE FALTABA) */}
+      <div className="grid gap-6 md:grid-cols-2">
+        
+        {/* C. GESTIÓN DE RIESGOS (Informes y Medidas) */}
+        <Card className="shadow-sm border-slate-200">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <ShieldCheck className="h-5 w-5 text-slate-600" /> Gestión de Riesgos
+            </CardTitle>
+            <CardDescription>Cumplimiento documental y medidas de control.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+             {/* Informes */}
+             <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 bg-blue-50 rounded border border-blue-100 text-center">
+                    <div className="text-2xl font-bold text-blue-700">{docStats.coverage}%</div>
+                    <div className="text-[10px] uppercase font-bold text-blue-400">Cobertura Informes</div>
+                </div>
+                <div className="p-3 bg-slate-50 rounded border border-slate-100 text-center">
+                    <div className="text-2xl font-bold text-slate-700">{docStats.withReport}/{docStats.totalGes}</div>
+                    <div className="text-[10px] uppercase font-bold text-slate-400">GES Documentados</div>
+                </div>
+             </div>
+             {/* Prescripciones */}
+             <div>
+                <div className="flex justify-between items-center mb-2">
+                    <h4 className="text-sm font-semibold text-slate-700 flex items-center gap-2"><LayoutList className="h-4 w-4"/> Medidas de Control</h4>
+                    <Badge variant="outline" className="text-xs">{riskStats.realizadas}/{riskStats.total} Realizadas</Badge>
+                </div>
+                <Progress value={measuresProgress} className="h-3" />
+                <div className="flex justify-between text-xs text-muted-foreground mt-2 px-1">
+                    <span>{riskStats.pendientes} Pendientes</span>
+                    <span className="text-blue-600 font-medium">{riskStats.enProceso} En Proceso</span>
+                    <span className="text-red-600 font-medium">{riskStats.vencidas} Vencidas</span>
+                </div>
+             </div>
+          </CardContent>
+        </Card>
+
+        {/* D. ESTADO DE PLANTA (Infraestructura) */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-slate-800">
+              <Building2 className="h-5 w-5 text-slate-600" /> Estado de la Planta
+            </CardTitle>
+            <CardDescription>Dimensionamiento operativo actual.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-3 gap-4 text-center h-full items-center">
+              <div className="p-4 bg-slate-50 rounded border">
+                <div className="text-3xl font-bold text-slate-800">{statsInfra.companies}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase">Empresas</div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded border">
+                <div className="text-3xl font-bold text-blue-600">{statsInfra.totalGes}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase">GES Totales</div>
+              </div>
+              <div className="p-4 bg-slate-50 rounded border">
+                <div className="text-3xl font-bold text-red-600">{statsInfra.totalRisks}</div>
+                <div className="text-xs font-bold text-slate-500 uppercase">Riesgos</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Separator />
+
+      {/* 4. ACTIVIDAD Y ACCESOS */}
       <div className="grid gap-6 md:grid-cols-7">
         <Card className="col-span-4 shadow-sm">
           <CardHeader><CardTitle>Actividad Reciente</CardTitle></CardHeader>
@@ -202,14 +251,14 @@ export default function DashboardPage() {
             <Table>
               <TableHeader><TableRow><TableHead>Trabajador</TableHead><TableHead>GES</TableHead><TableHead>Estado</TableHead></TableRow></TableHeader>
               <TableBody>
-                {recentOrders.length === 0 ? <TableRow><TableCell colSpan={3} className="text-center py-4 text-muted-foreground">Sin actividad.</TableCell></TableRow> :
-                recentOrders.map((order: any) => (
+                {recentOrders.map((order: any) => (
                   <TableRow key={order.id}>
                     <TableCell className="font-medium">{order.worker.name}</TableCell>
                     <TableCell className="text-xs text-muted-foreground">{order.ges.name}</TableCell>
-                    <TableCell><Badge variant="outline" className={getStatusColor(order.status)}>{order.status}</Badge></TableCell>
+                    <TableCell><Badge className={`border shadow-sm ${getStatusColor(order.status)}`}>{order.status}</Badge></TableCell>
                   </TableRow>
                 ))}
+                {recentOrders.length === 0 && <TableRow><TableCell colSpan={3} className="text-center py-4">Sin actividad.</TableCell></TableRow>}
               </TableBody>
             </Table>
             <div className="mt-4 flex justify-end">

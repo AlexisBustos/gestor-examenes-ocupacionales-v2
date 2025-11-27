@@ -33,11 +33,11 @@ export const deletePrescription = async (id: string) => {
   return await prisma.prescription.delete({ where: { id } });
 };
 
-export const togglePrescriptionStatus = async (id: string, currentStatus: string) => {
-  const newStatus = currentStatus === 'PENDIENTE' ? 'REALIZADA' : 'PENDIENTE';
+// 👇 ESTA ES LA FUNCIÓN MEJORADA (Recibe el status específico)
+export const updatePrescriptionStatus = async (id: string, status: string) => {
   return await prisma.prescription.update({
     where: { id },
-    data: { status: newStatus as any }
+    data: { status: status as any } // Actualiza al estado que le digamos
   });
 };
 
