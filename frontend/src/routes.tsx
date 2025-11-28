@@ -2,22 +2,27 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 
-// PÁGINAS GENERALES
+// PÁGINAS BASE
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
+import OrdersPage from '@/pages/OrdersPage';
 import ImportPage from '@/pages/ImportPage';
-import OrdersPage from '@/pages/OrdersPage'; // <--- CORREGIDO: Estaba en /admin
 
-// PÁGINAS ADMINISTRATIVAS (En carpeta /admin)
+// PÁGINAS ADMIN
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import WorkersPage from '@/pages/admin/WorkersPage';
 import CostCentersPage from '@/pages/admin/CostCentersPage';
 import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
-import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage'; // <--- NUEVA
+import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage';
+import ConfigPage from '@/pages/admin/ConfigPage';
+import BatteriesPage from '@/pages/admin/BatteriesPage';
 
 const AppLayout = () => (
-  <AuthProvider><Toaster position="top-center" /><Outlet /></AuthProvider>
+  <AuthProvider>
+    <Toaster position="top-center" />
+    <Outlet />
+  </AuthProvider>
 );
 
 const ProtectedRoute = () => {
@@ -42,7 +47,7 @@ export const router = createBrowserRouter([
               
               // Operación
               { path: 'orders', element: <OrdersPage /> },
-              { path: 'surveillance', element: <MedicalSurveillancePage /> }, // <--- CONECTADO
+              { path: 'surveillance', element: <MedicalSurveillancePage /> },
               { path: 'import', element: <ImportPage /> },
 
               // Administración
@@ -50,6 +55,8 @@ export const router = createBrowserRouter([
               { path: 'workers', element: <WorkersPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
               { path: 'risks-library', element: <RisksLibraryPage /> },
+              { path: 'config', element: <ConfigPage /> },
+              { path: 'batteries', element: <BatteriesPage /> },
             ],
           },
         ],

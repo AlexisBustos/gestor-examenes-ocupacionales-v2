@@ -1,51 +1,56 @@
 import { Request, Response } from 'express';
-import { findAllWorkers, importWorkersDb, findWorkerByRut, getWorkerById, updateWorker, deleteWorker } from './workers.service';
+import { findAllWorkers, importWorkersDb, findWorkerByRut, getWorkerById, updateWorker, deleteWorker, analyzeJobChange, transferWorker } from './workers.service';
 
 export const list = async (req: Request, res: Response) => {
-  try {
-    const workers = await findAllWorkers();
-    res.json(workers);
-  } catch (error) { res.status(500).json({ error: 'Error al listar' }); }
+  try { res.json(await findAllWorkers()); } catch (e) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const getOne = async (req: Request, res: Response) => {
     try {
       const worker = await getWorkerById(req.params.id);
-      if (!worker) return res.status(404).json({ error: 'Trabajador no encontrado' });
+      if (!worker) return res.status(404).json({ error: 'No encontrado' });
       res.json(worker);
-    } catch (error) { res.status(500).json({ error: 'Error al obtener trabajador' }); }
+    } catch (e) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const update = async (req: Request, res: Response) => {
-    try {
-      const worker = await updateWorker(req.params.id, req.body);
-      res.json(worker);
-    } catch (error) { res.status(500).json({ error: 'Error al actualizar' }); }
+    try { res.json(await updateWorker(req.params.id, req.body)); } catch (e) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const remove = async (req: Request, res: Response) => {
-    try {
-      await deleteWorker(req.params.id);
-      res.json({ message: 'Trabajador eliminado' });
-    } catch (error) { res.status(500).json({ error: 'Error al eliminar (puede tener órdenes asociadas)' }); }
+    try { await deleteWorker(req.params.id); res.json({ message: 'Eliminado' }); } catch (e) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const checkRut = async (req: Request, res: Response) => {
   try {
-    const { rut } = req.params;
-    const worker = await findWorkerByRut(rut);
-    if (worker) {
-        res.json({ exists: true, worker });
-    } else {
-        res.json({ exists: false });
-    }
-  } catch (error) { res.status(500).json({ error: 'Error al verificar RUT' }); }
+    const worker = await findWorkerByRut(req.params.rut);
+    res.json(worker ? { exists: true, worker } : { exists: false });
+  } catch (e) { res.status(500).json({ error: 'Error' }); }
 };
 
 export const importWorkers = async (req: Request, res: Response) => {
   try {
-    if (!req.file) return res.status(400).json({ error: 'Faltan archivo' });
-    const result = await importWorkersDb(req.file.buffer);
+    if (!req.file) return res.status(400).json({ error: 'Falta archivo' });
+    res.json(await importWorkersDb(req.file.buffer));
+  } catch (e: any) { res.status(500).json({ error: 'Error' }); }
+};
+
+// 👇 AQUÍ ESTÁ LA FUNCIÓN QUE DABA 404. AHORA TIENE LOGS.
+export const analyzeTransfer = async (req: Request, res: Response) => {
+  console.log("📡 [BACKEND] Petición recibida en analyzeTransfer");
+  try {
+    const { workerId, targetGesId } = req.body;
+    const result = await analyzeJobChange(workerId, targetGesId);
     res.json(result);
-  } catch (error: any) { res.status(500).json({ error: 'Error importando', details: error.message }); }
+  } catch (e) { 
+    console.error(e);
+    res.status(500).json({ error: 'Error analizando' }); 
+  }
+};
+
+export const executeTransfer = async (req: Request, res: Response) => {
+  try {
+    const { workerId, targetGesId } = req.body;
+    res.json(await transferWorker(workerId, targetGesId));
+  } catch (e) { res.status(500).json({ error: 'Error mover' }); }
 };

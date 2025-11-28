@@ -1,18 +1,18 @@
-import app from './app';
-import { envs } from './config/envs';
+import express from 'express';
+import cors from 'cors';
+import morgan from 'morgan';
+import router from './routes';
 
-async function main() {
-    try {
-        app.listen(envs.PORT, () => {
-            console.log(`
-      ################################################
-      🛡️  Server listening on port: ${envs.PORT} 🛡️
-      ################################################
-      `);
-        });
-    } catch (error) {
-        console.error(error);
-    }
-}
+const app = express();
+const PORT = process.env.PORT || 3000;
 
-main();
+app.use(cors());
+app.use(morgan('dev'));
+app.use(express.json());
+
+// CLAVE: Montar rutas con prefijo /api
+app.use('/api', router);
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});

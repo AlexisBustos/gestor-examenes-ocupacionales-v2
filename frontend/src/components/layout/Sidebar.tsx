@@ -10,17 +10,21 @@ import {
   Receipt,
   BookOpen,
   Users,
-  Activity // <--- Icono Nuevo
+  Activity,
+  Settings,
+  Stethoscope // <--- ¡AQUÍ ESTABA EL CULPABLE! Ahora sí está importado.
 } from 'lucide-react';
 
 const navigation = [
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet },
-  { name: 'Vigilancia Médica', href: '/dashboard/surveillance', icon: Activity }, // <--- BOTÓN NUEVO
+  { name: 'Vigilancia Médica', href: '/dashboard/surveillance', icon: Activity },
   { name: 'Empresas', href: '/dashboard/companies', icon: Building2 },
   { name: 'Nómina', href: '/dashboard/workers', icon: Users },
   { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt },
   { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen },
+  { name: 'Configuración Médica', href: '/dashboard/config', icon: Settings },
+  { name: 'Baterías', href: '/dashboard/batteries', icon: Stethoscope }, // <--- Aquí se usa
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
 ];
 
@@ -76,7 +80,12 @@ export function Sidebar() {
               )
             }
           >
-            <item.icon className="mr-3 h-5 w-5 flex-shrink-0 transition-colors" aria-hidden="true" />
+            <item.icon
+              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors", 
+                 // El icono hereda el color del texto
+              )}
+              aria-hidden="true"
+            />
             {item.name}
           </NavLink>
         ))}

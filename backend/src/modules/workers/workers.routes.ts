@@ -1,15 +1,15 @@
 import { Router } from 'express';
-import multer from 'multer';
-import { list, importWorkers, checkRut, getOne, update, remove } from './workers.controller';
+import * as workersController from './workers.controller';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage() });
 
-router.get('/', list);
-router.get('/:id', getOne); // Ver detalle
-router.patch('/:id', update); // Editar
-router.delete('/:id', remove); // Eliminar
-router.get('/check/:rut', checkRut);
-router.post('/import', upload.single('file'), importWorkers);
+router.post('/analyze-transfer', workersController.analyzeTransfer);
+router.post('/transfer', workersController.executeTransfer);
+router.post('/import', workersController.importWorkers);
+router.get('/check/:rut', workersController.checkRut);
+router.get('/', workersController.list);
+router.get('/:id', workersController.getOne);
+router.patch('/:id', workersController.update);
+router.delete('/:id', workersController.remove);
 
 export default router;

@@ -24,14 +24,27 @@ export function WorkerFormSheet({ worker, open, onOpenChange }: Props) {
 
   const mutation = useMutation({
     mutationFn: async (data: any) => {
-      await axios.patch(`/workers/${worker.id}`, data);
+      // LIMPIEZA DE DATOS: Solo enviamos lo editable
+      const payload = {
+        name: data.name,
+        email: data.email,
+        phone: data.phone,
+        position: data.position,
+        costCenter: data.costCenter
+      };
+      await axios.patch(`/workers/${worker.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workers'] });
+      // También invalidamos la ficha individual por si está abierta
+      queryClient.invalidateQueries({ queryKey: ['worker', worker.id] });
       toast.success("Trabajador actualizado");
       onOpenChange(false);
     },
-    onError: () => toast.error("Error al actualizar")
+    onError: (err) => {
+        console.error(err);
+        toast.error("Error al actualizar");
+    }
   });
 
   return (

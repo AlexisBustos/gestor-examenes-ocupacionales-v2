@@ -5,6 +5,7 @@ const router = Router();
 
 router.get('/', list);
 router.post('/', create);
-router.patch('/:id', update); // <--- Ruta para editar
+router.patch('/:id', update);
 
 export const areasRouter = router;
+export default router;

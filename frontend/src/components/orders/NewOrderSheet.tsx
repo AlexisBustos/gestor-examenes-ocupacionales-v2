@@ -21,7 +21,7 @@ interface GesLocal { id: string; name: string; areaId: string; riskExposures?: R
 const formSchema = z.object({
   rut: z.string().min(8), name: z.string().min(2), phone: z.string().optional(), position: z.string().min(2),
   evaluationType: z.string(), companyId: z.string().uuid(), workCenterId: z.string().optional(), areaId: z.string().optional(), 
-  gesId: z.string().optional(), // <--- AHORA ES OPCIONAL EN EL FORMULARIO
+  gesId: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -43,6 +43,10 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                 setWorkerStatus('found');
                 form.setValue('name', data.worker.name);
                 form.setValue('position', data.worker.position || '');
+                
+                // 👇 ¡AQUÍ ESTÁ EL ARREGLO!
+                form.setValue('phone', data.worker.phone || ''); 
+                
                 form.setValue('evaluationType', 'OCUPACIONAL');
             } else {
                 setWorkerStatus('new');
@@ -62,7 +66,6 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
   const { data: areas } = useQuery<any[]>({ queryKey: ['areas', selectedWorkCenterId], queryFn: async () => { if(!selectedWorkCenterId) return []; return (await axios.get(`/areas?workCenterId=${selectedWorkCenterId}`)).data; }, enabled: !!selectedWorkCenterId });
   const { data: gesList } = useQuery<GesLocal[]>({ queryKey: ['ges', selectedAreaId], queryFn: async () => { const url = selectedAreaId ? `/ges?areaId=${selectedAreaId}` : '/ges'; return (await axios.get(url)).data; }, enabled: open });
   
-  // QUERY DE BATERÍAS
   const { data: suggestedBatteries, isLoading: isLoadingSuggestions } = useQuery<any[]>({
     queryKey: ['suggestions', selectedGesId, selectedAreaId, searchMode],
     queryFn: async () => {
@@ -77,25 +80,15 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
 
   const createOrderMutation = useMutation({
     mutationFn: async (values: FormValues) => {
-      // 1. Validar GES
       let finalGesId = values.gesId;
-      
-      // Si estamos en modo Área y no eligió GES, tomamos el primero del área (para cumplir con la BD)
-      if (searchMode === 'area' && !finalGesId && gesList && gesList.length > 0) {
-          finalGesId = gesList[0].id;
-      }
-
+      if (searchMode === 'area' && !finalGesId && gesList && gesList.length > 0) { finalGesId = gesList[0].id; }
       if (!finalGesId) throw new Error("Debe seleccionar un GES o un Área válida");
 
-      // 2. Preparar Baterías
       const batteryIds = suggestedBatteries?.map((b: any) => ({ id: b.id })) || [];
 
       await axios.post('/orders', {
         worker: { rut: values.rut, name: values.name, phone: values.phone, position: values.position },
-        gesId: finalGesId, // Usamos el ID calculado
-        companyId: values.companyId, 
-        evaluationType: values.evaluationType, 
-        examBatteries: batteryIds // Enviamos la lista explícita
+        gesId: finalGesId, companyId: values.companyId, evaluationType: values.evaluationType, examBatteries: batteryIds 
       });
     },
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); onOpenChange(false); form.reset(); setWorkerStatus(null); toast.success("Solicitud creada"); },
@@ -127,7 +120,6 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
             
             <div className="space-y-3 bg-slate-50 p-3 rounded-md border"><h3 className="text-xs font-bold text-slate-500 uppercase">Ubicación</h3><FormField control={form.control} name="companyId" render={({ field }) => (<FormItem><FormLabel>Empresa</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{companies?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="workCenterId" render={({ field }) => (<FormItem><FormLabel>Centro</FormLabel><Select onValueChange={field.onChange} disabled={!selectedCompanyId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{workCenters?.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><FormField control={form.control} name="areaId" render={({ field }) => (<FormItem><FormLabel>Área</FormLabel><Select onValueChange={field.onChange} disabled={!selectedWorkCenterId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{areas?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /></div></div>
             
-            {/* SWITCH MODO */}
             <div className="flex justify-center">
                 <Tabs value={searchMode} onValueChange={(v) => { setSearchMode(v as any); form.setValue('gesId', ''); }} className="w-full">
                     <TabsList className="grid w-full grid-cols-2">
@@ -137,18 +129,15 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                 </Tabs>
             </div>
 
-            {/* SELECTOR GES (Oculto o Deshabilitado si es por Área? No, mejor dejarlo opcional) */}
             <div className={searchMode === 'area' ? 'opacity-50 pointer-events-none' : ''}>
                 <FormField control={form.control} name="gesId" render={({ field }) => (<FormItem><FormLabel className="text-blue-600 font-bold">Seleccionar GES {searchMode === 'area' && '(Automático)'}</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={searchMode === 'area'}><FormControl><SelectTrigger><SelectValue placeholder="Busque el GES..." /></SelectTrigger></FormControl><SelectContent>{gesList?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent></Select></FormItem>)} />
             </div>
 
             <div className="grid gap-3 animate-in fade-in">
-                {/* Riesgos del Puesto (Solo si hay GES seleccionado) */}
                 {selectedGesId && searchMode === 'ges' && (
-                    <Card className="bg-blue-50 border-blue-200 shadow-none"><CardHeader className="pb-2 pt-3"><CardTitle className="text-blue-800 text-xs flex items-center gap-2"><AlertTriangle className="h-3 w-3" /> Riesgos Detectados</CardTitle></CardHeader><CardContent className="text-xs text-blue-900 pb-3"><ul className="space-y-3">{selectedGesData?.riskExposures?.map((r, i) => (<li key={i} className="flex flex-col gap-1 border-b border-blue-100 pb-2 last:border-0 last:pb-0"><div className="flex items-center justify-between"><span className="font-semibold">{r.riskAgent.name}</span>{r.specificAgentDetails && <span className="text-blue-600 text-[10px] bg-white px-1 rounded">({r.specificAgentDetails})</span>}</div>{r.riskAgent.protocols && r.riskAgent.protocols.length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{r.riskAgent.protocols.map(p => (<a key={p.id} href={`http://localhost:3000${p.url}`} target="_blank" className="inline-flex items-center text-purple-700 hover:underline text-[10px] bg-purple-50 px-2 py-0.5 rounded border border-purple-200 transition-colors hover:bg-purple-100"><FileText className="h-3 w-3 mr-1" /> {p.name}</a>))}</div>)}</li>))}</ul></CardContent></Card>
+                    <Card className="bg-blue-50 border-blue-200 shadow-none"><CardHeader className="pb-2 pt-3"><CardTitle className="text-blue-800 text-xs flex items-center gap-2"><AlertTriangle className="h-3 w-3" /> Riesgos</CardTitle></CardHeader><CardContent className="text-xs text-blue-900 pb-3"><ul className="space-y-3">{selectedGesData?.riskExposures?.map((r, i) => (<li key={i} className="flex flex-col gap-1 border-b border-blue-100 pb-2 last:border-0 last:pb-0"><div className="flex items-center justify-between"><span className="font-semibold">{r.riskAgent.name}</span>{r.specificAgentDetails && <span className="text-blue-600 text-[10px] bg-white px-1 rounded">({r.specificAgentDetails})</span>}</div>{r.riskAgent.protocols && r.riskAgent.protocols.length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{r.riskAgent.protocols.map(p => (<a key={p.id} href={`http://localhost:3000${p.url}`} target="_blank" className="inline-flex items-center text-purple-700 hover:underline text-[10px] bg-purple-50 px-2 py-0.5 rounded border border-purple-200 transition-colors hover:bg-purple-100"><FileText className="h-3 w-3 mr-1" /> {p.name}</a>))}</div>)}</li>))}</ul></CardContent></Card>
                 )}
                 
-                {/* BATERÍAS (Siempre visible si hay sugerencias) */}
                 <Card className="bg-indigo-50 border-indigo-200 shadow-none">
                     <CardHeader className="pb-2 pt-3"><CardTitle className="text-indigo-800 text-xs flex items-center gap-2"><CheckCircle2 className="h-3 w-3" /> Baterías Sugeridas ({searchMode === 'area' ? 'Área Completa' : 'GES Específico'})</CardTitle></CardHeader>
                     <CardContent className="text-xs text-indigo-900 pb-3">

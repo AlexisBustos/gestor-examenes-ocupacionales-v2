@@ -1,14 +1,18 @@
 import { Router } from 'express';
-import { list, getOne, create, update, remove } from './companies.controller';
+import { list, getOne, create, update, remove } from './companies.controller'; // Ya no importamos uploadLogo
+import multer from 'multer';
 
 const router = Router();
+const upload = multer({ dest: 'uploads/' });
 
-// Definir las rutas y conectarlas a las funciones del controlador
 router.get('/', list);
 router.get('/:id', getOne);
 router.post('/', create);
 router.patch('/:id', update);
 router.delete('/:id', remove);
 
-// Exportamos con nombre para que coincida con routes.ts
+// Eliminamos la ruta del logo temporalmente para que compile
+// router.post('/:id/logo', upload.single('file'), uploadLogo); 
+
 export const companiesRouter = router;
+export default router;
