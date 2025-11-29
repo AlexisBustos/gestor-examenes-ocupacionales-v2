@@ -1,4 +1,5 @@
 import { Router } from 'express';
+// Importamos los routers de cada módulo
 import healthRouter from './modules/health/health.routes';
 import authRouter from './modules/auth/auth.routes';
 import companiesRouter from './modules/companies/companies.routes';
@@ -17,6 +18,11 @@ import batteriesRouter from './modules/batteries/batteries.routes';
 
 const router = Router();
 
+// MÓDULOS CRÍTICOS AHORA (Moved to top)
+router.use('/config', configRouter);       // -> /api/config
+router.use('/batteries', batteriesRouter); // -> /api/batteries
+
+// Definición de rutas base (sin /api, eso ya lo pone server.ts)
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
 router.use('/companies', companiesRouter);
@@ -30,7 +36,5 @@ router.use('/reports', reportsRouter);
 router.use('/risks', risksRouter);
 router.use('/workers', workersRouter);
 router.use('/analytics', analyticsRouter);
-router.use('/config', configRouter);
-router.use('/batteries', batteriesRouter);
 
 export default router;

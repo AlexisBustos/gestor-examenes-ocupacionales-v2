@@ -3,7 +3,7 @@ import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
 
-// LISTA MAESTRA DE BATERÍAS (Basada en tus documentos)
+// LISTA REAL DE BATERÍAS (Extraída de tus documentos)
 const BATERIAS_BASE = [
   // Agentes Físicos
   "Protocolo RUIDO (Prexor)",
@@ -16,30 +16,19 @@ const BATERIAS_BASE = [
   "Protocolo ILUMINACIÓN",
   "Protocolo HIPOBARÍA (Gran Altura)",
   
-  // Agentes Químicos (Polvos)
+  // Agentes Químicos
   "Protocolo SÍLICE (Planesi)",
   "Protocolo POLVOS NO CLASIFICADOS",
   "Protocolo HUMOS METÁLICOS",
-  
-  // Agentes Químicos (Solventes)
   "Protocolo SOLVENTES (General)",
   "Protocolo SOLVENTES - TOLUENO",
   "Protocolo SOLVENTES - XILENO",
   "Protocolo SOLVENTES - HEXANO",
   "Protocolo SOLVENTES - METILETILCETONA (MEK)",
-  "Protocolo SOLVENTES - PERCLOROETILENO",
-  "Protocolo SOLVENTES - HEPTANO",
-
-  // Agentes Químicos (Metales)
-  "Protocolo METALES (General)",
   "Protocolo METALES - MANGANESO",
   "Protocolo METALES - PLOMO",
   "Protocolo METALES - ARSÉNICO",
   "Protocolo METALES - CROMO",
-  "Protocolo METALES - MERCURIO",
-  "Protocolo METALES - HIERRO",
-
-  // Otros Agentes
   "Protocolo PLAGUICIDAS",
   "Protocolo CITOSTÁTICOS",
   "Protocolo ASMA OCUPACIONAL",
@@ -49,7 +38,7 @@ const BATERIAS_BASE = [
   "Protocolo TMERT (Trastornos Musculoesqueléticos)",
   "Protocolo PVD (Pantalla Visualización Datos)",
   
-  // Baterías de Aptitud Específica
+  // Baterías de Aptitud Específica (Nuevas)
   "Batería ESPACIOS CONFINADOS",
   "Batería ALTURA FÍSICA (Estructural)",
   "Batería ALTURA GEOGRÁFICA (< 3000 msnm)",
@@ -66,16 +55,14 @@ const BATERIAS_BASE = [
 ];
 
 async function main() {
-  console.log('🌱 Restaurando sistema con Baterías Maestras...');
+  console.log('🌱 Iniciando Carga Maestra de Datos...');
 
-  // 1. LIMPIEZA DE TABLAS MÉDICAS (Para no duplicar)
+  // 1. LIMPIEZA DE TABLAS OPERATIVAS (Mantenemos estructura, borramos datos)
   try {
-    await prisma.medicalRule.deleteMany(); // Reglas de configuración
-    await prisma.orderBattery.deleteMany(); // Resultados
-    // await prisma.batteryExam.deleteMany(); // (Opcional si tuvieras detalle de exámenes)
-    
-    // NOTA: No borramos examBattery aquí para no romper IDs existentes si ya tienes órdenes,
-    // pero el upsert de abajo se encarga de crear las que falten.
+    await prisma.medicalRule.deleteMany(); 
+    await prisma.orderBattery.deleteMany();
+    // No borramos examBattery aquí para evitar conflictos de ID si ya existen relaciones,
+    // el código de abajo maneja duplicados.
   } catch (e) { console.log('Limpieza parcial...'); }
 
   // 2. ASEGURAR ADMIN
@@ -105,9 +92,9 @@ async function main() {
           count++;
       }
   }
-  console.log(`✅ Se han asegurado ${BATERIAS_BASE.length} baterías. (${count} nuevas creadas).`);
+  console.log(`✅ Se han asegurado ${BATERIAS_BASE.length} baterías en el sistema. (${count} nuevas creadas).`);
 
-  // 4. EMPRESA DEMO
+  // 4. EMPRESA DEMO (Para pruebas rápidas)
   await prisma.company.upsert({
     where: { rut: '99.999.999-9' },
     update: {},
