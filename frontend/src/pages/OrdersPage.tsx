@@ -1,26 +1,47 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as OrdersService from '@/services/orders.service';
-import { Input } from '@/components/ui/input';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Plus, Search, Eye, Calendar, Ban, CheckCircle, Loader2 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
+import {
+  Plus,
+  Search,
+  Calendar,
+  CheckCircle,
+  Ban,
+  Eye,
+} from 'lucide-react';
+
 import { NewOrderSheet } from '@/components/orders/NewOrderSheet';
 import { OrderDetailsSheet } from '@/components/orders/OrderDetailsSheet';
 import { ScheduleOrderDialog } from '@/components/orders/ScheduleOrderDialog';
 import { ResultsDialog } from '@/components/orders/ResultsDialog';
-import { Skeleton } from '@/components/ui/skeleton';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import { toast } from 'sonner';
 
 export default function OrdersPage() {
   const queryClient = useQueryClient();
-  
+
   // Estados de Modals
   const [isNewOrderOpen, setIsNewOrderOpen] = useState(false);
   const [selectedOrderForDetail, setSelectedOrderForDetail] = useState<any>(null);
@@ -49,10 +70,10 @@ export default function OrdersPage() {
   const getStatusBadge = (status: string) => {
     const styles: Record<string, string> = {
       'SOLICITADO': 'bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-100', // Amarillo
-      'AGENDADO':   'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100',     // Azul
-      'REALIZADO':  'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100', // Verde
-      'CERRADO':    'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-100',   // Gris
-      'ANULADO':    'bg-red-100 text-red-800 border-red-200 hover:bg-red-100',       // Rojo
+      'AGENDADO': 'bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100',     // Azul
+      'REALIZADO': 'bg-emerald-100 text-emerald-800 border-emerald-200 hover:bg-emerald-100', // Verde
+      'CERRADO': 'bg-slate-100 text-slate-800 border-slate-200 hover:bg-slate-100',   // Gris
+      'ANULADO': 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100',       // Rojo
     };
 
     const defaultStyle = 'bg-gray-100 text-gray-800 hover:bg-gray-100';
@@ -71,7 +92,7 @@ export default function OrdersPage() {
     });
   };
 
-  const filteredOrders = orders?.filter((order: any) => 
+  const filteredOrders = orders?.filter((order: any) =>
     order.worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.worker.rut.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -88,24 +109,24 @@ export default function OrdersPage() {
           <Skeleton className="h-10 w-40" />
         </div>
         <div className="border rounded-md p-4 space-y-4">
-           <div className="flex justify-between mb-6">
-              <Skeleton className="h-10 w-64" /> 
-           </div>
-           {[...Array(5)].map((_, i) => (
-             <div key={i} className="flex justify-between items-center py-4 border-b last:border-0">
-                <div className="space-y-2">
-                   <Skeleton className="h-4 w-32" />
-                   <Skeleton className="h-3 w-24" />
-                </div>
-                <Skeleton className="h-4 w-20" />
+          <div className="flex justify-between mb-6">
+            <Skeleton className="h-10 w-64" />
+          </div>
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="flex justify-between items-center py-4 border-b last:border-0">
+              <div className="space-y-2">
                 <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-6 w-24 rounded-full" />
-                <div className="flex gap-2">
-                   <Skeleton className="h-8 w-8 rounded-md" />
-                   <Skeleton className="h-8 w-8 rounded-md" />
-                </div>
-             </div>
-           ))}
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <Skeleton className="h-8 w-8 rounded-md" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
@@ -131,8 +152,8 @@ export default function OrdersPage() {
             <CardTitle>Listado de Solicitudes</CardTitle>
             <div className="relative w-72">
               <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input 
-                placeholder="Buscar trabajador..." 
+              <Input
+                placeholder="Buscar trabajador..."
                 className="pl-8 bg-white"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -166,13 +187,13 @@ export default function OrdersPage() {
                       <TableCell className="text-slate-600">{order.company.name}</TableCell>
                       <TableCell>
                         <div className="text-xs text-slate-500 max-w-[200px] truncate" title={
-                             order.orderBatteries && order.orderBatteries.length > 0 
-                             ? order.orderBatteries.map((ob: any) => ob.battery.name).join(', ')
-                             : (order.examBatteries?.map((b: any) => b.name).join(', ') || 'Sin baterías')
+                          order.orderBatteries && order.orderBatteries.length > 0
+                            ? order.orderBatteries.map((ob: any) => ob.battery.name).join(', ')
+                            : (order.examBatteries?.map((b: any) => b.name).join(', ') || 'Sin baterías')
                         }>
-                            {order.orderBatteries && order.orderBatteries.length > 0 
-                                ? `${order.orderBatteries.length} Baterías`
-                                : (order.examBatteries?.length > 0 ? `${order.examBatteries.length} Baterías` : 'Sin asignar')}
+                          {order.orderBatteries && order.orderBatteries.length > 0
+                            ? `${order.orderBatteries.length} Baterías`
+                            : (order.examBatteries?.length > 0 ? `${order.examBatteries.length} Baterías` : 'Sin asignar')}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -184,9 +205,9 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-                          
+
                           {/* ACCIONES DINÁMICAS */}
-                          
+
                           {/* 1. Agendar (Solo Solicitado) */}
                           {order.status === 'SOLICITADO' && (
                             <Button variant="outline" size="icon" onClick={() => setSelectedOrderForSchedule(order)} className="h-8 w-8 text-blue-600 border-blue-200 hover:bg-blue-50" title="Agendar">
@@ -207,7 +228,7 @@ export default function OrdersPage() {
                               <Ban className="h-4 w-4" />
                             </Button>
                           )}
-                          
+
                           {/* 4. Ver (Siempre) */}
                           <Button variant="ghost" size="icon" onClick={() => setSelectedOrderForDetail(order)} className="h-8 w-8 text-slate-500 hover:text-slate-900" title="Ver Detalle">
                             <Eye className="h-4 w-4" />
@@ -224,17 +245,17 @@ export default function OrdersPage() {
       </Card>
 
       {/* Modales */}
-      <NewOrderSheet open={isNewOrderOpen} onOpenChange={setIsNewOrderOpen} />
-      
-      {selectedOrderForDetail && <OrderDetailsSheet order={selectedOrderForDetail} open={!!selectedOrderForDetail} onOpenChange={(open) => !open && setSelectedOrderForDetail(null)} />}
-      
-      {selectedOrderForSchedule && <ScheduleOrderDialog order={selectedOrderForSchedule} open={!!selectedOrderForSchedule} onOpenChange={(open) => !open && setSelectedOrderForSchedule(null)} />}
+      <NewOrderSheet open={isNewOrderOpen} onOpenChange={(open: boolean) => setIsNewOrderOpen(open)} />
+
+      {selectedOrderForDetail && <OrderDetailsSheet order={selectedOrderForDetail} open={!!selectedOrderForDetail} onOpenChange={(open: boolean) => !open && setSelectedOrderForDetail(null)} />}
+
+      {selectedOrderForSchedule && <ScheduleOrderDialog order={selectedOrderForSchedule} open={!!selectedOrderForSchedule} onOpenChange={(open: boolean) => !open && setSelectedOrderForSchedule(null)} />}
 
       {selectedOrderForResults && (
-        <ResultsDialog 
-            order={selectedOrderForResults} 
-            open={!!selectedOrderForResults} 
-            onOpenChange={(open) => !open && setSelectedOrderForResults(null)} 
+        <ResultsDialog
+          order={selectedOrderForResults}
+          open={!!selectedOrderForResults}
+          onOpenChange={(open: boolean) => !open && setSelectedOrderForResults(null)}
         />
       )}
 

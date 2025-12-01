@@ -7,10 +7,10 @@ import { toast } from 'sonner';
 import axios from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Label } from '@/components/ui/Label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/Card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 
 const loginSchema = z.object({
     email: z.string().email('Email inválido'),

@@ -1,47 +1,72 @@
 import express from 'express';
 import cors from 'cors';
-import path from 'path'; // <--- Importante para las rutas de carpetas
+import path from 'path';
 import AppRoutes from './routes';
 
 const app = express();
 
 // ---------------------------------------------------------
-// 1. CONFIGURACIÓN CORS (Permisiva para Desarrollo)
+// 1. CONFIGURACIÓN CORS
 // ---------------------------------------------------------
+const allowedOrigins = [
+  'http://localhost:5173',
+  process.env.FRONTEND_URL
+].filter(Boolean);
+
 app.use(cors({
-  origin: '*', // Permitir a todo el mundo
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: (origin, callback) => {
+    // Permitir requests sin origin (como Postman o server-to-server)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      // En desarrollo permitimos localhost:5173 explícitamente arriba.
+      // Si estamos en desarrollo y el origen no está en la lista (ej: localhost:3000), 
+      // podríamos permitirlo o no. Por seguridad, nos ceñimos a allowedOrigins.
+      // Pero para facilitar dev local si frontend corre en otro puerto:
+      if (process.env.NODE_ENV === 'development') {
+        callback(null, true);
+      } else {
+        console.warn(`Blocked by CORS: ${origin}`);
+        callback(new Error('Not allowed by CORS'));
+      }
+    }
+  },
+  credentials: true
 }));
 
 // ---------------------------------------------------------
-// 2. ALARMA DE DIAGNÓSTICO (Ding Dong)
-// ---------------------------------------------------------
-app.use((req, res, next) => {
-  console.log(`🔔 ¡DING DONG! Recibí una petición: ${req.method} ${req.url}`);
-  next();
-});
-
-// ---------------------------------------------------------
-// 3. MIDDLEWARES ESTÁNDAR
+// 2. MIDDLEWARES ESTÁNDAR
 // ---------------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Logging básico en desarrollo
+if (process.env.NODE_ENV === 'development') {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
+
 // ---------------------------------------------------------
-// 4. CARPETA PÚBLICA DE ARCHIVOS (PDFs)
+// 3. CARPETA PÚBLICA (UPLOADS)
 // ---------------------------------------------------------
-// Esto permite que cuando entres a http://localhost:3000/uploads/archivo.pdf, lo veas.
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ---------------------------------------------------------
-// 5. RUTAS DE LA API
+// 4. RUTAS DE LA API
 // ---------------------------------------------------------
 app.use('/api', AppRoutes);
 
-// Ruta Raíz
+// Ruta Raíz (Healthcheck simple del servidor)
 app.get('/', (req, res) => {
-  res.json({ message: 'Antigravity API Running 🚀' });
+  res.json({
+    message: 'Antigravity API Running 🚀',
+    env: process.env.NODE_ENV,
+    timestamp: new Date().toISOString()
+  });
 });
 
 export default app;

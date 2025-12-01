@@ -221,7 +221,8 @@ model BatteryExam {
 
 enum UserRole {
   ADMIN_VITAM
-  USER_COMPANY
+  ADMIN_EMPRESA
+  USER
 }
 
 model User {

@@ -1,8 +1,10 @@
 import { useState } from 'react';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
-import { Upload, FileSpreadsheet, CheckCircle, AlertTriangle, Download, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Upload, FileSpreadsheet, Loader2, Download, CheckCircle, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
 export default function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
@@ -40,21 +42,14 @@ export default function ImportPage() {
     setIsUploading(true);
     setStats(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
-
     try {
-      console.log("🚀 INICIANDO CARGA...");
-      console.log("👉 Destino: http://localhost:3000/api/import/structure");
+      const formData = new FormData();
+      formData.append('file', file);
 
-      // USAMOS FETCH DIRECTO PARA EVITAR PROBLEMAS DE CONFIGURACIÓN DE AXIOS
-      const response = await fetch('http://localhost:3000/api/import/structure', {
+      const response = await fetch(`${API_URL}/import/upload`, {
         method: 'POST',
         body: formData,
-        // No establecemos Content-Type manual, fetch lo hace automático para FormData
       });
-
-      console.log("📡 Respuesta recibida. Status:", response.status);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -116,12 +111,12 @@ export default function ImportPage() {
                 accept=".xlsx, .xls, .csv"
                 onChange={handleFileChange}
                 className="block w-full text-sm text-slate-500
-                  file:mr-4 file:py-2 file:px-4
-                  file:rounded-full file:border-0
-                  file:text-sm file:font-semibold
-                  file:bg-violet-50 file:text-violet-700
-                  hover:file:bg-violet-100
-                "
+                      file:mr-4 file:py-2 file:px-4
+                      file:rounded-full file:border-0
+                      file:text-sm file:font-semibold
+                      file:bg-violet-50 file:text-violet-700
+                      hover:file:bg-violet-100
+                    "
               />
             </div>
 

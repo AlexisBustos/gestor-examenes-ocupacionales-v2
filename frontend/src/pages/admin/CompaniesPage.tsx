@@ -1,19 +1,31 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/Table';
-import { Button } from '@/components/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Trash2, Eye, Pencil, Plus } from 'lucide-react';
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { toast } from 'sonner';
-import { CompanyDetailsSheet } from '@/components/companies/CompanyDetailsSheet';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { Plus, Eye, Pencil, Trash2 } from 'lucide-react';
+
 import { CompanyFormSheet } from '@/components/companies/CompanyFormSheet';
+import { CompanyDetailsSheet } from '@/components/companies/CompanyDetailsSheet';
 
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
@@ -94,14 +106,14 @@ export default function CompaniesPage() {
       </Card>
 
       {/* Modal Ver Detalles */}
-      {viewId && <CompanyDetailsSheet companyId={viewId} open={!!viewId} onOpenChange={(open) => !open && setViewId(null)} />}
+      {viewId && <CompanyDetailsSheet companyId={viewId} open={!!viewId} onOpenChange={(open: boolean) => !open && setViewId(null)} />}
 
       {/* Modal Editar/Crear */}
       {editId && (
         <CompanyFormSheet
           companyId={editId === 'new' ? null : editId}
           open={!!editId}
-          onOpenChange={(open) => !open && setEditId(null)}
+          onOpenChange={(open: boolean) => !open && setEditId(null)}
         />
       )}
 

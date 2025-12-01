@@ -1,7 +1,8 @@
 import { Router } from 'express';
+import { HealthController } from './health.controller';
+
 const router = Router();
 
-router.get('/', (req, res) => res.send('OK'));
+router.get('/', HealthController.getHealth);
 
-export const healthRouter = router; // Mantener por compatibilidad
-export default router; // Agregar para el nuevo sistema
+export default router;

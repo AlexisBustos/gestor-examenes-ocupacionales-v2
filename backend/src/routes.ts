@@ -18,10 +18,6 @@ import batteriesRouter from './modules/batteries/batteries.routes';
 
 const router = Router();
 
-// MÓDULOS CRÍTICOS AHORA (Moved to top)
-router.use('/config', configRouter);       // -> /api/config
-router.use('/batteries', batteriesRouter); // -> /api/batteries
-
 // Definición de rutas base (sin /api, eso ya lo pone server.ts)
 router.use('/health', healthRouter);
 router.use('/auth', authRouter);
@@ -36,5 +32,7 @@ router.use('/reports', reportsRouter);
 router.use('/risks', risksRouter);
 router.use('/workers', workersRouter);
 router.use('/analytics', analyticsRouter);
+router.use('/config', configRouter);
+router.use('/batteries', batteriesRouter);
 
 export default router;

@@ -1,16 +1,29 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/Table';
-import { Trash2, Plus, Building, Loader2, Search, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from '@/components/ui/table';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Loader2, Building, Upload, Plus, Search, Trash2 } from 'lucide-react';
 
 export default function CostCentersPage() {
   const queryClient = useQueryClient();
@@ -90,8 +103,8 @@ export default function CostCentersPage() {
         <Card className="md:col-span-1 h-fit sticky top-6">
           <CardHeader><CardTitle className="text-lg">Nuevo Centro</CardTitle><CardDescription>Ingresa los datos del nuevo CC.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Código</label><Input placeholder="Ej: CC-001" value={newCode} onChange={e => setNewCode(e.target.value)} /></div>
-            <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Nombre</label><Input placeholder="Ej: Operaciones" value={newName} onChange={e => setNewName(e.target.value)} /></div>
+            <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Código</label><Input placeholder="Ej: CC-001" value={newCode} onChange={(e) => setNewCode(e.target.value)} /></div>
+            <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Nombre</label><Input placeholder="Ej: Operaciones" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
             <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => createMutation.mutate()} disabled={!newCode || !newName || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Agregar Centro
             </Button>
@@ -101,7 +114,7 @@ export default function CostCentersPage() {
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle>Listado Actual</CardTitle>
-            <div className="relative w-64"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." className="pl-8" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div>
+            <div className="relative w-64"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" /><Input placeholder="Buscar..." className="pl-8" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
           </CardHeader>
           <CardContent>
             <div className="rounded-md border">

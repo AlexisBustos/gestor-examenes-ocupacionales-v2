@@ -1,24 +1,66 @@
-import axios from 'axios';
+import axios from "axios";
 
 /**
- * Instancia Maestra de Axios
- * Configurada para apuntar al backend local en el puerto 3000/api
+ * ============================================================
+ *  CONFIGURACIÓN GLOBAL DE AXIOS (DEV / PRODUCCIÓN)
+ * ============================================================
+ *
+ *  - Si VITE_API_URL NO existe, usa localhost como fallback.
+ *  - Debe definirse en:
+ *        .env.development   → http://localhost:3000/api
+ *        .env.production    → https://tu-backend.com/api
+ *
+ */
+export const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
+// Para servir archivos estáticos (PDFs, imágenes, etc.)
+export const SERVER_URL = API_URL.replace("/api", "");
+
+/**
+ * Instancia principal de Axios
  */
 const axiosInstance = axios.create({
-    baseURL: 'http://localhost:3000/api', // <--- ESTA ES LA BASE DE TODO
-    timeout: 10000,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+  baseURL: API_URL,
+  timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// Interceptor para logs (Opcional pero útil)
-axiosInstance.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        console.error("API Error:", error.response?.data || error.message);
-        return Promise.reject(error);
+/**
+ * ============================================================
+ *  INTERCEPTORES
+ * ============================================================
+ */
+
+// 🚀 Agregar token automáticamente si existe (opcional)
+axiosInstance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// 📌 Registrar errores de forma elegante
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    const data = error?.response?.data;
+
+    console.error("⚠️ API Error:", {
+      status,
+      message: error.message,
+      data,
+    });
+
+    return Promise.reject(error);
+  }
 );
 
 export default axiosInstance;
