@@ -46,7 +46,7 @@ export default function ImportPage() {
       const formData = new FormData();
       formData.append('file', file);
 
-      const response = await fetch(`${API_URL}/import/upload`, {
+      const response = await fetch(`${API_URL}/import/structure`, {
         method: 'POST',
         body: formData,
       });
