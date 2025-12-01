@@ -11,12 +11,20 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, CheckCircle2, AlertTriangle, FileText, UserCheck, UserPlus } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, FileText, UserCheck, UserPlus, ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
+import { Badge } from '@/components/ui/badge';
 
 interface RiskAgent { id: string; name: string; protocolUrl?: string; }
 interface RiskExposure { riskAgent: RiskAgent; specificAgentDetails?: string }
 interface GesLocal { id: string; name: string; areaId: string; riskExposures?: RiskExposure[]; }
+
+// Estructura de la respuesta de sugerencias
+interface OrderSuggestion {
+    required: any[];
+    covered: any[];
+    missing: any[];
+}
 
 const formSchema = z.object({
   rut: z.string().min(8), name: z.string().min(2), phone: z.string().optional(), position: z.string().min(2),
@@ -29,11 +37,15 @@ interface Props { open: boolean; onOpenChange: (o: boolean) => void; }
 
 export function NewOrderSheet({ open, onOpenChange }: Props) {
   const queryClient = useQueryClient();
+  
+  // Estados
   const [workerStatus, setWorkerStatus] = useState<'found' | 'new' | null>(null);
-  const [searchMode, setSearchMode] = useState<'ges' | 'area'>('ges'); 
+  const [workerId, setWorkerId] = useState<string | undefined>(undefined); // Guardamos el ID real del trabajador
+  const [searchMode, setSearchMode] = useState<'ges' | 'area'>('ges');
 
   const form = useForm<FormValues>({ resolver: zodResolver(formSchema), defaultValues: { evaluationType: 'PRE_OCUPACIONAL', rut: '', name: '', position: '', phone: '' } });
 
+  // 1. VALIDAR RUT Y OBTENER ID
   const handleRutBlur = async () => {
       const rut = form.getValues('rut');
       if (rut && rut.length >= 8) {
@@ -41,15 +53,14 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
             const { data } = await axios.get(`/workers/check/${rut}`);
             if (data.exists) {
                 setWorkerStatus('found');
+                setWorkerId(data.worker.id); // Guardamos el ID para la consulta de brechas
                 form.setValue('name', data.worker.name);
                 form.setValue('position', data.worker.position || '');
-                
-                // 👇 ¡AQUÍ ESTÁ EL ARREGLO!
-                form.setValue('phone', data.worker.phone || ''); 
-                
+                form.setValue('phone', data.worker.phone || '');
                 form.setValue('evaluationType', 'OCUPACIONAL');
             } else {
                 setWorkerStatus('new');
+                setWorkerId(undefined); // Es nuevo, no tiene historial
                 form.setValue('evaluationType', 'PRE_OCUPACIONAL');
             }
         } catch (e) { console.error(e); }
@@ -61,17 +72,31 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
   const selectedAreaId = form.watch('areaId');
   const selectedGesId = form.watch('gesId');
 
+  // Queries de infraestructura
   const { data: companies } = useQuery<any[]>({ queryKey: ['companies'], queryFn: async () => (await axios.get('/companies')).data, enabled: open });
   const { data: workCenters } = useQuery<any[]>({ queryKey: ['work-centers', selectedCompanyId], queryFn: async () => { if(!selectedCompanyId) return []; return (await axios.get(`/work-centers?companyId=${selectedCompanyId}`)).data; }, enabled: !!selectedCompanyId });
   const { data: areas } = useQuery<any[]>({ queryKey: ['areas', selectedWorkCenterId], queryFn: async () => { if(!selectedWorkCenterId) return []; return (await axios.get(`/areas?workCenterId=${selectedWorkCenterId}`)).data; }, enabled: !!selectedWorkCenterId });
   const { data: gesList } = useQuery<GesLocal[]>({ queryKey: ['ges', selectedAreaId], queryFn: async () => { const url = selectedAreaId ? `/ges?areaId=${selectedAreaId}` : '/ges'; return (await axios.get(url)).data; }, enabled: open });
   
-  const { data: suggestedBatteries, isLoading: isLoadingSuggestions } = useQuery<any[]>({
-    queryKey: ['suggestions', selectedGesId, selectedAreaId, searchMode],
+  // 👇 QUERY INTELIGENTE DE SUGERENCIAS (Brechas)
+  const { data: suggestions, isLoading: isLoadingSuggestions } = useQuery<OrderSuggestion>({
+    queryKey: ['order-suggestions', selectedGesId, workerId, searchMode, selectedAreaId],
     queryFn: async () => {
-      if (searchMode === 'area' && selectedAreaId) return (await axios.get(`/ges/area/${selectedAreaId}/batteries`)).data;
-      if (selectedGesId) return (await axios.get(`/ges/${selectedGesId}/batteries`)).data;
-      return [];
+      // Caso 1: Por Área (Trae todo, asumimos que es inicial o nuevo)
+      if (searchMode === 'area' && selectedAreaId) {
+         const batteries = (await axios.get(`/ges/area/${selectedAreaId}/batteries`)).data;
+         return { required: batteries, covered: [], missing: batteries };
+      }
+      
+      // Caso 2: Por GES (Usa el nuevo endpoint inteligente)
+      if (selectedGesId) {
+         // Si hay workerId, el backend calcula brechas. Si no, devuelve todo como missing.
+         const params = new URLSearchParams({ gesId: selectedGesId });
+         if (workerId) params.append('workerId', workerId);
+         
+         return (await axios.get(`/orders/suggestions?${params.toString()}`)).data;
+      }
+      return { required: [], covered: [], missing: [] };
     },
     enabled: !!(selectedGesId || (searchMode === 'area' && selectedAreaId))
   });
@@ -84,24 +109,32 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       if (searchMode === 'area' && !finalGesId && gesList && gesList.length > 0) { finalGesId = gesList[0].id; }
       if (!finalGesId) throw new Error("Debe seleccionar un GES o un Área válida");
 
-      const batteryIds = suggestedBatteries?.map((b: any) => ({ id: b.id })) || [];
+      // 👇 SOLICITAMOS SOLO LO FALTANTE (MISSING)
+      const batteryIds = suggestions?.missing.map((b: any) => ({ id: b.id })) || [];
+
+      if (batteryIds.length === 0) {
+          // Opcional: Permitir guardar orden vacía o bloquear.
+          // Por ahora permitimos para registro.
+      }
 
       await axios.post('/orders', {
         worker: { rut: values.rut, name: values.name, phone: values.phone, position: values.position },
-        gesId: finalGesId, companyId: values.companyId, evaluationType: values.evaluationType, examBatteries: batteryIds 
+        gesId: finalGesId, companyId: values.companyId, evaluationType: values.evaluationType, 
+        examBatteries: batteryIds 
       });
     },
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); onOpenChange(false); form.reset(); setWorkerStatus(null); toast.success("Solicitud creada"); },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['orders'] }); onOpenChange(false); form.reset(); setWorkerStatus(null); setWorkerId(undefined); toast.success("Solicitud creada"); },
     onError: () => toast.error("Error al crear (Verifique datos)")
   });
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="overflow-y-auto sm:max-w-[600px]">
-        <SheetHeader><SheetTitle>Nueva Solicitud</SheetTitle><SheetDescription>Filtra por ubicación.</SheetDescription></SheetHeader>
+        <SheetHeader><SheetTitle>Nueva Solicitud</SheetTitle><SheetDescription>Gestión inteligente de exámenes.</SheetDescription></SheetHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit((v) => createOrderMutation.mutate(v))} className="space-y-6 py-6">
             
+            {/* DATOS TRABAJADOR */}
             <div className="space-y-4 border rounded-md p-3 bg-slate-50">
                 <div className="grid grid-cols-2 gap-4">
                     <FormField control={form.control} name="rut" render={({ field }) => (<FormItem><FormLabel>RUT</FormLabel><FormControl><Input {...field} onBlur={handleRutBlur} /></FormControl></FormItem>)} />
@@ -118,14 +151,13 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
 
             <div className="h-px bg-border" />
             
+            {/* UBICACIÓN */}
             <div className="space-y-3 bg-slate-50 p-3 rounded-md border"><h3 className="text-xs font-bold text-slate-500 uppercase">Ubicación</h3><FormField control={form.control} name="companyId" render={({ field }) => (<FormItem><FormLabel>Empresa</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger></FormControl><SelectContent>{companies?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><div className="grid grid-cols-2 gap-4"><FormField control={form.control} name="workCenterId" render={({ field }) => (<FormItem><FormLabel>Centro</FormLabel><Select onValueChange={field.onChange} disabled={!selectedCompanyId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{workCenters?.map(w => <SelectItem key={w.id} value={w.id}>{w.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /><FormField control={form.control} name="areaId" render={({ field }) => (<FormItem><FormLabel>Área</FormLabel><Select onValueChange={field.onChange} disabled={!selectedWorkCenterId}><FormControl><SelectTrigger><SelectValue placeholder="Filtrar..." /></SelectTrigger></FormControl><SelectContent>{areas?.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}</SelectContent></Select></FormItem>)} /></div></div>
             
+            {/* MODO */}
             <div className="flex justify-center">
                 <Tabs value={searchMode} onValueChange={(v) => { setSearchMode(v as any); form.setValue('gesId', ''); }} className="w-full">
-                    <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="ges">Por Puesto (GES)</TabsTrigger>
-                        <TabsTrigger value="area" disabled={!selectedAreaId}>Por Área Completa</TabsTrigger>
-                    </TabsList>
+                    <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="ges">Por Puesto (GES)</TabsTrigger><TabsTrigger value="area" disabled={!selectedAreaId}>Por Área Completa</TabsTrigger></TabsList>
                 </Tabs>
             </div>
 
@@ -134,20 +166,54 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
             </div>
 
             <div className="grid gap-3 animate-in fade-in">
+                {/* RIESGOS (Solo modo GES) */}
                 {selectedGesId && searchMode === 'ges' && (
-                    <Card className="bg-blue-50 border-blue-200 shadow-none"><CardHeader className="pb-2 pt-3"><CardTitle className="text-blue-800 text-xs flex items-center gap-2"><AlertTriangle className="h-3 w-3" /> Riesgos</CardTitle></CardHeader><CardContent className="text-xs text-blue-900 pb-3"><ul className="space-y-3">{selectedGesData?.riskExposures?.map((r, i) => (<li key={i} className="flex flex-col gap-1 border-b border-blue-100 pb-2 last:border-0 last:pb-0"><div className="flex items-center justify-between"><span className="font-semibold">{r.riskAgent.name}</span>{r.specificAgentDetails && <span className="text-blue-600 text-[10px] bg-white px-1 rounded">({r.specificAgentDetails})</span>}</div>{r.riskAgent.protocols && r.riskAgent.protocols.length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{r.riskAgent.protocols.map(p => (<a key={p.id} href={`http://localhost:3000${p.url}`} target="_blank" className="inline-flex items-center text-purple-700 hover:underline text-[10px] bg-purple-50 px-2 py-0.5 rounded border border-purple-200 transition-colors hover:bg-purple-100"><FileText className="h-3 w-3 mr-1" /> {p.name}</a>))}</div>)}</li>))}</ul></CardContent></Card>
+                    <Card className="bg-blue-50 border-blue-200 shadow-none"><CardHeader className="pb-2 pt-3"><CardTitle className="text-blue-800 text-xs flex items-center gap-2"><AlertTriangle className="h-3 w-3" /> Riesgos Detectados</CardTitle></CardHeader><CardContent className="text-xs text-blue-900 pb-3"><ul className="space-y-3">{selectedGesData?.riskExposures?.map((r, i) => (<li key={i} className="flex flex-col gap-1 border-b border-blue-100 pb-2 last:border-0 last:pb-0"><div className="flex items-center justify-between"><span className="font-semibold">{r.riskAgent.name}</span>{r.specificAgentDetails && <span className="text-blue-600 text-[10px] bg-white px-1 rounded">({r.specificAgentDetails})</span>}</div>{r.riskAgent.protocols && r.riskAgent.protocols.length > 0 && (<div className="flex flex-wrap gap-1 mt-1">{r.riskAgent.protocols.map(p => (<a key={p.id} href={`http://localhost:3000${p.url}`} target="_blank" className="inline-flex items-center text-purple-700 hover:underline text-[10px] bg-purple-50 px-2 py-0.5 rounded border border-purple-200 transition-colors hover:bg-purple-100"><FileText className="h-3 w-3 mr-1" /> {p.name}</a>))}</div>)}</li>))}</ul></CardContent></Card>
                 )}
                 
-                <Card className="bg-indigo-50 border-indigo-200 shadow-none">
-                    <CardHeader className="pb-2 pt-3"><CardTitle className="text-indigo-800 text-xs flex items-center gap-2"><CheckCircle2 className="h-3 w-3" /> Baterías Sugeridas ({searchMode === 'area' ? 'Área Completa' : 'GES Específico'})</CardTitle></CardHeader>
-                    <CardContent className="text-xs text-indigo-900 pb-3">
-                        {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : suggestedBatteries && suggestedBatteries.length > 0 ? (<ul className="list-disc list-inside font-medium">{suggestedBatteries.map((b: any) => <li key={b.id}>{b.name}</li>)}</ul>) : <span className="italic text-indigo-500">Sin coincidencias automáticas.</span>}
+                {/* 👇 TARJETA INTELIGENTE: COBERTURA */}
+                <Card className="border-indigo-100 shadow-sm">
+                    <CardHeader className="pb-2 pt-3 bg-indigo-50/50 border-b border-indigo-100">
+                        <CardTitle className="text-indigo-800 text-xs flex items-center gap-2">
+                            <ShieldCheck className="h-3 w-3" /> Análisis de Cobertura ({searchMode === 'area' ? 'Área' : 'GES'})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="text-xs pt-3 space-y-4">
+                        {isLoadingSuggestions ? <Loader2 className="h-4 w-4 animate-spin" /> : (
+                            <>
+                                {/* 1. Baterías Faltantes (A Solicitar) */}
+                                <div>
+                                    <h4 className="font-bold text-amber-700 mb-2 flex items-center gap-2">
+                                        <div className="w-2 h-2 rounded-full bg-amber-500"></div> 
+                                        A Solicitar ({suggestions?.missing.length || 0})
+                                    </h4>
+                                    {suggestions?.missing && suggestions.missing.length > 0 ? (
+                                        <ul className="list-disc list-inside font-medium text-amber-900 bg-amber-50 p-2 rounded border border-amber-100">
+                                            {suggestions.missing.map((b: any) => <li key={b.id}>{b.name}</li>)}
+                                        </ul>
+                                    ) : <span className="text-slate-400 italic ml-4">No hay exámenes pendientes.</span>}
+                                </div>
+
+                                {/* 2. Baterías Cubiertas (Ya tiene) */}
+                                {suggestions?.covered && suggestions.covered.length > 0 && (
+                                    <div>
+                                        <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">
+                                            <div className="w-2 h-2 rounded-full bg-green-500"></div> 
+                                            Vigentes / Cubiertas ({suggestions.covered.length})
+                                        </h4>
+                                        <ul className="list-disc list-inside font-medium text-green-900 bg-green-50 p-2 rounded border border-green-100 opacity-80">
+                                            {suggestions.covered.map((b: any) => <li key={b.id}>{b.name} <span className="text-[10px] text-green-600">(No se pedirá)</span></li>)}
+                                        </ul>
+                                    </div>
+                                )}
+                            </>
+                        )}
                     </CardContent>
                 </Card>
             </div>
             
-            <Button type="submit" className="w-full" disabled={createOrderMutation.isPending}>
-                {createOrderMutation.isPending ? "Procesando..." : "Confirmar Solicitud"}
+            <Button type="submit" className="w-full bg-blue-700 hover:bg-blue-800" disabled={createOrderMutation.isPending}>
+                {createOrderMutation.isPending ? "Procesando..." : `Generar Solicitud (${suggestions?.missing.length || 0} exámenes)`}
             </Button>
           </form>
         </Form>

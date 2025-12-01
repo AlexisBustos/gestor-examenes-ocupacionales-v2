@@ -1,8 +1,9 @@
 import { PrismaClient, Prisma } from '@prisma/client';
+import { getSuggestedBatteries } from '../ges/ges.service'; // Reutilizamos la inteligencia del GES
 
 const prisma = new PrismaClient();
 
-// --- HERRAMIENTAS DE INTELIGENCIA ---
+// --- HERRAMIENTAS DE INTELIGENCIA (LEGACY PARA CREACIÓN SIN HISTORIAL) ---
 const normalizeText = (text: string) => {
   return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 };
@@ -19,7 +20,7 @@ const KEYWORD_MAP: Record<string, string> = {
   'radiacion': 'RADIACIONES', 'ionizante': 'RADIACIONES', 'uv': 'UV', 'asma': 'ASMA'
 };
 
-// --- OBTENER (Corregido: Sin examBatteries) ---
+// --- 1. OBTENER ÓRDENES ---
 export const getAllOrders = async (status?: string) => {
   const where: Prisma.ExamOrderWhereInput = status ? { status: status as any } : {};
   
@@ -29,29 +30,77 @@ export const getAllOrders = async (status?: string) => {
     include: {
       worker: true,
       company: true,
-      // examBatteries: true, <--- ESTA LÍNEA ESTABA ROMPIENDO TODO, LA QUITAMOS
       ges: {
         include: {
           riskExposures: { include: { riskAgent: true } },
           technicalReport: true
         }
       },
-      // Usamos la nueva relación correcta
       orderBatteries: { include: { battery: true } }
     },
   });
 };
 
-// --- CREAR (Lógica Híbrida) ---
+// --- 2. SUGERENCIAS INTELIGENTES (NUEVO) ---
+export const getWorkerOrderSuggestions = async (workerId: string | undefined, gesId: string) => {
+  // A. Obtenemos lo que el GES requiere (Manual o Automático)
+  const requiredBatteries = await getSuggestedBatteries(gesId);
+
+  // Si no hay trabajador (es nuevo) o no viene ID, todo es faltante
+  if (!workerId) {
+      return {
+          required: requiredBatteries,
+          covered: [],
+          missing: requiredBatteries
+      };
+  }
+
+  // B. Obtenemos el historial VIGENTE del trabajador
+  const workerHistory = await prisma.worker.findUnique({
+      where: { id: workerId },
+      include: {
+          examOrders: {
+              include: {
+                  orderBatteries: {
+                      where: {
+                          status: 'APTO', // Solo exámenes aprobados
+                          // Validación de fecha: Solo si vence en el futuro
+                          expirationDate: { gt: new Date() } 
+                      },
+                      include: { battery: true }
+                  }
+              }
+          }
+      }
+  });
+
+  const coveredIds = new Set<string>();
+  if (workerHistory) {
+      workerHistory.examOrders.forEach(order => {
+          order.orderBatteries.forEach(ob => coveredIds.add(ob.batteryId));
+      });
+  }
+
+  // C. Calculamos Delta
+  const covered = requiredBatteries.filter(b => coveredIds.has(b.id));
+  const missing = requiredBatteries.filter(b => !coveredIds.has(b.id));
+
+  return {
+      required: requiredBatteries,
+      covered,
+      missing
+  };
+};
+
+// --- 3. CREAR ORDEN ---
 export const createOrder = async (data: {
   worker: { rut: string; name: string; phone?: string; position?: string };
   gesId: string;
   companyId: string;
   evaluationType: string;
-  examBatteries?: { id: string }[]; // Recibimos la lista del frontend
+  examBatteries?: { id: string }[]; 
 }) => {
   
-  // 1. Worker
   const worker = await prisma.worker.upsert({
     where: { rut: data.worker.rut },
     update: { name: data.worker.name, phone: data.worker.phone, position: data.worker.position, currentGesId: data.gesId },
@@ -60,14 +109,15 @@ export const createOrder = async (data: {
 
   let batteriesToConnect: { id: string }[] = [];
 
-  // --- DECISIÓN CLAVE ---
   if (data.examBatteries && data.examBatteries.length > 0) {
-      // A. Si el Frontend nos manda baterías, usamos esas.
-      console.log("📦 Usando baterías enviadas por Frontend:", data.examBatteries.length);
       batteriesToConnect = data.examBatteries;
   } else {
-      // B. Si no, calculamos (Inteligencia)
-      console.log("🧠 Calculando baterías automáticamente...");
+      // Fallback: Si el frontend no mandó baterías explícitas (caso legacy), calculamos las básicas
+      // OJO: Aquí idealmente deberíamos usar getSuggestedBatteries, pero mantenemos
+      // la lógica de keywords interna para no romper seeds antiguos si algo falla.
+      // En el flujo nuevo, el frontend SIEMPRE enviará 'examBatteries' desde 'missing'.
+      
+      // ... (Lógica legacy de keywords mantenida por seguridad) ...
       const ges = await prisma.ges.findUnique({
         where: { id: data.gesId },
         include: { riskExposures: { include: { riskAgent: true } } }
@@ -92,17 +142,14 @@ export const createOrder = async (data: {
       }
   }
 
-  // Eliminar duplicados
   const uniqueIds = new Set(batteriesToConnect.map(b => b.id));
   batteriesToConnect = Array.from(uniqueIds).map(id => ({ id }));
 
-  // Fallback
   if (batteriesToConnect.length === 0) {
       const fallback = await prisma.examBattery.findFirst();
       if (fallback) batteriesToConnect.push({ id: fallback.id });
   }
 
-  // Creación (Usando orderBatteries)
   return await prisma.examOrder.create({
     data: {
       status: 'SOLICITADO',

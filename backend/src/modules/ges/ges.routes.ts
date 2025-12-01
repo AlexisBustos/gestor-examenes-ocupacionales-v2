@@ -1,16 +1,24 @@
 import { Router } from 'express';
+import * as GesController from './ges.controller';
 import multer from 'multer';
-import { list, getOne, create, uploadReport, getSuggestions, getAreaSuggestions } from './ges.controller';
 
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
-router.get('/', list);
-router.get('/:id', getOne);
-router.get('/:id/batteries', getSuggestions);
-router.get('/area/:id/batteries', getAreaSuggestions);
-router.post('/', create);
-router.post('/:id/report', upload.single('file'), uploadReport);
+router.get('/', GesController.list);
+router.post('/', GesController.create);
 
-// 👇 ESTO ES LO QUE PERMITE IMPORTAR SIN LLAVES
+// Rutas más específicas primero
+router.get('/area/:id/batteries', GesController.getAreaSuggestions);
+
+// Inteligencia y Reglas por GES
+router.get('/:id/batteries', GesController.getSuggestions);
+router.put('/:id/batteries', GesController.updateRules);
+
+// Detalle de un GES
+router.get('/:id', GesController.getOne);
+
+// Si tenías rutas de reportes, las puedes re-agregar acá, por ejemplo:
+// router.post('/:id/report', upload.single('file'), GesController.uploadReport);
+
 export default router;

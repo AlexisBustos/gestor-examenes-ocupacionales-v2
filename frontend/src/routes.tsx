@@ -2,14 +2,14 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 
-// PÁGINAS BASE
+// PÁGINAS
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage';
 import ImportPage from '@/pages/ImportPage';
 
-// PÁGINAS ADMIN
+// PÁGINAS ADMIN (Verifica que existan estos archivos en src/pages/admin/)
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import WorkersPage from '@/pages/admin/WorkersPage';
 import CostCentersPage from '@/pages/admin/CostCentersPage';
@@ -17,6 +17,8 @@ import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
 import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage';
 import ConfigPage from '@/pages/admin/ConfigPage';
 import BatteriesPage from '@/pages/admin/BatteriesPage';
+// 👇 NUEVA PÁGINA
+import GesRulesPage from '@/pages/admin/GesRulesPage'; 
 
 const AppLayout = () => (
   <AuthProvider>
@@ -45,18 +47,21 @@ export const router = createBrowserRouter([
             children: [
               { index: true, element: <DashboardPage /> },
               
-              // Operación
+              // Módulos Principales
               { path: 'orders', element: <OrdersPage /> },
               { path: 'surveillance', element: <MedicalSurveillancePage /> },
               { path: 'import', element: <ImportPage /> },
 
-              // Administración
+              // Módulos Administrativos
               { path: 'companies', element: <CompaniesPage /> },
               { path: 'workers', element: <WorkersPage /> },
               { path: 'cost-centers', element: <CostCentersPage /> },
               { path: 'risks-library', element: <RisksLibraryPage /> },
               { path: 'config', element: <ConfigPage /> },
               { path: 'batteries', element: <BatteriesPage /> },
+              
+              // 👇 RUTA NUEVA
+              { path: 'ges-rules', element: <GesRulesPage /> },
             ],
           },
         ],

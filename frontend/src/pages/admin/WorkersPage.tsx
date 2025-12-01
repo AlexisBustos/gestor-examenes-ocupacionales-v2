@@ -5,11 +5,13 @@ import { Card, CardHeader, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from '@/components/ui/table';
-import { Users, Upload, Search, Loader2, Pencil, Trash2, Eye } from 'lucide-react';
+import { Users, Upload, Search, Loader2, Pencil, Trash2, Eye, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { WorkerFormSheet } from '@/components/workers/WorkerFormSheet';
 import { WorkerDetailsSheet } from '@/components/workers/WorkerDetailsSheet';
+// 👇 IMPORTAR NUEVO COMPONENTE
+import { WorkerCreateDialog } from '@/components/workers/WorkerCreateDialog';
 
 export default function WorkersPage() {
   const queryClient = useQueryClient();
@@ -18,6 +20,8 @@ export default function WorkersPage() {
   
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [viewingWorkerId, setViewingWorkerId] = useState<string | null>(null);
+  // 👇 ESTADO PARA CREAR
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: workers, isLoading } = useQuery({
     queryKey: ['workers'],
@@ -61,13 +65,20 @@ export default function WorkersPage() {
                 <p className="text-muted-foreground">Base de datos de personal activo.</p>
             </div>
         </div>
-        <div className="relative">
-            <input type="file" id="import-w" className="hidden" accept=".xlsx, .csv" onChange={handleFileUpload} disabled={isImporting} />
-            <label htmlFor="import-w">
-                <Button variant="outline" className="cursor-pointer" asChild disabled={isImporting}>
-                    <span>{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Cargar Nómina (Excel)</span>
-                </Button>
-            </label>
+        <div className="flex gap-2">
+            {/* 👇 BOTÓN NUEVO */}
+            <Button variant="secondary" onClick={() => setIsCreating(true)}>
+                <Plus className="mr-2 h-4 w-4"/> Nuevo Trabajador
+            </Button>
+
+            <div className="relative">
+                <input type="file" id="import-w" className="hidden" accept=".xlsx, .csv" onChange={handleFileUpload} disabled={isImporting} />
+                <label htmlFor="import-w">
+                    <Button variant="outline" className="cursor-pointer" asChild disabled={isImporting}>
+                        <span>{isImporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />} Excel</span>
+                    </Button>
+                </label>
+            </div>
         </div>
       </div>
 
@@ -98,6 +109,8 @@ export default function WorkersPage() {
         </CardContent>
       </Card>
 
+      {/* MODALES */}
+      {isCreating && <WorkerCreateDialog open={isCreating} onOpenChange={setIsCreating} />}
       {editingWorker && <WorkerFormSheet worker={editingWorker} open={!!editingWorker} onOpenChange={(o) => !o && setEditingWorker(null)} />}
       {viewingWorkerId && <WorkerDetailsSheet workerId={viewingWorkerId} open={!!viewingWorkerId} onOpenChange={(o) => !o && setViewingWorkerId(null)} />}
 

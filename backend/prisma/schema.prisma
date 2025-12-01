@@ -130,6 +130,7 @@ model Ges {
   riskExposures    RiskExposure[]
   workers          Worker[]       @relation("CurrentGes")
   examOrders       ExamOrder[]
+  examBatteries      ExamBattery[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -202,6 +203,7 @@ model ExamBattery {
   riskExposures  RiskExposure[]
   orderBatteries OrderBattery[]
   rules          MedicalRule[] // <--- NUEVA RELACIÓN
+  gesGroups      Ges[]
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
 }

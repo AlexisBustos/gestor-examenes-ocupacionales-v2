@@ -1,9 +1,10 @@
 import { PrismaClient } from '@prisma/client';
 import xlsx from 'xlsx';
-import { getSuggestedBatteries } from '../ges/ges.service';
+import { getSuggestedBatteries } from '../ges/ges.service'; // Importamos la inteligencia del GES
 
 const prisma = new PrismaClient();
 
+// --- FUNCIONES BÁSICAS (MANTENIDAS) ---
 export const findAllWorkers = async () => {
   return await prisma.worker.findMany({
     orderBy: { name: 'asc' },
@@ -26,7 +27,10 @@ export const getWorkerById = async (id: string) => {
         currentGes: true,
         examOrders: { 
             orderBy: { createdAt: 'desc' },
-            include: { ges: true, orderBatteries: { include: { battery: true } } }
+            include: { 
+                ges: true,
+                orderBatteries: { include: { battery: true } }
+            }
         }
     }
   });
@@ -40,24 +44,98 @@ export const deleteWorker = async (id: string) => {
     return await prisma.worker.delete({ where: { id } });
 };
 
-// LÓGICA DE MOVILIDAD
+export const createWorkerDb = async (data: any) => {
+  const exists = await prisma.worker.findUnique({ where: { rut: data.rut } });
+  if (exists) throw new Error("El RUT ya existe");
+
+  let companyId = data.companyId;
+  if (!companyId) {
+      const defaultComp = await prisma.company.findFirst();
+      if (!defaultComp) throw new Error("No hay empresas");
+      companyId = defaultComp.id;
+  }
+
+  return await prisma.worker.create({
+    data: {
+      rut: data.rut,
+      name: data.name,
+      email: data.email,
+      phone: data.phone,
+      position: data.position || 'Sin Cargo',
+      costCenter: data.costCenter,
+      companyId: companyId,
+      active: true
+    }
+  });
+};
+
+export const importWorkersDb = async (fileBuffer: Buffer) => {
+  const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
+  const sheet = workbook.Sheets[workbook.SheetNames[0]];
+  const rows: any[] = xlsx.utils.sheet_to_json(sheet);
+  let count = 0;
+  const defaultCompany = await prisma.company.findFirst();
+  if (!defaultCompany) throw new Error("No hay empresas creadas");
+
+  for (const row of rows) {
+    const clean: any = {};
+    Object.keys(row).forEach(k => clean[k.toLowerCase().trim()] = row[k]);
+    const rut = clean['rut'];
+    const name = clean['nombre'] || clean['trabajador'];
+    const cargo = clean['cargo'] || clean['puesto'];
+    const centroCosto = clean['centro costo'] || clean['cc'];
+    const email = clean['email'] || clean['correo'];
+    const phone = clean['telefono'] || clean['fono'];
+
+    if (rut && name) {
+      await prisma.worker.upsert({
+        where: { rut: rut.toString() },
+        update: { name: name.toString(), position: cargo, costCenter: centroCosto, email, phone: phone?.toString(), active: true },
+        create: { rut: rut.toString(), name: name.toString(), position: cargo || 'Sin Cargo', costCenter: centroCosto, email, phone: phone?.toString(), companyId: defaultCompany.id, active: true }
+      });
+      count++;
+    }
+  }
+  return { message: `Nómina procesada: ${count} trabajadores.` };
+};
+
+// --- NUEVA LÓGICA: MOVILIDAD V1.1 ---
+
 export const analyzeJobChange = async (workerId: string, newGesId: string) => {
-  console.log(`🕵️‍♂️ Backend: Analizando worker ${workerId} para GES ${newGesId}`);
-  
+  // 1. Qué pide el nuevo puesto
   const requiredBatteries = await getSuggestedBatteries(newGesId);
   
+  // 2. Qué tiene el trabajador (APTO y VIGENTE)
   const workerHistory = await prisma.worker.findUnique({
     where: { id: workerId },
-    include: { examOrders: { include: { orderBatteries: { where: { status: 'APTO' }, include: { battery: true } } } } }
+    include: {
+      currentGes: true,
+      examOrders: {
+        include: {
+          orderBatteries: {
+            where: {
+              status: 'APTO', // Solo APTOS
+              // expirationDate: { gt: new Date() } // (Opcional: Activar si quieres validar fechas)
+            },
+            include: { battery: true }
+          }
+        }
+      }
+    }
   });
 
   if (!workerHistory) throw new Error("Trabajador no encontrado");
 
+  const newGes = await prisma.ges.findUnique({ where: { id: newGesId } });
+  if (!newGes) throw new Error("GES destino no encontrado");
+
+  // Aplanar historial
   const currentBatteriesIds = new Set<string>();
   workerHistory.examOrders.forEach(order => {
     order.orderBatteries.forEach(ob => currentBatteriesIds.add(ob.batteryId));
   });
 
+  // 3. Calcular Brecha
   const gaps = requiredBatteries.map((reqBat: any) => {
     const hasIt = currentBatteriesIds.has(reqBat.id);
     return {
@@ -68,7 +146,15 @@ export const analyzeJobChange = async (workerId: string, newGesId: string) => {
   });
 
   return {
-    newGesId,
+    worker: {
+        id: workerHistory.id,
+        name: workerHistory.name,
+        currentGesName: workerHistory.currentGes?.name || 'Sin asignar'
+    },
+    newGes: {
+        id: newGes.id,
+        name: newGes.name
+    },
     gaps,
     transferReady: gaps.every((g: any) => g.status === 'CUBIERTO')
   };
@@ -79,9 +165,4 @@ export const transferWorker = async (workerId: string, newGesId: string) => {
     where: { id: workerId },
     data: { currentGesId: newGesId }
   });
-};
-
-export const importWorkersDb = async (fileBuffer: Buffer) => {
-  // Lógica de importación simplificada para no alargar
-  return { message: "Importador listo" };
 };

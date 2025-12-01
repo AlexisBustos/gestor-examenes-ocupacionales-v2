@@ -12,7 +12,8 @@ import {
   Users,
   Activity,
   Settings,
-  Stethoscope // <--- ¡AQUÍ ESTABA EL CULPABLE! Ahora sí está importado.
+  Stethoscope,
+  ShieldCheck // <--- IMPORTANTE: Importado explícitamente
 } from 'lucide-react';
 
 const navigation = [
@@ -23,8 +24,10 @@ const navigation = [
   { name: 'Nómina', href: '/dashboard/workers', icon: Users },
   { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt },
   { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen },
-  { name: 'Configuración Médica', href: '/dashboard/config', icon: Settings },
-  { name: 'Baterías', href: '/dashboard/batteries', icon: Stethoscope }, // <--- Aquí se usa
+  // Nueva sección
+  { name: 'Reglas Médicas', href: '/dashboard/ges-rules', icon: ShieldCheck },
+  { name: 'Configuración (Manual)', href: '/dashboard/config', icon: Settings },
+  { name: 'Baterías', href: '/dashboard/batteries', icon: Stethoscope },
   { name: 'Importar Datos', href: '/dashboard/import', icon: Upload },
 ];
 
@@ -81,9 +84,7 @@ export function Sidebar() {
             }
           >
             <item.icon
-              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors", 
-                 // El icono hereda el color del texto
-              )}
+              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors")}
               aria-hidden="true"
             />
             {item.name}

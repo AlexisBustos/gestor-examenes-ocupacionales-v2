@@ -2,17 +2,83 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- HERRAMIENTA DE LIMPIEZA ÚNICA ---
+// --- DICCIONARIO LEGACY (Respaldo Automático) ---
 const normalizeText = (text: string) => {
-  return text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  return text
+    ? text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim()
+    : '';
 };
 
-// --- CONSULTAS BÁSICAS ---
+const KEYWORD_MAP: Record<string, string> = {
+  ruido: 'RUIDO',
+  prexor: 'RUIDO',
+  silice: 'SÍLICE',
+  polvo: 'SÍLICE',
+  solvente: 'SOLVENTES',
+  tolueno: 'TOLUENO',
+  xileno: 'XILENO',
+  metal: 'METALES',
+  humo: 'HUMOS',
+  manganeso: 'MANGANESO',
+  plomo: 'PLOMO',
+  calor: 'ESTRÉS',
+  termico: 'ESTRÉS',
+  altura: 'ALTURA',
+  vibracion: 'VIBRACIONES',
+  uv: 'UV',
+  solar: 'UV',
+};
+
+const findBatteriesByKeywords = async (riskExposures: any[]) => {
+  const allBatteries = await prisma.examBattery.findMany();
+  let suggestions: any[] = [];
+
+  for (const riskExp of riskExposures) {
+    const fullText = `${normalizeText(riskExp.riskAgent.name)} ${normalizeText(
+      riskExp.specificAgentDetails,
+    )}`;
+    let matched = false;
+
+    // 1. Búsqueda por mapa de palabras clave
+    for (const [trigger, target] of Object.entries(KEYWORD_MAP)) {
+      if (fullText.includes(trigger)) {
+        const bat = allBatteries.find((b) =>
+          normalizeText(b.name).includes(normalizeText(target)),
+        );
+        if (bat) {
+          suggestions.push(bat);
+          matched = true;
+        }
+      }
+    }
+
+    // 2. Búsqueda directa por nombre de agente (fallback)
+    if (!matched) {
+      const bat = allBatteries.find((b) =>
+        normalizeText(b.name).includes(
+          normalizeText(riskExp.riskAgent.name),
+        ),
+      );
+      if (bat) suggestions.push(bat);
+    }
+  }
+
+  // Eliminar duplicados
+  const uniqueMap = new Map(suggestions.map((i) => [i.id, i]));
+  return Array.from(uniqueMap.values());
+};
+
+// --- SERVICIOS CRUD BÁSICOS ---
+
 export const getAllGes = async (areaId?: string) => {
   const where = areaId ? { areaId } : {};
   return await prisma.ges.findMany({
     where,
-    include: { riskExposures: { include: { riskAgent: true } }, technicalReport: true },
+    orderBy: { name: 'asc' },
+    include: {
+      riskExposures: { include: { riskAgent: true } },
+      examBatteries: true, // Reglas manuales
+    },
   });
 };
 
@@ -21,96 +87,82 @@ export const getGesById = async (id: string) => {
     where: { id },
     include: {
       riskExposures: { include: { riskAgent: true } },
-      technicalReport: {
-        include: {
-           prescriptions: { orderBy: { createdAt: 'desc' } },
-           quantitativeReports: {
-             include: { prescriptions: { orderBy: { createdAt: 'desc' } } },
-             orderBy: { reportDate: 'desc' }
-           }
-        }
-      },
-      area: { include: { workCenter: true } }
+      examBatteries: true,
+      area: { include: { workCenter: true } },
     },
   });
 };
 
-export const createGes = async (data: any) => { return await prisma.ges.create({ data }); };
-
-// --- CEREBRO DE SUGERENCIAS (CONECTADO A BASE DE DATOS) ---
-const findBatteriesForRisks = async (riskExposures: any[]) => {
-  let suggestions: any[] = [];
-  
-  // Traemos TODAS las reglas de la base de datos (están en memoria para ser rápido)
-  const rules = await prisma.medicalRule.findMany({ include: { battery: true } });
-
-  for (const riskExp of riskExposures) {
-    const riskName = normalizeText(riskExp.riskAgent.name);
-    const detail = normalizeText(riskExp.specificAgentDetails || '');
-    
-    // Buscamos coincidencia en las reglas
-    for (const rule of rules) {
-        const ruleAgent = normalizeText(rule.riskAgentName);
-        const ruleDetail = normalizeText(rule.specificDetail || '');
-
-        // 1. Coincidencia Exacta (Agente + Detalle)
-        if (ruleDetail && riskName.includes(ruleAgent) && detail.includes(ruleDetail)) {
-            suggestions.push(rule.battery);
-        }
-        // 2. Coincidencia General (Solo Agente, si la regla no pide detalle)
-        else if (!ruleDetail && riskName.includes(ruleAgent)) {
-            suggestions.push(rule.battery);
-        }
-    }
-  }
-
-  return [...new Map(suggestions.map(item => [item['id'], item])).values()];
+export const createGes = async (data: any) => {
+  return await prisma.ges.create({ data });
 };
 
-// 1. SUGERIR POR GES (INDIVIDUAL)
+// --- GESTIÓN DE REGLAS (MANUAL) ---
+
+export const updateGesBatteries = async (
+  gesId: string,
+  batteryIds: string[],
+) => {
+  // Reemplaza todas las asociaciones existentes con las nuevas
+  return await prisma.ges.update({
+    where: { id: gesId },
+    data: {
+      examBatteries: {
+        set: batteryIds.map((id) => ({ id })),
+      },
+    },
+    include: { examBatteries: true },
+  });
+};
+
+// --- LÓGICA HÍBRIDA DE SUGERENCIAS (COMPATIBLE CON WORKERS) ---
+
 export const getSuggestedBatteries = async (gesId: string) => {
   const ges = await prisma.ges.findUnique({
     where: { id: gesId },
-    include: { riskExposures: { include: { riskAgent: true } } }
+    include: {
+      examBatteries: true, // 1. Buscar asignación manual
+      riskExposures: { include: { riskAgent: true } },
+    },
   });
-  if (!ges || !ges.riskExposures) return [];
-  return findBatteriesForRisks(ges.riskExposures);
+
+  if (!ges) return [];
+
+  // PRIORIDAD 1: Si hay baterías manuales en el GES, usar esas.
+  if (ges.examBatteries && ges.examBatteries.length > 0) {
+    return ges.examBatteries;
+  }
+
+  // PRIORIDAD 2: Si no hay manuales, usar algoritmo automático (legacy)
+  if (ges.riskExposures && ges.riskExposures.length > 0) {
+    return findBatteriesByKeywords(ges.riskExposures);
+  }
+
+  return [];
 };
 
-// 2. SUGERIR POR ÁREA (AGREGADO)
+// Lógica por Área (Agregación)
 export const getBatteriesByArea = async (areaId: string) => {
   const gesList = await prisma.ges.findMany({
     where: { areaId },
-    include: { riskExposures: { include: { riskAgent: true } } }
+    include: {
+      examBatteries: true,
+      riskExposures: { include: { riskAgent: true } },
+    },
   });
-  const allRisks = gesList.flatMap(g => g.riskExposures);
-  return findBatteriesForRisks(allRisks);
-};
 
-// --- SUBIDA REPORTE ---
-export const uploadGesReport = async (gesId: string, fileData: any, meta: any) => {
-  const ges = await prisma.ges.findUnique({ where: { id: gesId }, include: { area: { include: { workCenter: true } } } });
-  if (!ges) throw new Error("GES no encontrado");
+  let allBatteries: any[] = [];
 
-  const report = await prisma.technicalReport.create({
-    data: {
-      pdfUrl: `/uploads/${fileData.filename}`,
-      reportNumber: meta.reportNumber,
-      reportDate: new Date(meta.reportDate),
-      companyId: ges.area.workCenter.companyId,
-      gesGroups: { connect: { id: gesId } }
+  for (const ges of gesList) {
+    if (ges.examBatteries.length > 0) {
+      allBatteries.push(...ges.examBatteries);
+    } else {
+      const auto = await findBatteriesByKeywords(ges.riskExposures);
+      allBatteries.push(...auto);
     }
-  });
-
-  const nextDate = new Date(meta.reportDate);
-  nextDate.setFullYear(nextDate.getFullYear() + 3);
-
-  if (meta.applyToArea) {
-    await prisma.ges.updateMany({ where: { areaId: ges.areaId }, data: { nextEvaluationDate: nextDate, technicalReportId: report.id } });
-    const siblings = await prisma.ges.findMany({ where: { areaId: ges.areaId }, select: { id: true } });
-    await prisma.technicalReport.update({ where: { id: report.id }, data: { gesGroups: { connect: siblings } } });
-  } else {
-    await prisma.ges.update({ where: { id: gesId }, data: { nextEvaluationDate: nextDate, technicalReportId: report.id } });
   }
-  return report;
+
+  // Eliminar duplicados
+  const uniqueMap = new Map(allBatteries.map((i) => [i.id, i]));
+  return Array.from(uniqueMap.values());
 };
