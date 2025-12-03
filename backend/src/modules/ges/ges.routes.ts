@@ -5,20 +5,20 @@ import multer from 'multer';
 const router = Router();
 const upload = multer({ dest: 'uploads/' });
 
+// CRUD
 router.get('/', GesController.list);
 router.post('/', GesController.create);
 
-// Rutas más específicas primero
+// Inteligencia
 router.get('/area/:id/batteries', GesController.getAreaSuggestions);
-
-// Inteligencia y Reglas por GES
 router.get('/:id/batteries', GesController.getSuggestions);
 router.put('/:id/batteries', GesController.updateRules);
 
-// Detalle de un GES
-router.get('/:id', GesController.getOne);
+// Documentos
+router.get('/:id/documents', GesController.getDocuments);
+router.post('/:id/documents', upload.single('file'), GesController.uploadDocument);
 
-// Si tenías rutas de reportes, las puedes re-agregar acá, por ejemplo:
-// router.post('/:id/report', upload.single('file'), GesController.uploadReport);
+// Detalle
+router.get('/:id', GesController.getOne);
 
 export default router;

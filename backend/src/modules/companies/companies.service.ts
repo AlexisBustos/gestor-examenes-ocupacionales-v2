@@ -14,7 +14,7 @@ export const getAllCompanies = async () => {
   });
 };
 
-// Obtener UNA con Estadísticas y Lista
+// Obtener UNA con Estadísticas y Lista de GES (CORREGIDO)
 export const getCompanyById = async (id: string) => {
   const company = await prisma.company.findUnique({
     where: { id },
@@ -22,24 +22,58 @@ export const getCompanyById = async (id: string) => {
 
   if (!company) return null;
 
+  // Stats
   const workersCount = await prisma.worker.count({ where: { companyId: id } });
-  const gesCount = await prisma.ges.count({ where: { area: { workCenter: { companyId: id } } } });
-  const riskCount = await prisma.riskExposure.count({ where: { ges: { area: { workCenter: { companyId: id } } } } });
+  const gesCount = await prisma.ges.count({
+    where: { area: { workCenter: { companyId: id } } },
+  });
+  const riskCount = await prisma.riskExposure.count({
+    where: { ges: { area: { workCenter: { companyId: id } } } },
+  });
 
+  // === GES LIST COMPLETA ===
   const gesList = await prisma.ges.findMany({
     where: { area: { workCenter: { companyId: id } } },
     include: {
       area: { include: { costCenter: true } },
-      technicalReport: true, // Incluimos el reporte para saber si tiene PDF
+
+      // Reporte CUALITATIVO + CUANTITATIVOS + PRESCRIPCIONES
+      technicalReport: {
+        include: {
+          prescriptions: true,
+          quantitativeReports: {
+            include: { prescriptions: true },
+          },
+        },
+      },
+
+      riskExposures: true,
       _count: { select: { riskExposures: true } },
     },
-    orderBy: { name: 'asc' }
+    orderBy: { name: 'asc' },
+  });
+
+  // === AGREGAR isActive DE FORMA SEGURA ===
+  const enrichedGesList = gesList.map((ges) => {
+    const technicalReport = ges.technicalReport || null;
+    const quantReports = technicalReport?.quantitativeReports || [];
+    const qualPresc = technicalReport?.prescriptions || [];
+    const quantPresc = quantReports.flatMap((q) => q.prescriptions || []);
+
+    const hasTech = !!technicalReport;
+    const hasQuant = quantReports.length > 0;
+    const hasPresc = qualPresc.length > 0 || quantPresc.length > 0;
+
+    return {
+      ...ges,
+      isActive: hasTech || hasQuant || hasPresc,
+    };
   });
 
   return {
     ...company,
     stats: { workersCount, gesCount, riskCount },
-    gesList,
+    gesList: enrichedGesList,
   };
 };
 
@@ -60,23 +94,30 @@ export const deleteCompany = async (id: string) => {
     // 2. Borrar Trabajadores
     await tx.worker.deleteMany({ where: { companyId: id } });
 
-    // 3. Borrar Usuarios Clientes (Si hay usuarios tipo empresa)
+    // 3. Borrar Usuarios Clientes
     await tx.user.deleteMany({ where: { companyId: id } });
 
-    // 4. Borrar Informes Técnicos (PDFs) - ¡ESTO FALTABA!
-    // Primero desconectamos los GES para evitar error circular, aunque cascade debería manejarlo
-    // Pero mejor borramos los reportes directos de la empresa
+    // 4. Borrar Informes Técnicos
     await tx.technicalReport.deleteMany({ where: { companyId: id } });
 
     // 5. Estructura (WorkCenters -> Areas -> GES)
-    const workCenters = await tx.workCenter.findMany({ where: { companyId: id }, select: { id: true } });
-    const workCenterIds = workCenters.map(wc => wc.id);
+    const workCenters = await tx.workCenter.findMany({
+      where: { companyId: id },
+      select: { id: true },
+    });
+    const workCenterIds = workCenters.map((wc) => wc.id);
 
-    const areas = await tx.area.findMany({ where: { workCenterId: { in: workCenterIds } }, select: { id: true } });
-    const areaIds = areas.map(a => a.id);
+    const areas = await tx.area.findMany({
+      where: { workCenterId: { in: workCenterIds } },
+      select: { id: true },
+    });
+    const areaIds = areas.map((a) => a.id);
 
-    const gesList = await tx.ges.findMany({ where: { areaId: { in: areaIds } }, select: { id: true } });
-    const gesIds = gesList.map(g => g.id);
+    const gesList = await tx.ges.findMany({
+      where: { areaId: { in: areaIds } },
+      select: { id: true },
+    });
+    const gesIds = gesList.map((g) => g.id);
 
     // Borrar Riesgos
     await tx.riskExposure.deleteMany({ where: { gesId: { in: gesIds } } });
