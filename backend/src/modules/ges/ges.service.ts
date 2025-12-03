@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 // --- HELPERS ---
 const normalizeText = (text: string) => text ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
 
-// Mapa de respaldo por si no hay reglas manuales
 const KEYWORD_MAP: Record<string, string> = {
   'ruido': 'RUIDO', 'prexor': 'RUIDO', 'silice': 'SÍLICE', 'polvo': 'SÍLICE',
   'solvente': 'SOLVENTES', 'tolueno': 'TOLUENO', 'xileno': 'XILENO',
@@ -101,8 +100,7 @@ export const getBatteriesByArea = async (areaId: string) => {
     return Array.from(uniqueMap.values());
 };
 
-// --- GESTIÓN DOCUMENTAL (Funciones requeridas por el controlador) ---
-
+// --- GESTIÓN DOCUMENTAL ---
 export const getGesDocuments = async (gesId: string) => {
     const ges = await prisma.ges.findUnique({
         where: { id: gesId },
@@ -112,13 +110,14 @@ export const getGesDocuments = async (gesId: string) => {
     if (!ges || !ges.technicalReport) return [];
 
     const quantitativeReports = await prisma.quantitativeReport.findMany({
-        where: { technicalReportId: ges.technicalReport.id }
+        where: { technicalReportId: ges.technicalReport.id },
+        orderBy: { reportDate: 'desc' }
     });
 
-    const docs = [
+    return [
         {
             id: ges.technicalReport.id,
-            name: `Informe Cualitativo ${ges.technicalReport.reportNumber}`,
+            name: `Evaluación Cualitativa ${ges.technicalReport.reportNumber}`,
             type: 'CUALITATIVO',
             reportDate: ges.technicalReport.reportDate,
             url: ges.technicalReport.pdfUrl,
@@ -126,15 +125,13 @@ export const getGesDocuments = async (gesId: string) => {
         },
         ...quantitativeReports.map(q => ({
             id: q.id,
-            name: q.name,
+            name: q.name || 'Medición Cuantitativa',
             type: 'CUANTITATIVO',
             reportDate: q.reportDate,
             url: q.pdfUrl,
             valid: true
         }))
     ];
-
-    return docs;
 };
 
 export const uploadGesDocument = async (gesId: string, file: any, meta: any) => {
@@ -174,8 +171,8 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
             });
         }
         return report;
-    } 
-    else if (meta.type === 'CUANTITATIVO') {
+
+    } else if (meta.type === 'CUANTITATIVO') {
         if (!ges.technicalReportId) {
             throw new Error("Debe existir una Evaluación Cualitativa base para subir Cuantitativos.");
         }
@@ -189,4 +186,61 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
         });
         return quant;
     }
+    
+    throw new Error("Tipo de documento no válido");
+};
+
+// 👇 NUEVO: HISTORIAL COMPLETO
+export const getGesFullHistory = async (gesId: string) => {
+    const ges = await prisma.ges.findUnique({
+        where: { id: gesId },
+        include: {
+            area: {
+                include: {
+                    workCenter: {
+                        include: { company: true }
+                    }
+                }
+            },
+            technicalReport: {
+                include: {
+                    prescriptions: true,
+                    quantitativeReports: {
+                        include: { prescriptions: true }
+                    }
+                }
+            }
+        }
+    });
+
+    if (!ges) return null;
+
+    // Mapeo limpio a la estructura DTO solicitada
+    return {
+        id: ges.id,
+        name: ges.name,
+        reportDate: ges.reportDate,
+        reportNumber: ges.reportNumber,
+        nextEvaluationDate: ges.nextEvaluationDate,
+        area: {
+            id: ges.area.id,
+            name: ges.area.name,
+            workCenter: {
+                id: ges.area.workCenter.id,
+                name: ges.area.workCenter.name,
+                company: {
+                    id: ges.area.workCenter.company.id,
+                    name: ges.area.workCenter.company.name
+                }
+            }
+        },
+        technicalReport: ges.technicalReport ? {
+            id: ges.technicalReport.id,
+            reportNumber: ges.technicalReport.reportNumber,
+            reportDate: ges.technicalReport.reportDate,
+            pdfUrl: ges.technicalReport.pdfUrl,
+            prescriptions: ges.technicalReport.prescriptions,
+            quantitativeReports: ges.technicalReport.quantitativeReports
+        } : null
+    };
 };

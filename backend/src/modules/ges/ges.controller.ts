@@ -47,7 +47,6 @@ export const updateRules = async (req: Request, res: Response) => {
     } catch (e) { res.status(500).json({ error: 'Error al guardar reglas' }); }
 };
 
-// Funciones de Documentos (Ahora sí existen en el servicio)
 export const getDocuments = async (req: Request, res: Response) => {
   try {
     const docs = await GesService.getGesDocuments(req.params.id);
@@ -59,12 +58,28 @@ export const uploadDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const file = req.file;
+    
     if (!file) return res.status(400).json({ error: 'Falta archivo PDF' });
     
     const result = await GesService.uploadGesDocument(id, file, req.body);
     res.json(result);
-  } catch (e) { 
+  } catch (e: any) { 
       console.error(e);
+      if (e.message.includes("Evaluación Cualitativa")) {
+         return res.status(400).json({ error: e.message });
+      }
       res.status(500).json({ error: 'Error al subir documento' }); 
+  }
+};
+
+// 👇 NUEVO: HISTORIAL COMPLETO
+export const getHistory = async (req: Request, res: Response) => {
+  try {
+    const data = await GesService.getGesFullHistory(req.params.id);
+    if (!data) return res.status(404).json({ error: 'GES no encontrado' });
+    res.json(data);
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al obtener historia del GES' });
   }
 };

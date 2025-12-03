@@ -18,6 +18,9 @@ router.put('/:id/batteries', GesController.updateRules);
 router.get('/:id/documents', GesController.getDocuments);
 router.post('/:id/documents', upload.single('file'), GesController.uploadDocument);
 
+// 👇 NUEVO: HISTORIAL COMPLETO (Antes de /:id)
+router.get('/:id/history', GesController.getHistory);
+
 // Detalle
 router.get('/:id', GesController.getOne);
 
