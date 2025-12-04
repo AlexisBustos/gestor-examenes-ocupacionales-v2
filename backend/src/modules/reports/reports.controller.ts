@@ -1,65 +1,44 @@
 import { Request, Response } from 'express';
-import { createPrescription, deletePrescription, updatePrescriptionStatus, createQuantitativeReport, deleteQuantitativeReport } from './reports.service';
+import { createPrescription, updatePrescription, deletePrescription } from './reports.service';
+// Si tienes otras importaciones (como createQuantitativeReport), mantenlas.
 
-// Prescripciones
-export const addPrescription = async (req: Request, res: Response) => {
+// 1. Crear Prescripción para Informe TÉCNICO (Cualitativo)
+export const addTechnicalPrescription = async (req: Request, res: Response) => {
   try {
-    const result = await createPrescription(req.body);
+    const { technicalReportId } = req.params;
+    const result = await createPrescription({ ...req.body, technicalReportId });
     res.status(201).json(result);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Error al crear prescripción' });
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al crear prescripción técnica', details: e.message });
   }
 };
 
+// 2. Crear Prescripción para Informe CUANTITATIVO
+export const addQuantitativePrescription = async (req: Request, res: Response) => {
+  try {
+    const { quantitativeReportId } = req.params;
+    const result = await createPrescription({ ...req.body, quantitativeReportId });
+    res.status(201).json(result);
+  } catch (e: any) {
+    console.error(e);
+    res.status(500).json({ error: 'Error al crear prescripción cuantitativa', details: e.message });
+  }
+};
+
+// 3. Actualizar Prescripción (Cualquier tipo)
+export const updatePrescriptionItem = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const result = await updatePrescription(id, req.body);
+    res.json(result);
+  } catch (e) { res.status(500).json({ error: 'Error al actualizar prescripción' }); }
+};
+
+// 4. Eliminar Prescripción
 export const removePrescription = async (req: Request, res: Response) => {
   try {
     await deletePrescription(req.params.id);
-    res.json({ message: 'Eliminado' });
-  } catch (error) {
-    res.status(500).json({ error: 'Error al eliminar' });
-  }
+    res.json({ message: 'Prescripción eliminada' });
+  } catch (e) { res.status(500).json({ error: 'Error al eliminar' }); }
 };
-
-// 👇 ACTUALIZADO PARA RECIBIR STATUS
-export const updateStatus = async (req: Request, res: Response) => {
-  try {
-    const { status } = req.body; // El frontend debe enviar { status: 'REALIZADA' }
-    const result = await updatePrescriptionStatus(req.params.id, status);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ error: 'Error al actualizar estado' });
-  }
-};
-
-// Cuantitativos
-export const addQuantitative = async (req: Request, res: Response) => {
-    try {
-        const file = req.file;
-        const { name, reportDate, technicalReportId } = req.body;
-        
-        if (!file || !technicalReportId) {
-            return res.status(400).json({ error: "Faltan datos o archivo" });
-        }
-
-        const result = await createQuantitativeReport({
-            technicalReportId,
-            name,
-            reportDate,
-            filename: file.filename
-        });
-        res.json(result);
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: "Error al subir cuantitativo" });
-    }
-}
-
-export const removeQuantitative = async (req: Request, res: Response) => {
-    try {
-        await deleteQuantitativeReport(req.params.id);
-        res.json({ message: "Eliminado" });
-    } catch (error) {
-        res.status(500).json({ error: "Error al eliminar" });
-    }
-}
