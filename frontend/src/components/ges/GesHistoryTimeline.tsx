@@ -225,7 +225,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                       {tech.pdfUrl && (
                         <Button
                           asChild
-                          size="xs"
+                          size="sm"
                           variant="outline"
                           className="h-6 px-2 text-[11px]"
                         >
@@ -319,7 +319,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                         {q.pdfUrl && (
                           <Button
                             asChild
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             className="h-6 px-2 text-[11px]"
                           >
