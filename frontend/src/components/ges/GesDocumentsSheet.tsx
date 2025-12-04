@@ -9,16 +9,18 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { 
-  Loader2, 
-  CheckCircle2, 
-  AlertTriangle, 
-  FileBarChart, 
-  Plus 
+import {
+  Loader2,
+  CheckCircle2,
+  AlertTriangle,
+  FileBarChart,
+  Plus,
+  ListChecks,
 } from 'lucide-react';
 
-// Importamos el nuevo componente
 import { GesUploadSheet } from './GesUploadSheet';
+import { GesPrescriptionSheet } from './GesPrescriptionSheet';
+import { GesHistoryTimeline } from './GesHistoryTimeline'; // 👈 NUEVO IMPORT
 
 interface GesDocumentsSheetProps {
   gesId: string | null;
@@ -26,13 +28,22 @@ interface GesDocumentsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
+type GesDocumentType = 'CUALITATIVO' | 'CUANTITATIVO';
+
 export function GesDocumentsSheet({
   gesId,
   open,
   onOpenChange,
 }: GesDocumentsSheetProps) {
-  // Estado para controlar el modal de subida (apilado sobre este sheet)
   const [isUploadOpen, setIsUploadOpen] = useState(false);
+
+  // Estado para prescripciones
+  const [isPrescriptionsOpen, setIsPrescriptionsOpen] = useState(false);
+  const [selectedDoc, setSelectedDoc] = useState<{
+    id: string;
+    type: GesDocumentType;
+    name?: string;
+  } | null>(null);
 
   const { data, isLoading } = useQuery<any[]>({
     queryKey: ['ges-documents', gesId],
@@ -43,6 +54,15 @@ export function GesDocumentsSheet({
     },
     enabled: !!gesId && open,
   });
+
+  const handleOpenPrescriptions = (doc: any) => {
+    setSelectedDoc({
+      id: doc.id,
+      type: doc.type as GesDocumentType,
+      name: doc.name,
+    });
+    setIsPrescriptionsOpen(true);
+  };
 
   return (
     <>
@@ -55,12 +75,11 @@ export function GesDocumentsSheet({
                 Protocolos, matrices y respaldos asociados.
               </SheetDescription>
             </div>
-            {/* BOTÓN NUEVO: CARGAR INFORME */}
-            <div className="mt-0">
-                <Button size="sm" onClick={() => setIsUploadOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Cargar Informe
-                </Button>
+            <div className="mt-0 flex gap-2">
+              <Button size="sm" onClick={() => setIsUploadOpen(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Cargar Informe
+              </Button>
             </div>
           </SheetHeader>
 
@@ -86,8 +105,20 @@ export function GesDocumentsSheet({
                   className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-full ${doc.type === 'CUALITATIVO' ? 'bg-blue-50' : 'bg-purple-50'}`}>
-                        <FileBarChart className={`h-4 w-4 ${doc.type === 'CUALITATIVO' ? 'text-blue-600' : 'text-purple-600'}`} />
+                    <div
+                      className={`p-2 rounded-full ${
+                        doc.type === 'CUALITATIVO'
+                          ? 'bg-blue-50'
+                          : 'bg-purple-50'
+                      }`}
+                    >
+                      <FileBarChart
+                        className={`h-4 w-4 ${
+                          doc.type === 'CUALITATIVO'
+                            ? 'text-blue-600'
+                            : 'text-purple-600'
+                        }`}
+                      />
                     </div>
                     <div>
                       <div className="font-semibold text-slate-800">
@@ -96,11 +127,13 @@ export function GesDocumentsSheet({
                       <div className="text-xs text-slate-500 flex gap-2">
                         <span>{doc.type}</span>
                         <span>•</span>
-                        <span>{new Date(doc.reportDate).toLocaleDateString()}</span>
+                        <span>
+                          {new Date(doc.reportDate).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
                     {doc.valid ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
@@ -119,19 +152,43 @@ export function GesDocumentsSheet({
                         </a>
                       </Button>
                     )}
+
+                    {/* Botón para prescripciones */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 px-2 text-slate-700 hover:text-emerald-700"
+                      onClick={() => handleOpenPrescriptions(doc)}
+                    >
+                      <ListChecks className="h-4 w-4 mr-1" />
+                      Medidas
+                    </Button>
                   </div>
                 </div>
               ))}
             </div>
           )}
+
+          {/* 🔽 NUEVO: TIMELINE DEL GES */}
+          {gesId && <GesHistoryTimeline gesId={gesId} />}
         </SheetContent>
       </Sheet>
 
-      {/* MODAL DE SUBIDA (Se abre encima) */}
-      <GesUploadSheet 
-        gesId={gesId} 
-        open={isUploadOpen} 
-        onOpenChange={setIsUploadOpen} 
+      {/* Sheet de subida */}
+      <GesUploadSheet
+        gesId={gesId}
+        open={isUploadOpen}
+        onOpenChange={setIsUploadOpen}
+      />
+
+      {/* Sheet de prescripciones */}
+      <GesPrescriptionSheet
+        gesId={gesId}
+        documentId={selectedDoc?.id ?? null}
+        documentType={selectedDoc?.type ?? null}
+        documentName={selectedDoc?.name}
+        open={isPrescriptionsOpen}
+        onOpenChange={setIsPrescriptionsOpen}
       />
     </>
   );
