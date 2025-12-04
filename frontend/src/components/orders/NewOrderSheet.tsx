@@ -144,13 +144,14 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
     enabled: !!selectedWorkCenterId,
   });
 
+  // GES por área
   const { data: gesList } = useQuery<GesLocal[]>({
     queryKey: ['ges', selectedAreaId],
     queryFn: async () => {
-      const url = selectedAreaId ? `/ges?areaId=${selectedAreaId}` : '/ges';
-      return (await axios.get(url)).data;
+      if (!selectedAreaId) return [];
+      return (await axios.get(`/ges?areaId=${selectedAreaId}`)).data;
     },
-    enabled: open,
+    enabled: !!selectedAreaId, // solo cuando hay área seleccionada
   });
 
   // QUERY INTELIGENTE DE SUGERENCIAS (Brechas)
@@ -179,7 +180,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       enabled: !!(selectedGesId || (searchMode === 'area' && selectedAreaId)),
     });
 
-    const createOrderMutation = useMutation({
+  const createOrderMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       let finalGesId = values.gesId;
 
@@ -423,6 +424,47 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                   )}
                 />
               </div>
+
+              {/* SELECT DE GES CUANDO MODO = "GES" */}
+              {searchMode === 'ges' && (
+                <FormField
+                  control={form.control}
+                  name="gesId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Puesto / GES</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        value={field.value}
+                        disabled={
+                          !selectedAreaId ||
+                          !gesList ||
+                          gesList.length === 0
+                        }
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue
+                              placeholder={
+                                !selectedAreaId
+                                  ? 'Seleccione un área primero'
+                                  : 'Seleccione un GES...'
+                              }
+                            />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {gesList?.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>
+                              {g.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </FormItem>
+                  )}
+                />
+              )}
             </div>
 
             {/* MODO */}

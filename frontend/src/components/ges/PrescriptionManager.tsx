@@ -7,11 +7,21 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@/components/ui/select';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Plus, AlertCircle, Calendar, FileText } from 'lucide-react'; // Quitamos CheckCircle2 porque usamos Select
+import {
+  Trash2,
+  Plus,
+  AlertCircle,
+  Calendar,
+  FileText,
+} from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Prescription {
@@ -31,7 +41,11 @@ interface Props {
   prescriptions: Prescription[];
 }
 
-export function PrescriptionManager({ parentId, parentType, prescriptions }: Props) {
+export function PrescriptionManager({
+  parentId,
+  parentType,
+  prescriptions,
+}: Props) {
   const queryClient = useQueryClient();
   const [isAdding, setIsAdding] = useState(false);
 
@@ -46,40 +60,56 @@ export function PrescriptionManager({ parentId, parentType, prescriptions }: Pro
   // MUTACIÓN: CREAR
   const createMutation = useMutation({
     mutationFn: async () => {
-      await axios.post('/reports/prescriptions', {
-        technicalReportId: parentType === 'qualitative' ? parentId : undefined,
-        quantitativeReportId: parentType === 'quantitative' ? parentId : undefined,
-        folio, description: desc, measureType: type, isImmediate: immediate, implementationDate: date, observation: obs
+      const url =
+        parentType === 'qualitative'
+          ? `/reports/technical/${parentId}/prescriptions`
+          : `/reports/quantitative/${parentId}/prescriptions`;
+
+      await axios.post(url, {
+        folio,
+        description: desc,
+        measureType: type,
+        isImmediate: immediate,
+        implementationDate: date,
+        observation: obs,
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ges'] });
-      toast.success("Medida agregada");
+      queryClient.invalidateQueries({ queryKey: ['ges-history'] });
+      toast.success('Medida agregada');
       setIsAdding(false);
-      setFolio(''); setDesc(''); setDate(''); setObs(''); setImmediate(false);
+      setFolio('');
+      setDesc('');
+      setDate('');
+      setObs('');
+      setImmediate(false);
     },
-    onError: () => toast.error("Error al guardar")
+    onError: () => toast.error('Error al guardar'),
   });
 
   // MUTACIÓN: BORRAR
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => await axios.delete(`/reports/prescriptions/${id}`),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ges'] }); toast.success("Eliminado"); }
+    mutationFn: async (id: string) =>
+      await axios.delete(`/reports/prescriptions/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ges-history'] });
+      toast.success('Eliminado');
+    },
+    onError: () => toast.error('Error al eliminar'),
   });
 
-  // MUTACIÓN: CAMBIAR ESTADO (Ahora recibe el nuevo estado explícito)
+  // MUTACIÓN: CAMBIAR ESTADO
   const statusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string, status: string }) => {
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
       await axios.patch(`/reports/prescriptions/${id}`, { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ges'] });
-      toast.success("Estado actualizado");
+      queryClient.invalidateQueries({ queryKey: ['ges-history'] });
+      toast.success('Estado actualizado');
     },
-    onError: () => toast.error("Error al actualizar estado")
+    onError: () => toast.error('Error al actualizar estado'),
   });
 
-  // Auxiliar de colores para el select
   const getStatusColor = (status: string) => {
     if (status === 'REALIZADA') return 'text-green-600 font-bold';
     if (status === 'EN_PROCESO') return 'text-blue-600 font-bold';
@@ -94,101 +124,212 @@ export function PrescriptionManager({ parentId, parentType, prescriptions }: Pro
           <AlertCircle className="h-4 w-4 text-amber-600" />
           Medidas de Control ({prescriptions?.length || 0})
         </h4>
-        <Button size="sm" variant="outline" onClick={() => setIsAdding(!isAdding)}>
-          {isAdding ? 'Cancelar' : <><Plus className="h-3 w-3 mr-1" /> Nueva Medida</>}
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setIsAdding(!isAdding)}
+        >
+          {isAdding ? (
+            'Cancelar'
+          ) : (
+            <>
+              <Plus className="h-3 w-3 mr-1" /> Nueva Medida
+            </>
+          )}
         </Button>
       </div>
 
-      {/* FORMULARIO (Igual que antes) */}
       {isAdding && (
         <Card className="bg-slate-50 border-slate-200 animate-in fade-in">
           <CardContent className="p-4 space-y-3">
             <div className="grid grid-cols-2 gap-3">
-              <div><Label className="text-xs">Folio</Label><Input value={folio} onChange={e => setFolio(e.target.value)} className="h-8 bg-white" placeholder="MED-001" /></div>
+              <div>
+                <Label className="text-xs">Folio</Label>
+                <Input
+                  value={folio}
+                  onChange={(e) => setFolio(e.target.value)}
+                  className="h-8 bg-white"
+                  placeholder="MED-001"
+                />
+              </div>
               <div>
                 <Label className="text-xs">Tipo</Label>
                 <Select value={type} onValueChange={setType}>
-                  <SelectTrigger className="h-8 bg-white"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="h-8 bg-white">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Ingenieril">Ingenieril</SelectItem>
-                    <SelectItem value="Administrativa">Administrativa</SelectItem>
+                    <SelectItem value="Administrativa">
+                      Administrativa
+                    </SelectItem>
                     <SelectItem value="EPP">EPP</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
             </div>
-            <div><Label className="text-xs">Descripción</Label><Textarea value={desc} onChange={e => setDesc(e.target.value)} className="bg-white h-20" /></div>
+
+            <div>
+              <Label className="text-xs">Descripción</Label>
+              <Textarea
+                value={desc}
+                onChange={(e) => setDesc(e.target.value)}
+                className="bg-white h-20"
+              />
+            </div>
+
             <div className="grid grid-cols-2 gap-3 items-end">
-              <div><Label className="text-xs">Fecha Límite</Label><Input type="date" value={date} onChange={e => setDate(e.target.value)} className="h-8 bg-white" /></div>
+              <div>
+                <Label className="text-xs">Fecha Límite</Label>
+                <Input
+                  type="date"
+                  value={date}
+                  onChange={(e) => setDate(e.target.value)}
+                  className="h-8 bg-white"
+                />
+              </div>
               <div className="flex items-center gap-2 pb-2 pl-2">
-                <Checkbox id="imm" checked={immediate} onCheckedChange={(c) => setImmediate(c as boolean)} />
-                <label htmlFor="imm" className="text-xs font-medium">Inmediata</label>
+                <Checkbox
+                  id="imm"
+                  checked={immediate}
+                  onCheckedChange={(c) =>
+                    setImmediate(c as boolean)
+                  }
+                />
+                <label
+                  htmlFor="imm"
+                  className="text-xs font-medium"
+                >
+                  Inmediata
+                </label>
               </div>
             </div>
-            <div><Label className="text-xs">Observación</Label><Input value={obs} onChange={e => setObs(e.target.value)} className="h-8 bg-white" /></div>
-            <Button size="sm" className="w-full bg-blue-600 hover:bg-blue-700" disabled={!desc || !date || createMutation.isPending} onClick={() => createMutation.mutate()}>
-              {createMutation.isPending ? 'Guardando...' : 'Guardar Medida'}
+
+            <div>
+              <Label className="text-xs">Observación</Label>
+              <Input
+                value={obs}
+                onChange={(e) => setObs(e.target.value)}
+                className="h-8 bg-white"
+              />
+            </div>
+
+            <Button
+              size="sm"
+              className="w-full bg-blue-600 hover:bg-blue-700"
+              disabled={!desc || !date || createMutation.isPending}
+              onClick={() => createMutation.mutate()}
+            >
+              {createMutation.isPending
+                ? 'Guardando...'
+                : 'Guardar Medida'}
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {/* LISTA MEJORADA */}
       <div className="space-y-2">
         {prescriptions?.map((p) => (
-          <div key={p.id} className={`flex items-start justify-between p-3 rounded-lg border ${p.status === 'REALIZADA' ? 'bg-green-50/50 border-green-100' : 'bg-white hover:bg-slate-50'} transition-colors`}>
+          <div
+            key={p.id}
+            className={`flex items-start justify-between p-3 rounded-lg border ${
+              p.status === 'REALIZADA'
+                ? 'bg-green-50/50 border-green-100'
+                : 'bg-white hover:bg-slate-50'
+            } transition-colors`}
+          >
             <div className="space-y-1 w-full mr-4">
               <div className="flex items-center gap-2 flex-wrap">
-                {p.folio && <Badge variant="outline" className="text-[10px] font-mono">{p.folio}</Badge>}
+                {p.folio && (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] font-mono"
+                  >
+                    {p.folio}
+                  </Badge>
+                )}
 
-                {/* BADGE DE ESTADO VISUAL */}
-                <Badge className={
-                  p.status === 'REALIZADA' ? 'bg-green-600 hover:bg-green-700' :
-                    p.status === 'EN_PROCESO' ? 'bg-blue-600 hover:bg-blue-700' :
-                      p.status === 'VENCIDA' ? 'bg-red-600 hover:bg-red-700' :
-                        (p.isImmediate ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-500 hover:bg-slate-600')
-                }>
+                <Badge
+                  className={
+                    p.status === 'REALIZADA'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : p.status === 'EN_PROCESO'
+                      ? 'bg-blue-600 hover:bg-blue-700'
+                      : p.status === 'VENCIDA'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : p.isImmediate
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-slate-500 hover:bg-slate-600'
+                  }
+                >
                   {p.status.replace('_', ' ')}
                 </Badge>
 
-                {p.measureType && <span className="text-xs text-muted-foreground">| {p.measureType}</span>}
+                {p.measureType && (
+                  <span className="text-xs text-muted-foreground">
+                    | {p.measureType}
+                  </span>
+                )}
               </div>
 
-              <p className="text-sm font-medium text-slate-800 mt-1">{p.description}</p>
+              <p className="text-sm font-medium text-slate-800 mt-1">
+                {p.description}
+              </p>
 
               <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
                 <span className="flex items-center gap-1 font-medium text-slate-600">
-                  <Calendar className="h-3 w-3" /> Límite: {new Date(p.implementationDate).toLocaleDateString()}
+                  <Calendar className="h-3 w-3" /> Límite:{' '}
+                  {new Date(
+                    p.implementationDate,
+                  ).toLocaleDateString()}
                 </span>
-                {p.observation && <span className="flex items-center gap-1"><FileText className="h-3 w-3" /> {p.observation}</span>}
+                {p.observation && (
+                  <span className="flex items-center gap-1">
+                    <FileText className="h-3 w-3" /> {p.observation}
+                  </span>
+                )}
               </div>
             </div>
 
-            {/* CONTROLES DE ESTADO */}
             <div className="flex flex-col gap-2 items-end">
               <Select
                 defaultValue={p.status}
-                onValueChange={(val) => statusMutation.mutate({ id: p.id, status: val })}
+                onValueChange={(val) =>
+                  statusMutation.mutate({ id: p.id, status: val })
+                }
               >
-                <SelectTrigger className={`h-8 w-[130px] text-xs border-slate-200 ${getStatusColor(p.status)}`}>
+                <SelectTrigger
+                  className={`h-8 w-[130px] text-xs border-slate-200 ${getStatusColor(
+                    p.status,
+                  )}`}
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="PENDIENTE">Pendiente</SelectItem>
-                  <SelectItem value="EN_PROCESO">En Proceso</SelectItem>
+                  <SelectItem value="EN_PROCESO">
+                    En Proceso
+                  </SelectItem>
                   <SelectItem value="REALIZADA">Realizada</SelectItem>
                   <SelectItem value="VENCIDA">Vencida</SelectItem>
                 </SelectContent>
               </Select>
 
-              <Button size="icon" variant="ghost" className="h-6 w-6 text-slate-300 hover:text-red-600" onClick={() => deleteMutation.mutate(p.id)}>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-6 w-6 text-slate-300 hover:text-red-600"
+                onClick={() => deleteMutation.mutate(p.id)}
+              >
                 <Trash2 className="h-3 w-3" />
               </Button>
             </div>
           </div>
         ))}
         {(!prescriptions || prescriptions.length === 0) && !isAdding && (
-          <p className="text-xs text-center text-muted-foreground italic py-2">No hay medidas registradas.</p>
+          <p className="text-xs text-center text-muted-foreground italic py-2">
+            No hay medidas registradas.
+          </p>
         )}
       </div>
     </div>

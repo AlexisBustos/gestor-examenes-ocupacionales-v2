@@ -2,63 +2,62 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- PRESCRIPCIONES ---
-
+// --- CREAR PRESCRIPCIÓN ---
+// Esta función es polimórfica: sirve para TechnicalReport O QuantitativeReport
 export const createPrescription = async (data: {
-  technicalReportId?: string;
-  quantitativeReportId?: string;
+  technicalReportId?: string;    // Opcional (si es cualitativo)
+  quantitativeReportId?: string; // Opcional (si es cuantitativo)
   folio?: string;
   description: string;
   measureType?: string;
   isImmediate: boolean;
-  implementationDate: string;
+  implementationDate: string;    // Viene como string del frontend
   observation?: string;
+  status?: 'PENDIENTE' | 'EN_PROCESO' | 'REALIZADA' | 'VENCIDA';
 }) => {
+  
+  // Validar que al menos uno de los IDs venga
+  if (!data.technicalReportId && !data.quantitativeReportId) {
+    throw new Error("Debe asociar la prescripción a un informe Técnico o Cuantitativo.");
+  }
+
   return await prisma.prescription.create({
     data: {
       folio: data.folio,
       description: data.description,
       measureType: data.measureType,
       isImmediate: data.isImmediate,
-      implementationDate: new Date(data.implementationDate),
+      implementationDate: new Date(data.implementationDate), // Convertir a Date
       observation: data.observation,
-      status: 'PENDIENTE',
-      technicalReportId: data.technicalReportId || undefined,
-      quantitativeReportId: data.quantitativeReportId || undefined,
+      status: data.status || 'PENDIENTE',
+      // Conexiones (uno de los dos será undefined, Prisma lo ignora)
+      technicalReportId: data.technicalReportId,
+      quantitativeReportId: data.quantitativeReportId
     }
   });
 };
 
+// --- ACTUALIZAR PRESCRIPCIÓN ---
+export const updatePrescription = async (id: string, data: {
+  status?: 'PENDIENTE' | 'EN_PROCESO' | 'REALIZADA' | 'VENCIDA';
+  implementationDate?: string;
+  observation?: string;
+  description?: string;
+}) => {
+  return await prisma.prescription.update({
+    where: { id },
+    data: {
+      status: data.status,
+      observation: data.observation,
+      description: data.description,
+      implementationDate: data.implementationDate ? new Date(data.implementationDate) : undefined
+    }
+  });
+};
+
+// --- ELIMINAR PRESCRIPCIÓN ---
 export const deletePrescription = async (id: string) => {
   return await prisma.prescription.delete({ where: { id } });
 };
 
-// 👇 ESTA ES LA FUNCIÓN MEJORADA (Recibe el status específico)
-export const updatePrescriptionStatus = async (id: string, status: string) => {
-  return await prisma.prescription.update({
-    where: { id },
-    data: { status: status as any } // Actualiza al estado que le digamos
-  });
-};
-
-// --- INFORMES CUANTITATIVOS ---
-
-export const createQuantitativeReport = async (data: {
-  technicalReportId: string;
-  name: string;
-  reportDate: string;
-  filename: string;
-}) => {
-  return await prisma.quantitativeReport.create({
-    data: {
-      name: data.name,
-      reportDate: new Date(data.reportDate),
-      pdfUrl: `/uploads/${data.filename}`,
-      technicalReportId: data.technicalReportId
-    }
-  });
-};
-
-export const deleteQuantitativeReport = async (id: string) => {
-    return await prisma.quantitativeReport.delete({ where: { id }});
-}
+// (Mantén aquí tus otras funciones de reports si existen, como createQuantitativeReport)
