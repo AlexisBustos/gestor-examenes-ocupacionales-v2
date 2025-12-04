@@ -41,10 +41,15 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
     mutationFn: async () => {
       if (!editingBatteryId) return;
 
+      const isApto = formValues.status === 'APTO';
+
       const payload = {
         status: formValues.status,
         resultDate: formValues.resultDate || null,
-        expirationDate: formValues.expirationDate || null,
+        // Regla:
+        // - Si es APTO => puede llevar fecha de vencimiento (o null si algo raro).
+        // - Si es NO_APTO o APTO_CON_OBSERVACIONES => siempre null.
+        expirationDate: isApto ? (formValues.expirationDate || null) : null,
         clinicalNotes: formValues.clinicalNotes || null,
       };
 
@@ -149,12 +154,15 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                   <Label>Dictamen Médico</Label>
                   <Select
                     value={formValues.status}
-                    onValueChange={(val) =>
-                      setFormValues({
-                        ...formValues,
-                        status: val as MedicalStatus,
-                      })
-                    }
+                    onValueChange={(val) => {
+                      const status = val as MedicalStatus;
+                      setFormValues((prev) => ({
+                        ...prev,
+                        status,
+                        // Si NO es APTO, limpiamos la fecha de vencimiento en el formulario
+                        expirationDate: status === 'APTO' ? prev.expirationDate : '',
+                      }));
+                    }}
                   >
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Seleccione estado" />
@@ -225,7 +233,13 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => updateMutation.mutate()}
+                  onClick={() => {
+                    if (formValues.status === 'APTO' && !formValues.expirationDate) {
+                      toast.error('Para un resultado APTO debes ingresar una fecha de vencimiento.');
+                      return;
+                    }
+                    updateMutation.mutate();
+                  }}
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending && (
