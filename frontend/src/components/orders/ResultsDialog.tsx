@@ -44,14 +44,16 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
       const isApto = formValues.status === 'APTO';
 
       const payload = {
-        status: formValues.status,
-        resultDate: formValues.resultDate || null,
-        // Regla:
-        // - Si es APTO => puede llevar fecha de vencimiento (o null si algo raro).
-        // - Si es NO_APTO o APTO_CON_OBSERVACIONES => siempre null.
-        expirationDate: isApto ? (formValues.expirationDate || null) : null,
-        clinicalNotes: formValues.clinicalNotes || null,
-      };
+  status: formValues.status,
+  resultDate: formValues.resultDate || null,
+  // Regla: solo si está APTO se guarda fecha de caducidad,
+  // en cualquier otro estado la dejamos explícitamente en null
+  expirationDate:
+    formValues.status === 'APTO'
+      ? (formValues.expirationDate || null)
+      : null,
+  clinicalNotes: formValues.clinicalNotes || null,
+};
 
       await updateOrderBatteryResult(editingBatteryId, payload);
     },
