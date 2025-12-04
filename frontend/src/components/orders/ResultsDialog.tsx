@@ -1,6 +1,4 @@
-// frontend/src/components/orders/ResultsDialog.tsx
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { updateOrderBatteryResult } from '@/services/orders.service';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -24,6 +22,14 @@ interface ResultsDialogProps {
 export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps) {
   const queryClient = useQueryClient();
 
+  // 🧠 Estado local para reflejar cambios inmediatamente en la UI
+  const [localOrder, setLocalOrder] = useState<Order>(order);
+
+  // Si cambia la orden (por ejemplo, abriste otra), sincronizamos
+  useEffect(() => {
+    setLocalOrder(order);
+  }, [order.id]);
+
   const [editingBatteryId, setEditingBatteryId] = useState<string | null>(null);
   const [formValues, setFormValues] = useState<{
     status: MedicalStatus;
@@ -41,24 +47,49 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
     mutationFn: async () => {
       if (!editingBatteryId) return;
 
-      const isApto = formValues.status === 'APTO';
-
       const payload = {
-  status: formValues.status,
-  resultDate: formValues.resultDate || null,
-  // Regla: solo si está APTO se guarda fecha de caducidad,
-  // en cualquier otro estado la dejamos explícitamente en null
-  expirationDate:
-    formValues.status === 'APTO'
-      ? (formValues.expirationDate || null)
-      : null,
-  clinicalNotes: formValues.clinicalNotes || null,
-};
+        status: formValues.status,
+        resultDate: formValues.resultDate || null,
+        // Regla: solo si está APTO se guarda fecha de caducidad,
+        // en cualquier otro estado la dejamos explícitamente en null
+        expirationDate:
+          formValues.status === 'APTO'
+            ? (formValues.expirationDate || null)
+            : null,
+        clinicalNotes: formValues.clinicalNotes || null,
+      };
 
       await updateOrderBatteryResult(editingBatteryId, payload);
     },
     onSuccess: () => {
+      // ✅ Actualizamos cache global
       queryClient.invalidateQueries({ queryKey: ['orders'] });
+
+      // ✅ Actualizamos también el estado local para que la tabla se refresque al tiro
+      if (editingBatteryId) {
+        setLocalOrder((prev) => {
+          if (!prev) return prev;
+
+          return {
+            ...prev,
+            orderBatteries: prev.orderBatteries?.map((b) =>
+              b.id === editingBatteryId
+                ? {
+                    ...b,
+                    status: formValues.status,
+                    resultDate: formValues.resultDate || null,
+                    expirationDate:
+                      formValues.status === 'APTO'
+                        ? (formValues.expirationDate || null)
+                        : null,
+                    clinicalNotes: formValues.clinicalNotes || null,
+                  }
+                : b
+            ),
+          };
+        });
+      }
+
       toast.success('Resultado actualizado correctamente');
       setEditingBatteryId(null);
     },
@@ -148,7 +179,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
             <div className="bg-slate-50 p-6 rounded-lg border border-slate-200 space-y-5">
               <h4 className="text-sm font-bold text-slate-700 border-b pb-2 mb-4">
                 Editando:{' '}
-                {order.orderBatteries?.find((b) => b.id === editingBatteryId)?.battery.name}
+                {localOrder.orderBatteries?.find((b) => b.id === editingBatteryId)?.battery.name}
               </h4>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -156,15 +187,12 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                   <Label>Dictamen Médico</Label>
                   <Select
                     value={formValues.status}
-                    onValueChange={(val) => {
-                      const status = val as MedicalStatus;
-                      setFormValues((prev) => ({
-                        ...prev,
-                        status,
-                        // Si NO es APTO, limpiamos la fecha de vencimiento en el formulario
-                        expirationDate: status === 'APTO' ? prev.expirationDate : '',
-                      }));
-                    }}
+                    onValueChange={(val) =>
+                      setFormValues({
+                        ...formValues,
+                        status: val as MedicalStatus,
+                      })
+                    }
                   >
                     <SelectTrigger className="bg-white">
                       <SelectValue placeholder="Seleccione estado" />
@@ -235,13 +263,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                   Cancelar
                 </Button>
                 <Button
-                  onClick={() => {
-                    if (formValues.status === 'APTO' && !formValues.expirationDate) {
-                      toast.error('Para un resultado APTO debes ingresar una fecha de vencimiento.');
-                      return;
-                    }
-                    updateMutation.mutate();
-                  }}
+                  onClick={() => updateMutation.mutate()}
                   disabled={updateMutation.isPending}
                 >
                   {updateMutation.isPending && (
@@ -266,7 +288,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {order.orderBatteries?.map((item) => (
+                  {localOrder.orderBatteries?.map((item) => (
                     <TableRow key={item.id}>
                       <TableCell className="font-medium text-slate-700">
                         {item.battery.name}
@@ -326,7 +348,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                 </TableBody>
               </Table>
 
-              {(!order.orderBatteries || order.orderBatteries.length === 0) && (
+              {(!localOrder.orderBatteries || localOrder.orderBatteries.length === 0) && (
                 <div className="p-8 text-center text-slate-500 text-sm">
                   No hay baterías asociadas a esta orden.
                 </div>
