@@ -16,7 +16,7 @@ model Company {
   phone            String?
   workCenters      WorkCenter[]
   examOrders       ExamOrder[]
-  workers          Worker[]     
+  workers          Worker[]
   users            User[]
   technicalReports TechnicalReport[]
   costCenters      CostCenter[]
@@ -36,15 +36,15 @@ model WorkCenter {
 }
 
 model Area {
-  id           String   @id @default(uuid())
+  id           String      @id @default(uuid())
   name         String
   workCenterId String
-  workCenter   WorkCenter @relation(fields: [workCenterId], references: [id])
+  workCenter   WorkCenter  @relation(fields: [workCenterId], references: [id])
   gesGroups    Ges[]
   costCenterId String?
   costCenter   CostCenter? @relation(fields: [costCenterId], references: [id])
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
 }
 
 model CostCenter {
@@ -65,21 +65,21 @@ model TechnicalReport {
   pdfUrl              String
   companyId           String
   company             Company              @relation(fields: [companyId], references: [id])
-  gesGroups           Ges[]    
-  quantitativeReports QuantitativeReport[] 
-  prescriptions       Prescription[]       
+  gesGroups           Ges[]
+  quantitativeReports QuantitativeReport[]
+  prescriptions       Prescription[]
   createdAt           DateTime             @default(now())
   updatedAt           DateTime             @updatedAt
 }
 
 model QuantitativeReport {
   id                String          @id @default(uuid())
-  name              String          
+  name              String
   reportDate        DateTime
   pdfUrl            String
   technicalReportId String
   technicalReport   TechnicalReport @relation(fields: [technicalReportId], references: [id], onDelete: Cascade)
-  prescriptions     Prescription[]  
+  prescriptions     Prescription[]
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
 }
@@ -93,11 +93,11 @@ enum PrescriptionStatus {
 
 model Prescription {
   id                   String              @id @default(uuid())
-  folio                String?             
-  description          String              @db.Text 
-  measureType          String?             
+  folio                String?
+  description          String              @db.Text
+  measureType          String?
   isImmediate          Boolean             @default(false)
-  implementationDate   DateTime            
+  implementationDate   DateTime
   observation          String?             @db.Text
   status               PrescriptionStatus  @default(PENDIENTE)
   technicalReportId    String?
@@ -109,37 +109,37 @@ model Prescription {
 }
 
 model Ges {
-  id               String         @id @default(uuid())
-  name             String
-  reportDate       DateTime
-  reportNumber     String
-  menCount         Int
-  womenCount       Int
-  tasksDescription String?        @db.Text 
-  machineryUsed    String?        @db.Text 
-  controlMeasures  String?        @db.Text 
-  subArea          String?
-  validityYears    Int?
+  id                 String           @id @default(uuid())
+  name               String
+  reportDate         DateTime
+  reportNumber       String
+  menCount           Int
+  womenCount         Int
+  tasksDescription   String?          @db.Text
+  machineryUsed      String?          @db.Text
+  controlMeasures    String?          @db.Text
+  subArea            String?
+  validityYears      Int?
   nextEvaluationDate DateTime?
-  risksResume      String?
-  prescriptions    String?
-  technicalReportId String?
-  technicalReport   TechnicalReport? @relation(fields: [technicalReportId], references: [id])
-  areaId           String
-  area             Area           @relation(fields: [areaId], references: [id])
-  riskExposures    RiskExposure[]
-  workers          Worker[]       @relation("CurrentGes")
-  examOrders       ExamOrder[]
+  risksResume        String?
+  prescriptions      String?
+  technicalReportId  String?
+  technicalReport    TechnicalReport? @relation(fields: [technicalReportId], references: [id])
+  areaId             String
+  area               Area             @relation(fields: [areaId], references: [id])
+  riskExposures      RiskExposure[]
+  workers            Worker[]         @relation("CurrentGes")
+  examOrders         ExamOrder[]
   examBatteries      ExamBattery[]
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
 }
 
 model RiskAgent {
   id            String         @id @default(uuid())
   name          String         @unique
-  protocolUrl   String?        
-  protocols     RiskProtocol[] 
+  protocolUrl   String?
+  protocols     RiskProtocol[]
   riskExposures RiskExposure[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
@@ -147,8 +147,8 @@ model RiskAgent {
 
 model RiskProtocol {
   id          String    @id @default(uuid())
-  name        String    
-  url         String    
+  name        String
+  url         String
   riskAgentId String
   riskAgent   RiskAgent @relation(fields: [riskAgentId], references: [id], onDelete: Cascade)
   createdAt   DateTime  @default(now())
@@ -167,7 +167,7 @@ model RiskExposure {
   ges                  Ges           @relation(fields: [gesId], references: [id])
   riskAgentId          String
   riskAgent            RiskAgent     @relation(fields: [riskAgentId], references: [id])
-  exposureType         ExposureType? 
+  exposureType         ExposureType?
   specificAgentDetails String?
   examBatteries        ExamBattery[]
   createdAt            DateTime      @default(now())
@@ -196,16 +196,16 @@ model MedicalExam {
 }
 
 model ExamBattery {
-  id             String         @id @default(uuid())
+  id             String          @id @default(uuid())
   name           String
-  evaluationType EvaluationType? 
+  evaluationType EvaluationType?
   batteryExams   BatteryExam[]
   riskExposures  RiskExposure[]
   orderBatteries OrderBattery[]
-  rules          MedicalRule[] // <--- NUEVA RELACIÓN
+  rules          MedicalRule[]
   gesGroups      Ges[]
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
 }
 
 model BatteryExam {
@@ -216,6 +216,7 @@ model BatteryExam {
   medicalExam   MedicalExam @relation(fields: [medicalExamId], references: [id])
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
   @@unique([examBatteryId, medicalExamId])
 }
 
@@ -238,22 +239,22 @@ model User {
 }
 
 model Worker {
-  id             String   @id @default(uuid())
-  rut            String   @unique
+  id             String      @id @default(uuid())
+  rut            String      @unique
   name           String
-  email          String? 
-  phone          String? 
-  position       String?  
-  managementArea String?  
-  active         Boolean  @default(true)
-  costCenter     String?                 
+  email          String?
+  phone          String?
+  position       String?
+  managementArea String?
+  active         Boolean     @default(true)
+  costCenter     String?
   currentGesId   String?
-  currentGes     Ges?     @relation("CurrentGes", fields: [currentGesId], references: [id])
+  currentGes     Ges?        @relation("CurrentGes", fields: [currentGesId], references: [id])
   companyId      String
-  company        Company  @relation(fields: [companyId], references: [id])
+  company        Company     @relation(fields: [companyId], references: [id])
   examOrders     ExamOrder[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
 }
 
 enum OrderStatus {
@@ -265,16 +266,22 @@ enum OrderStatus {
 }
 
 model OrderBattery {
-  id             String        @id @default(uuid())
-  orderId        String
-  order          ExamOrder     @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  batteryId      String
-  battery        ExamBattery   @relation(fields: [batteryId], references: [id])
+  id        String      @id @default(uuid())
+  orderId   String
+  order     ExamOrder   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  batteryId String
+  battery   ExamBattery @relation(fields: [batteryId], references: [id])
+
   status         MedicalStatus @default(PENDIENTE)
   expirationDate DateTime?
-  resultUrl      String?       
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  resultUrl      String?
+
+  // Campos nuevos FASE 3.0
+  resultDate    DateTime?
+  clinicalNotes String?   @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ExamOrder {
@@ -285,7 +292,7 @@ model ExamOrder {
   company        Company        @relation(fields: [companyId], references: [id])
   gesId          String
   ges            Ges            @relation(fields: [gesId], references: [id])
-  orderBatteries OrderBattery[] 
+  orderBatteries OrderBattery[]
   status         OrderStatus    @default(SOLICITADO)
   scheduledAt    DateTime?
   providerName   String?
@@ -294,15 +301,12 @@ model ExamOrder {
   updatedAt      DateTime       @updatedAt
 }
 
-// --- NUEVA TABLA: REGLAS DE NEGOCIO ---
 model MedicalRule {
   id             String      @id @default(uuid())
-  riskAgentName  String      
-  specificDetail String?     
-  
+  riskAgentName  String
+  specificDetail String?
   batteryId      String
   battery        ExamBattery @relation(fields: [batteryId], references: [id])
-
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }

@@ -1,47 +1,49 @@
+// frontend/src/services/orders.service.ts
+
 import axios from '@/lib/axios';
-import type { Order } from '@/types/order.types';
+import type { Order, MedicalStatus, OrderBattery } from '@/types/order.types';
 
-// --- FUNCIONES INDIVIDUALES ---
-
-export const getOrders = async (): Promise<Order[]> => {
-  const { data } = await axios.get('/orders');
+// Obtener lista de órdenes
+export const getOrders = async (status?: string): Promise<Order[]> => {
+  const params = status ? { status } : {};
+  const { data } = await axios.get<Order[]>('/orders', { params });
   return data;
 };
 
-export const createOrder = async (orderData: any) => {
-  const { data } = await axios.post('/orders', orderData);
-  return data;
-};
-
+// Actualizar estado general de la orden
 export const updateOrderStatus = async (
   id: string,
-  status: string,
+  newStatus: string,
   scheduledAt?: string,
   providerName?: string,
   externalId?: string
 ) => {
   const { data } = await axios.patch(`/orders/${id}/status`, {
-    status,
+    status: newStatus,
     scheduledAt,
     providerName,
-    externalId
+    externalId,
   });
   return data;
 };
 
-export const updateBatteryResult = async (batteryId: string, status: string, expirationDate?: string) => {
-  const { data } = await axios.patch(`/orders/battery/${batteryId}/result`, {
-    status,
-    expirationDate
-  });
+// Actualizar resultado de una batería específica
+export const updateOrderBatteryResult = async (
+  batteryId: string,
+  payload: {
+    status: MedicalStatus;
+    resultDate?: string | null;
+    expirationDate?: string | null;
+    clinicalNotes?: string | null;
+  }
+): Promise<OrderBattery> => {
+  const { data } = await axios.patch(`/orders/battery/${batteryId}/result`, payload);
   return data;
 };
 
-// --- EL PARCHE MÁGICO (Retro-compatibilidad) ---
-// Esto agrupa las funciones en un objeto para que los archivos viejos no fallen
+// 🔁 COMPATIBILIDAD: objeto agrupado para hooks/lugares que usan `ordersService`
 export const ordersService = {
   getOrders,
-  createOrder,
   updateOrderStatus,
-  updateBatteryResult
+  updateOrderBatteryResult,
 };

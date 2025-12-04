@@ -39,6 +39,8 @@ import { OrderDetailsSheet } from '@/components/orders/OrderDetailsSheet';
 import { ScheduleOrderDialog } from '@/components/orders/ScheduleOrderDialog';
 import { ResultsDialog } from '@/components/orders/ResultsDialog';
 
+type OrderStatusFilter = 'TODAS' | 'SOLICITADO' | 'AGENDADO' | 'REALIZADO' | 'CERRADO' | 'ANULADO';
+
 export default function OrdersPage() {
   const queryClient = useQueryClient();
 
@@ -50,10 +52,14 @@ export default function OrdersPage() {
   const [orderToCancel, setOrderToCancel] = useState<string | null>(null);
 
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<OrderStatusFilter>('TODAS');
 
   const { data: orders, isLoading, error } = useQuery({
-    queryKey: ['orders'],
-    queryFn: OrdersService.getOrders,
+    queryKey: ['orders', { status: statusFilter }],
+    queryFn: () =>
+      OrdersService.getOrders(
+        statusFilter === 'TODAS' ? undefined : statusFilter
+      ),
   });
 
   const cancelMutation = useMutation({
@@ -96,6 +102,15 @@ export default function OrdersPage() {
     order.worker.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     order.worker.rut.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const statusOptions: OrderStatusFilter[] = [
+    'TODAS',
+    'SOLICITADO',
+    'AGENDADO',
+    'REALIZADO',
+    'CERRADO',
+    'ANULADO',
+  ];
 
   // SKELETON LOADING
   if (isLoading) {
@@ -148,19 +163,43 @@ export default function OrdersPage() {
 
       <Card className="shadow-sm border-slate-200">
         <CardHeader className="pb-3 border-b bg-slate-50/50">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <CardTitle>Listado de Solicitudes</CardTitle>
-            <div className="relative w-72">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar trabajador..."
-                className="pl-8 bg-white"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+
+            <div className="flex flex-col md:flex-row gap-3 md:items-center">
+              {/* 🔍 Buscador */}
+              <div className="relative w-full md:w-64">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar trabajador..."
+                  className="pl-8 bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              {/* 🧪 Filtro por estado */}
+              <div className="flex flex-wrap gap-2">
+                {statusOptions.map((option) => (
+                  <Button
+                    key={option}
+                    variant={statusFilter === option ? 'default' : 'outline'}
+                    size="sm"
+                    className={
+                      statusFilter === option
+                        ? 'bg-slate-900 text-white hover:bg-slate-800'
+                        : 'bg-white text-slate-700'
+                    }
+                    onClick={() => setStatusFilter(option)}
+                  >
+                    {option === 'TODAS' ? 'Todas' : option}
+                  </Button>
+                ))}
+              </div>
             </div>
           </div>
         </CardHeader>
+
         <CardContent className="p-0">
           <div className="rounded-md">
             <Table>
@@ -176,28 +215,39 @@ export default function OrdersPage() {
               </TableHeader>
               <TableBody>
                 {filteredOrders?.length === 0 ? (
-                  <TableRow><TableCell colSpan={6} className="h-32 text-center text-muted-foreground">No se encontraron resultados.</TableCell></TableRow>
+                  <TableRow>
+                    <TableCell colSpan={6} className="h-32 text-center text-muted-foreground">
+                      No se encontraron resultados.
+                    </TableCell>
+                  </TableRow>
                 ) : (
                   filteredOrders?.map((order: any) => (
-                    <TableRow key={order.id} className={`hover:bg-slate-50 transition-colors ${order.status === 'ANULADO' ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                    <TableRow
+                      key={order.id}
+                      className={`hover:bg-slate-50 transition-colors ${
+                        order.status === 'ANULADO' ? 'opacity-60 bg-slate-50/50' : ''
+                      }`}
+                    >
                       <TableCell>
                         <div className="font-medium text-slate-900">{order.worker.name}</div>
                         <div className="text-xs text-muted-foreground font-mono">{order.worker.rut}</div>
                       </TableCell>
                       <TableCell className="text-slate-600">{order.company.name}</TableCell>
                       <TableCell>
-                        <div className="text-xs text-slate-500 max-w-[200px] truncate" title={
-                          order.orderBatteries && order.orderBatteries.length > 0
-                            ? order.orderBatteries.map((ob: any) => ob.battery.name).join(', ')
-                            : (order.examBatteries?.map((b: any) => b.name).join(', ') || 'Sin baterías')
-                        }>
+                        <div
+                          className="text-xs text-slate-500 max-w-[200px] truncate"
+                          title={
+                            order.orderBatteries && order.orderBatteries.length > 0
+                              ? order.orderBatteries.map((ob: any) => ob.battery.name).join(', ')
+                              : (order.examBatteries?.map((b: any) => b.name).join(', ') || 'Sin baterías')
+                          }
+                        >
                           {order.orderBatteries && order.orderBatteries.length > 0
                             ? `${order.orderBatteries.length} Baterías`
                             : (order.examBatteries?.length > 0 ? `${order.examBatteries.length} Baterías` : 'Sin asignar')}
                         </div>
                       </TableCell>
                       <TableCell>
-                        {/* AQUÍ USAMOS LA NUEVA FUNCIÓN DE COLOR */}
                         {getStatusBadge(order.status)}
                       </TableCell>
                       <TableCell className="text-sm text-slate-600">
@@ -205,32 +255,53 @@ export default function OrdersPage() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
-
-                          {/* ACCIONES DINÁMICAS */}
-
                           {/* 1. Agendar (Solo Solicitado) */}
                           {order.status === 'SOLICITADO' && (
-                            <Button variant="outline" size="icon" onClick={() => setSelectedOrderForSchedule(order)} className="h-8 w-8 text-blue-600 border-blue-200 hover:bg-blue-50" title="Agendar">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setSelectedOrderForSchedule(order)}
+                              className="h-8 w-8 text-blue-600 border-blue-200 hover:bg-blue-50"
+                              title="Agendar"
+                            >
                               <Calendar className="h-4 w-4" />
                             </Button>
                           )}
 
                           {/* 2. Resultados (Solo Agendado) */}
                           {order.status === 'AGENDADO' && (
-                            <Button variant="outline" size="icon" onClick={() => setSelectedOrderForResults(order)} className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50" title="Cargar Resultados">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setSelectedOrderForResults(order)}
+                              className="h-8 w-8 text-green-600 border-green-200 hover:bg-green-50"
+                              title="Cargar Resultados"
+                            >
                               <CheckCircle className="h-4 w-4" />
                             </Button>
                           )}
 
                           {/* 3. Anular (Activas) */}
                           {['SOLICITADO', 'AGENDADO'].includes(order.status) && (
-                            <Button variant="outline" size="icon" onClick={() => setOrderToCancel(order.id)} className="h-8 w-8 text-red-500 border-red-200 hover:bg-red-50" title="Anular">
+                            <Button
+                              variant="outline"
+                              size="icon"
+                              onClick={() => setOrderToCancel(order.id)}
+                              className="h-8 w-8 text-red-500 border-red-200 hover:bg-red-50"
+                              title="Anular"
+                            >
                               <Ban className="h-4 w-4" />
                             </Button>
                           )}
 
                           {/* 4. Ver (Siempre) */}
-                          <Button variant="ghost" size="icon" onClick={() => setSelectedOrderForDetail(order)} className="h-8 w-8 text-slate-500 hover:text-slate-900" title="Ver Detalle">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSelectedOrderForDetail(order)}
+                            className="h-8 w-8 text-slate-500 hover:text-slate-900"
+                            title="Ver Detalle"
+                          >
                             <Eye className="h-4 w-4" />
                           </Button>
                         </div>
@@ -245,11 +316,26 @@ export default function OrdersPage() {
       </Card>
 
       {/* Modales */}
-      <NewOrderSheet open={isNewOrderOpen} onOpenChange={(open: boolean) => setIsNewOrderOpen(open)} />
+      <NewOrderSheet
+        open={isNewOrderOpen}
+        onOpenChange={(open: boolean) => setIsNewOrderOpen(open)}
+      />
 
-      {selectedOrderForDetail && <OrderDetailsSheet order={selectedOrderForDetail} open={!!selectedOrderForDetail} onOpenChange={(open: boolean) => !open && setSelectedOrderForDetail(null)} />}
+      {selectedOrderForDetail && (
+        <OrderDetailsSheet
+          order={selectedOrderForDetail}
+          open={!!selectedOrderForDetail}
+          onOpenChange={(open: boolean) => !open && setSelectedOrderForDetail(null)}
+        />
+      )}
 
-      {selectedOrderForSchedule && <ScheduleOrderDialog order={selectedOrderForSchedule} open={!!selectedOrderForSchedule} onOpenChange={(open: boolean) => !open && setSelectedOrderForSchedule(null)} />}
+      {selectedOrderForSchedule && (
+        <ScheduleOrderDialog
+          order={selectedOrderForSchedule}
+          open={!!selectedOrderForSchedule}
+          onOpenChange={(open: boolean) => !open && setSelectedOrderForSchedule(null)}
+        />
+      )}
 
       {selectedOrderForResults && (
         <ResultsDialog
@@ -261,10 +347,18 @@ export default function OrdersPage() {
 
       <AlertDialog open={!!orderToCancel} onOpenChange={() => setOrderToCancel(null)}>
         <AlertDialogContent>
-          <AlertDialogHeader><AlertDialogTitle>¿Anular Solicitud?</AlertDialogTitle><AlertDialogDescription>Esta acción es irreversible.</AlertDialogDescription></AlertDialogHeader>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Anular Solicitud?</AlertDialogTitle>
+            <AlertDialogDescription>Esta acción es irreversible.</AlertDialogDescription>
+          </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction className="bg-red-600 hover:bg-red-700" onClick={() => orderToCancel && cancelMutation.mutate(orderToCancel)}>Sí, Anular</AlertDialogAction>
+            <AlertDialogAction
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => orderToCancel && cancelMutation.mutate(orderToCancel)}
+            >
+              Sí, Anular
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
