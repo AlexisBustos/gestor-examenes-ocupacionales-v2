@@ -252,6 +252,7 @@ model Worker {
   currentGes     Ges?        @relation("CurrentGes", fields: [currentGesId], references: [id])
   companyId      String
   company        Company     @relation(fields: [companyId], references: [id])
+  employmentStatus EmploymentStatus @default(NOMINA)
   examOrders     ExamOrder[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
@@ -294,6 +295,7 @@ model ExamOrder {
   ges            Ges            @relation(fields: [gesId], references: [id])
   orderBatteries OrderBattery[]
   status         OrderStatus    @default(SOLICITADO)
+  evaluationType EvaluationType @default(OCUPACIONAL)
   scheduledAt    DateTime?
   providerName   String?
   externalId     String?
@@ -309,4 +311,8 @@ model MedicalRule {
   battery        ExamBattery @relation(fields: [batteryId], references: [id])
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+}
+enum EmploymentStatus {
+  TRANSITO
+  NOMINA
 }

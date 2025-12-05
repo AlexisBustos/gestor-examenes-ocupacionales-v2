@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
-import { Loader2, Users, Plus, Upload, Eye, Pencil, Trash2 } from 'lucide-react';
+import { Loader2, Users, Plus, Upload, Eye, Pencil, Trash2, ShieldCheck, HardHat } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -27,7 +27,6 @@ export default function WorkersPage() {
 
   const [editingWorker, setEditingWorker] = useState<any>(null);
   const [viewingWorkerId, setViewingWorkerId] = useState<string | null>(null);
-  // 👇 ESTADO PARA CREAR
   const [isCreating, setIsCreating] = useState(false);
 
   const { data: workers, isLoading } = useQuery({
@@ -73,7 +72,7 @@ export default function WorkersPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          {/* 👇 BOTÓN NUEVO */}
+          {/* BOTÓN NUEVO */}
           <Button variant="secondary" onClick={() => setIsCreating(true)}>
             <Plus className="mr-2 h-4 w-4" /> Nuevo Trabajador
           </Button>
@@ -93,12 +92,38 @@ export default function WorkersPage() {
         <CardHeader><div className="w-64"><Input placeholder="Buscar RUT o Nombre..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} /></div></CardHeader>
         <CardContent>
           <Table>
-            <TableHeader><TableRow><TableHead>RUT</TableHead><TableHead>Nombre</TableHead><TableHead>Cargo</TableHead><TableHead>Contacto</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
+            <TableHeader>
+                <TableRow>
+                    <TableHead>RUT</TableHead>
+                    <TableHead>Nombre</TableHead>
+                    {/* 👇 NUEVA COLUMNA ESTADO */}
+                    <TableHead>Estado</TableHead>
+                    <TableHead>Cargo</TableHead>
+                    <TableHead>Contacto</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+            </TableHeader>
             <TableBody>
               {filteredWorkers?.map((w: any) => (
                 <TableRow key={w.id}>
                   <TableCell className="font-mono">{w.rut}</TableCell>
                   <TableCell className="font-medium">{w.name}</TableCell>
+                  
+                  {/* 👇 AQUÍ MOSTRAMOS EL BADGE SEGÚN SU ESTADO */}
+                  <TableCell>
+                    {w.employmentStatus === 'TRANSITO' ? (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 border border-amber-200">
+                            <HardHat className="w-3 h-3 mr-1" />
+                            En Tránsito
+                        </span>
+                    ) : (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">
+                            <ShieldCheck className="w-3 h-3 mr-1" />
+                            En Nómina
+                        </span>
+                    )}
+                  </TableCell>
+
                   <TableCell>{w.position}</TableCell>
                   <TableCell className="text-xs text-muted-foreground">
                     <div>{w.email || '-'}</div>

@@ -44,9 +44,13 @@ export const deleteWorker = async (id: string) => {
     return await prisma.worker.delete({ where: { id } });
 };
 
+// --- EN workers.service.ts (Reemplaza la función createWorkerDb existente) ---
+
 export const createWorkerDb = async (data: any) => {
   const exists = await prisma.worker.findUnique({ where: { rut: data.rut } });
-  if (exists) throw new Error("El RUT ya existe");
+  
+  // Si ya existe, lo devolvemos tal cual (no cambiamos su estado a TRANSITO si ya era NOMINA)
+  if (exists) return exists; 
 
   let companyId = data.companyId;
   if (!companyId) {
@@ -54,6 +58,13 @@ export const createWorkerDb = async (data: any) => {
       if (!defaultComp) throw new Error("No hay empresas");
       companyId = defaultComp.id;
   }
+
+  // LÓGICA DEL SEMÁFORO:
+  // Si nos dicen explícitamente que es PRE_OCUPACIONAL, entra en TRANSITO.
+  // Si no dicen nada, asumimos NOMINA (por seguridad).
+  const initialStatus = (data.evaluationType === 'PRE_OCUPACIONAL') 
+                        ? 'TRANSITO' 
+                        : 'NOMINA';
 
   return await prisma.worker.create({
     data: {
@@ -64,7 +75,8 @@ export const createWorkerDb = async (data: any) => {
       position: data.position || 'Sin Cargo',
       costCenter: data.costCenter,
       companyId: companyId,
-      active: true
+      active: true,
+      employmentStatus: initialStatus // <--- AQUÍ ESTÁ LA MAGIA
     }
   });
 };
