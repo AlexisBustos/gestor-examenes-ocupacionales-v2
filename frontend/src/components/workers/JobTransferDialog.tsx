@@ -32,13 +32,30 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
   const { data: gesList } = useQuery<any[]>({ queryKey: ['ges', areaId], queryFn: async () => (await axios.get(`/ges?areaId=${areaId}`)).data, enabled: !!areaId });
 
   // 1. Analizar
+  // 1. Analizar (MODO DEPURACIÓN)
   const analyzeMutation = useMutation({
     mutationFn: async () => {
-      const { data } = await axios.post('/workers/analyze-transfer', { workerId: worker.id, targetGesId: gesId });
-      return data;
+      console.log("--- INICIANDO ANÁLISIS ---");
+      console.log("Enviando GES ID:", gesId);
+
+      // Hacemos la petición
+      const response = await axios.post('/workers/analyze-transfer', { 
+        workerId: worker.id, 
+        targetGesId: gesId 
+      });
+
+      // MIRONES (LOGS)
+      console.log("RESPUESTA DEL BACKEND:", response);
+      console.log("DATOS RECIBIDOS (data):", response.data);
+      console.log("¿Viene la lista de gaps?:", response.data?.gaps);
+      
+      return response.data;
     },
     onSuccess: (data) => setAnalysis(data),
-    onError: () => toast.error("Error al analizar requisitos")
+    onError: (err) => {
+      console.error("ERROR AL ANALIZAR:", err);
+      toast.error("Error al analizar requisitos");
+    }
   });
 
   // 2. Ejecutar
