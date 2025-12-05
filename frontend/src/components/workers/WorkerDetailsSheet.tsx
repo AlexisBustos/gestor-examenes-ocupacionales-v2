@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 👈 Importamos useMutation y Client
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import { toast } from 'sonner'; // 👈 Importamos toast para el feedback
+import { toast } from 'sonner';
 
 import {
   Sheet,
@@ -22,14 +22,12 @@ import {
   Mail,
   Phone,
   ArrowRightLeft,
-  FileText,
-  Calendar,
-  CheckCircle2,
-  ShieldCheck, // 👈 Nuevo icono
-  AlertTriangle // 👈 Nuevo icono
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 
 import { JobTransferDialog } from '@/components/workers/JobTransferDialog';
+import { WorkerMedicalTimeline } from './WorkerMedicalTimeline';
 
 interface WorkerDetailsSheetProps {
   workerId: string | null;
@@ -37,37 +35,12 @@ interface WorkerDetailsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function formatDate(value: string | Date | null | undefined) {
-  if (!value) return '-';
-  const d = typeof value === 'string' ? new Date(value) : value;
-  if (Number.isNaN(d.getTime())) return '-';
-  return d.toLocaleDateString('es-CL');
-}
-
-function getStatusBadge(status: string | null | undefined) {
-  if (status === 'APTO') {
-    return (
-      <Badge className="bg-green-100 text-green-800 border-green-200">
-        Apto
-      </Badge>
-    );
-  }
-  if (status === 'NO_APTO') {
-    return (
-      <Badge className="bg-red-100 text-red-800 border-red-200">
-        No Apto
-      </Badge>
-    );
-  }
-  return <Badge variant="outline">Pendiente</Badge>;
-}
-
 export function WorkerDetailsSheet({
   workerId,
   open,
   onOpenChange,
 }: WorkerDetailsSheetProps) {
-  const queryClient = useQueryClient(); // 👈 Inicializamos el cliente
+  const queryClient = useQueryClient();
   const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   const { data: worker, isLoading } = useQuery<any>({
@@ -79,24 +52,34 @@ export function WorkerDetailsSheet({
     enabled: !!workerId && open,
   });
 
-  // 👇 MUTACIÓN PARA PASAR A NÓMINA
+  // 👇👇👇 AQUÍ ESTÁ LA CORRECCIÓN CLAVE 👇👇👇
   const promoteMutation = useMutation({
     mutationFn: async () => {
-        // Asumimos que tienes un endpoint PATCH o PUT genérico para actualizar workers
-        // Si tu backend usa PUT, cambia patch por put
+        // 1. Buscamos el último examen (orden) para saber qué GES tenía asignado
+        // Como el backend nos devuelve 'examOrders' ordenados por fecha desc, tomamos el primero [0]
+        const latestOrder = worker?.examOrders?.[0];
+        const gesToAssignId = latestOrder?.ges?.id;
+
+        if (!gesToAssignId) {
+            throw new Error("No se encontró un GES asociado en los exámenes para asignar el puesto.");
+        }
+
+        // 2. Actualizamos Estado A NÓMINA + Asignamos el GES ACTUAL
         return await axios.patch(`/workers/${workerId}`, { 
-            employmentStatus: 'NOMINA' 
+            employmentStatus: 'NOMINA',
+            currentGesId: gesToAssignId // <--- ESTE ES EL CABLE QUE FALTABA
         });
     },
     onSuccess: () => {
-        toast.success("¡Trabajador ingresado a Nómina exitosamente!");
+        toast.success("¡Trabajador ingresado a Nómina y Puesto asignado!");
         queryClient.invalidateQueries({ queryKey: ['worker-details'] });
-        queryClient.invalidateQueries({ queryKey: ['workers'] }); // Refresca la tabla principal
+        queryClient.invalidateQueries({ queryKey: ['workers'] });
     },
-    onError: () => {
-        toast.error("Error al actualizar el estado");
+    onError: (err: any) => {
+        toast.error("Error al actualizar: " + (err.message || "Desconocido"));
     }
   });
+  // 👆👆👆 FIN DE LA CORRECCIÓN 👆👆👆
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -121,7 +104,7 @@ export function WorkerDetailsSheet({
           <>
             <ScrollArea className="flex-1 p-6">
               
-              {/* 👇 SECCIÓN ESPECIAL: SOLO SI ESTÁ EN TRÁNSITO */}
+              {/* === SECCIÓN ALERTAS: SOLO SI ESTÁ EN TRÁNSITO === */}
               {worker.employmentStatus === 'TRANSITO' && (
                 <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-2">
                     <div className="flex gap-3">
@@ -154,9 +137,8 @@ export function WorkerDetailsSheet({
                     </Button>
                 </div>
               )}
-              {/* 👆 FIN SECCIÓN ESPECIAL */}
 
-              {/* Cabecera con datos básicos */}
+              {/* DATOS BÁSICOS DEL TRABAJADOR */}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
                   <h3 className="text-lg font-bold text-slate-900">
@@ -168,17 +150,21 @@ export function WorkerDetailsSheet({
                   >
                     {worker.rut}
                   </Badge>
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    GES Actual:{' '}
-                    <strong>
-                      {worker.currentGes?.name || 'Sin asignar'}
-                    </strong>
+                  <div className="mt-2 text-xs text-muted-foreground flex items-center gap-1">
+                    GES Actual:
+                    {worker.currentGes ? (
+                        <Badge variant="outline" className="text-blue-700 bg-blue-50 border-blue-200">
+                            {worker.currentGes.name}
+                        </Badge>
+                    ) : (
+                        <span className="italic text-slate-400">Sin asignar</span>
+                    )}
                   </div>
                 </div>
 
                 <div className="text-xs space-y-1 text-slate-600">
                   <div className="flex items-center gap-2">
-                    <Briefcase className="h-3 w-3" /> {worker.position}
+                    <Briefcase className="h-3 w-3" /> {worker.position || 'Cargo no especificado'}
                   </div>
                   <div className="flex items-center gap-2">
                     <UserIcon className="h-3 w-3" />{' '}
@@ -208,66 +194,11 @@ export function WorkerDetailsSheet({
 
               <Separator className="my-6" />
 
-              {/* Historial de órdenes / evaluaciones */}
-              <h4 className="font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <FileText className="h-4 w-4 text-blue-600" />
-                Historial de Evaluaciones
-              </h4>
+              {/* TIMELINE DE VIGILANCIA */}
+              <WorkerMedicalTimeline worker={worker} />
 
-              {Array.isArray(worker.orders) && worker.orders.length > 0 ? (
-                <div className="space-y-3">
-                  {worker.orders.map((order: any) => (
-                    <div
-                      key={order.id}
-                      className="border rounded-md overflow-hidden text-xs"
-                    >
-                      <div className="bg-slate-100 p-3 flex justify-between items-center">
-                        <div>
-                          <div className="font-bold text-sm text-slate-800">
-                            {order.ges?.name || 'Examen'}
-                          </div>
-                          <div className="text-xs text-muted-foreground flex items-center gap-2">
-                            <Calendar className="h-3 w-3" />
-                            {formatDate(order.createdAt)}
-                          </div>
-                        </div>
-                        <Badge variant="outline">{order.status}</Badge>
-                      </div>
-
-                      <div className="p-0 divide-y">
-                        {order.orderBatteries?.map((ob: any) => (
-                          <div
-                            key={ob.id}
-                            className="p-3 flex items-center justify-between bg-white"
-                          >
-                            <div className="flex items-center gap-3">
-                              <CheckCircle2 className="h-4 w-4 text-slate-400" />
-                              <span className="text-sm font-medium">
-                                {ob.battery?.name}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-4">
-                              {ob.expirationDate && (
-                                <span className="text-xs text-slate-500">
-                                  {formatDate(ob.expirationDate)}
-                                </span>
-                              )}
-                              {getStatusBadge(ob.status)}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-xs text-slate-500 italic">
-                  No hay evaluaciones registradas.
-                </div>
-              )}
             </ScrollArea>
 
-            {/* Dialogo de cambio de puesto */}
             {isTransferOpen && (
               <JobTransferDialog
                 worker={worker}

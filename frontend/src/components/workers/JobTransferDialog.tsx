@@ -47,6 +47,7 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workers'] });
       queryClient.invalidateQueries({ queryKey: ['worker', worker.id] });
+      queryClient.invalidateQueries({ queryKey: ['worker-details'] }); // Actualizar también la ficha
       toast.success("Trabajador movido exitosamente");
       onOpenChange(false);
     },
@@ -117,12 +118,18 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
               <div className="flex justify-between items-center mb-4 border-b pb-2">
                 <div>
                   <p className="text-xs text-muted-foreground">Puesto Actual</p>
-                  <p className="font-medium text-sm">{analysis.worker.currentGesName}</p>
+                  {/* 👇 FIX: Agregamos ?. y valor por defecto */}
+                  <p className="font-medium text-sm">
+                    {analysis.worker?.currentGesName || 'Sin asignar'}
+                  </p>
                 </div>
                 <ArrowRight className="h-4 w-4 text-slate-400" />
                 <div className="text-right">
                   <p className="text-xs text-muted-foreground">Nuevo Puesto</p>
-                  <p className="font-medium text-sm text-blue-700">{analysis.newGes.name}</p>
+                  {/* 👇 FIX: Agregamos ?. y valor por defecto */}
+                  <p className="font-medium text-sm text-blue-700">
+                    {analysis.newGes?.name || 'Seleccionado'}
+                  </p>
                 </div>
               </div>
 
@@ -135,7 +142,8 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
               </h4>
 
               <div className="space-y-2 max-h-40 overflow-y-auto">
-                {analysis.gaps.map((gap: any) => (
+                {/* 👇 FIX: Aseguramos que gaps sea un array */}
+                {(analysis.gaps || []).map((gap: any) => (
                   <div key={gap.batteryId} className="flex justify-between items-center text-sm p-2 rounded bg-white border">
                     <span>{gap.name}</span>
                     {gap.status === 'CUBIERTO' ?
@@ -144,7 +152,7 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
                     }
                   </div>
                 ))}
-                {analysis.gaps.length === 0 && <p className="text-xs text-slate-500 italic">Este puesto no requiere exámenes adicionales.</p>}
+                {(analysis.gaps || []).length === 0 && <p className="text-xs text-slate-500 italic">Este puesto no requiere exámenes adicionales.</p>}
               </div>
 
               {!analysis.transferReady && (

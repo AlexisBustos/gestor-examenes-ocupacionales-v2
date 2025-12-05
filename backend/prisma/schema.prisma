@@ -254,6 +254,7 @@ model Worker {
   company        Company     @relation(fields: [companyId], references: [id])
   employmentStatus EmploymentStatus @default(NOMINA)
   examOrders     ExamOrder[]
+  events           WorkerEvent[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 }
@@ -315,4 +316,16 @@ model MedicalRule {
 enum EmploymentStatus {
   TRANSITO
   NOMINA
+}
+
+model WorkerEvent {
+  id        String   @id @default(uuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  
+  eventType String   // Ej: 'CREACION', 'CAMBIO_ESTADO', 'CAMBIO_PUESTO'
+  title     String   // Ej: 'Ingreso a Nómina'
+  details   String?  // Ej: 'Aprobado tras examen preocupacional'
+  
+  createdAt DateTime @default(now())
 }
