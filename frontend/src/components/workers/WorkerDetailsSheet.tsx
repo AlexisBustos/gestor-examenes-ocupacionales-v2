@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'; // 👈 Importamos useMutation y Client
 import axios from '@/lib/axios';
+import { toast } from 'sonner'; // 👈 Importamos toast para el feedback
 
 import {
   Sheet,
@@ -24,6 +25,8 @@ import {
   FileText,
   Calendar,
   CheckCircle2,
+  ShieldCheck, // 👈 Nuevo icono
+  AlertTriangle // 👈 Nuevo icono
 } from 'lucide-react';
 
 import { JobTransferDialog } from '@/components/workers/JobTransferDialog';
@@ -64,6 +67,7 @@ export function WorkerDetailsSheet({
   open,
   onOpenChange,
 }: WorkerDetailsSheetProps) {
+  const queryClient = useQueryClient(); // 👈 Inicializamos el cliente
   const [isTransferOpen, setIsTransferOpen] = useState(false);
 
   const { data: worker, isLoading } = useQuery<any>({
@@ -73,6 +77,25 @@ export function WorkerDetailsSheet({
       return data;
     },
     enabled: !!workerId && open,
+  });
+
+  // 👇 MUTACIÓN PARA PASAR A NÓMINA
+  const promoteMutation = useMutation({
+    mutationFn: async () => {
+        // Asumimos que tienes un endpoint PATCH o PUT genérico para actualizar workers
+        // Si tu backend usa PUT, cambia patch por put
+        return await axios.patch(`/workers/${workerId}`, { 
+            employmentStatus: 'NOMINA' 
+        });
+    },
+    onSuccess: () => {
+        toast.success("¡Trabajador ingresado a Nómina exitosamente!");
+        queryClient.invalidateQueries({ queryKey: ['worker-details'] });
+        queryClient.invalidateQueries({ queryKey: ['workers'] }); // Refresca la tabla principal
+    },
+    onError: () => {
+        toast.error("Error al actualizar el estado");
+    }
   });
 
   return (
@@ -97,6 +120,42 @@ export function WorkerDetailsSheet({
         ) : worker ? (
           <>
             <ScrollArea className="flex-1 p-6">
+              
+              {/* 👇 SECCIÓN ESPECIAL: SOLO SI ESTÁ EN TRÁNSITO */}
+              {worker.employmentStatus === 'TRANSITO' && (
+                <div className="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-2">
+                    <div className="flex gap-3">
+                        <div className="bg-amber-100 p-2 rounded-full h-fit">
+                            <AlertTriangle className="h-5 w-5 text-amber-600" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-amber-900 text-sm">Candidato en Tránsito</h4>
+                            <p className="text-xs text-amber-700 mt-1">
+                                Este trabajador aún no figura en la nómina oficial.
+                                <br />Si los exámenes están aprobados, confirma su ingreso.
+                            </p>
+                        </div>
+                    </div>
+                    <Button 
+                        className="bg-green-600 hover:bg-green-700 text-white shrink-0"
+                        onClick={() => {
+                            if(confirm("¿Confirmar que el trabajador pasa a ser parte de la dotación oficial?")) {
+                                promoteMutation.mutate();
+                            }
+                        }}
+                        disabled={promoteMutation.isPending}
+                    >
+                        {promoteMutation.isPending ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                            <ShieldCheck className="mr-2 h-4 w-4" />
+                        )}
+                        Confirmar Ingreso
+                    </Button>
+                </div>
+              )}
+              {/* 👆 FIN SECCIÓN ESPECIAL */}
+
               {/* Cabecera con datos básicos */}
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div>
@@ -132,15 +191,18 @@ export function WorkerDetailsSheet({
                     <Phone className="h-3 w-3" /> {worker.phone || '-'}
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="mt-2 w-fit self-end text-blue-700 border-blue-200 hover:bg-blue-50"
-                    onClick={() => setIsTransferOpen(true)}
-                  >
-                    <ArrowRightLeft className="h-4 w-4 mr-2" />
-                    Cambio de Puesto
-                  </Button>
+                  {/* Solo mostramos cambio de puesto si YA es de nómina */}
+                  {worker.employmentStatus !== 'TRANSITO' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2 w-fit self-end text-blue-700 border-blue-200 hover:bg-blue-50"
+                        onClick={() => setIsTransferOpen(true)}
+                      >
+                        <ArrowRightLeft className="h-4 w-4 mr-2" />
+                        Cambio de Puesto
+                      </Button>
+                  )}
                 </div>
               </div>
 
