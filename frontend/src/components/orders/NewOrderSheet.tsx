@@ -41,7 +41,6 @@ import {
 interface GesLocal {
   id: string;
   name: string;
-  // agrega más campos si tu backend devuelve otros que uses en este componente
 }
 
 interface OrderSuggestion {
@@ -151,39 +150,47 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       if (!selectedAreaId) return [];
       return (await axios.get(`/ges?areaId=${selectedAreaId}`)).data;
     },
-    enabled: !!selectedAreaId, // solo cuando hay área seleccionada
+    enabled: !!selectedAreaId,
   });
 
-  // QUERY INTELIGENTE DE SUGERENCIAS (Brechas)
+  // QUERY DE SUGERENCIAS / BATERÍAS A SOLICITAR
   const { data: suggestions, isLoading: isLoadingSuggestions } =
     useQuery<OrderSuggestion>({
       queryKey: ['order-suggestions', selectedGesId, workerId, searchMode, selectedAreaId],
       queryFn: async () => {
-        // Caso 1: Por Área
+        // Caso 1: Por Área → traemos todas las baterías del área
         if (searchMode === 'area' && selectedAreaId) {
           const batteries = (await axios.get(`/ges/area/${selectedAreaId}/batteries`))
             .data;
           return { required: batteries, covered: [], missing: batteries };
         }
 
-        // Caso 2: Por GES
-        if (selectedGesId) {
-          const params = new URLSearchParams({ gesId: selectedGesId });
-          if (workerId) params.append('workerId', workerId);
-
-          return (await axios.get(`/orders/suggestions?${params.toString()}`))
+        // Caso 2: Por GES → traemos todas las baterías asociadas al GES
+        if (searchMode === 'ges' && selectedGesId) {
+          const batteries = (await axios.get(`/ges/${selectedGesId}/batteries`))
             .data;
+          return { required: batteries, covered: [], missing: batteries };
         }
 
+        // Sin selección válida
         return { required: [], covered: [], missing: [] };
       },
-      enabled: !!(selectedGesId || (searchMode === 'area' && selectedAreaId)),
+      enabled: !!(
+        (searchMode === 'area' && selectedAreaId) ||
+        (searchMode === 'ges' && selectedGesId)
+      ),
     });
+
+  // --- 🔥 FIX: LISTAS SEGURAS (Evita el error 'reading length of undefined') ---
+  const safeMissingList = Array.isArray(suggestions?.missing) ? suggestions.missing : [];
+  const safeCoveredList = Array.isArray(suggestions?.covered) ? suggestions.covered : [];
+  // -----------------------------------------------------------------------------
 
   const createOrderMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       let finalGesId = values.gesId;
 
+      // Si está en modo Área, pero no hay gesId explícito, tomamos el primero de la lista
       if (searchMode === 'area' && !finalGesId && gesList && gesList.length > 0) {
         finalGesId = gesList[0].id;
       }
@@ -192,9 +199,9 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
         throw new Error('Debe seleccionar un GES o un Área válida');
       }
 
-      // SOLICITAMOS SOLO LO FALTANTE (MISSING)
+      // Tomamos las baterías faltantes desde suggestions.missing
       const batteryIds =
-        suggestions?.missing.map((b: any) => ({ id: b.id })) || [];
+        safeMissingList.map((b: any) => ({ id: b.id }));
 
       await axios.post('/orders', {
         worker: {
@@ -496,16 +503,15 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    {/* 1. Baterías Faltantes (A Solicitar) */}
+                    {/* 1. Baterías Faltantes (A Solicitar) - USANDO LISTA SEGURA */}
                     <div>
                       <h4 className="font-bold text-amber-700 mb-2 flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-amber-500" />
-                        A Solicitar ({suggestions?.missing.length || 0})
+                        A Solicitar ({safeMissingList.length})
                       </h4>
-                      {suggestions?.missing &&
-                      suggestions.missing.length > 0 ? (
+                      {safeMissingList.length > 0 ? (
                         <ul className="list-disc list-inside font-medium text-amber-900 bg-amber-50 p-2 rounded border border-amber-100">
-                          {suggestions.missing.map((b: any) => (
+                          {safeMissingList.map((b: any) => (
                             <li key={b.id}>{b.name}</li>
                           ))}
                         </ul>
@@ -516,27 +522,26 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                       )}
                     </div>
 
-                    {/* 2. Baterías Cubiertas (Ya tiene) */}
-                    {suggestions?.covered &&
-                      suggestions.covered.length > 0 && (
-                        <div>
-                          <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">
-                            <div className="w-2 h-2 rounded-full bg-green-500" />
-                            Vigentes / Cubiertas (
-                            {suggestions.covered.length})
-                          </h4>
-                          <ul className="list-disc list-inside font-medium text-green-900 bg-green-50 p-2 rounded border border-green-100 opacity-80">
-                            {suggestions.covered.map((b: any) => (
-                              <li key={b.id}>
-                                {b.name}{' '}
-                                <span className="text-[10px] text-green-600">
-                                  (No se pedirá)
-                                </span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                    {/* 2. Baterías Cubiertas (Ya tiene) - USANDO LISTA SEGURA */}
+                    {safeCoveredList.length > 0 && (
+                      <div>
+                        <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          Vigentes / Cubiertas (
+                          {safeCoveredList.length})
+                        </h4>
+                        <ul className="list-disc list-inside font-medium text-green-900 bg-green-50 p-2 rounded border border-green-100 opacity-80">
+                          {safeCoveredList.map((b: any) => (
+                            <li key={b.id}>
+                              {b.name}{' '}
+                              <span className="text-[10px] text-green-600">
+                                (No se pedirá)
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
@@ -550,7 +555,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
               {createOrderMutation.isPending
                 ? 'Procesando...'
                 : `Generar Solicitud (${
-                    suggestions?.missing.length || 0
+                    safeMissingList.length
                   } exámenes)`}
             </Button>
           </form>
