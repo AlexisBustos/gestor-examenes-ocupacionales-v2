@@ -3,6 +3,13 @@ import { PrismaClient, ExposureType } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Función auxiliar para limpiar textos (quita tildes y espacios extra)
+const normalizeText = (text: string) => {
+  if (!text) return '';
+  return text.toString().toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+};
+
+// Función auxiliar para normalizar claves del objeto (columnas del excel)
 const normalizeKey = (key: string) => {
   return key.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '');
 };
@@ -17,113 +24,140 @@ export const processExcel = async (fileBuffer: Buffer) => {
 
   let stats = { companies: 0, ges: 0, risks: 0, batteries_linked: 0 };
 
-  console.log("🚨 --- INICIO CARGA MULTI-DETALLE --- 🚨");
-
-  // ESTRATEGIA: Primero limpiamos riesgos de los GES que vamos a tocar
-  // (Para evitar duplicados si re-subes el archivo, pero manteniendo la lógica de filas múltiples)
-  // ... Por seguridad en esta versión, haremos UPSERT inteligente fila por fila.
+  console.log("🚨 --- INICIO CARGA MULTI-DETALLE MEJORADA --- 🚨");
 
   for (const rawRow of rawRows) {
     const row: any = {};
+    // Normalizamos las claves para que "Agente Específico" sea igual a "agenteespecifico"
     Object.keys(rawRow).forEach(key => row[normalizeKey(key)] = rawRow[key]);
 
     const nombreEmpresa = row['empresa'];
-    const nombreGes = row['ges'];
+    // Buscamos 'ges', 'puesto' o 'cargo' como nombre del GES
+    const nombreGes = row['ges'] || row['puesto'] || row['cargo'];
+    
+    // Buscamos 'agente', 'riesgo' o 'agentes'
     const listaAgentes = row['agentes'] || row['riesgos'] || row['agente'];
-    // Capturamos el detalle específico y el tipo de esta fila
-    const agenteEspecifico = row['agenteespecifico'] || row['detalle'] || '';
+    
+    const agenteEspecifico = row['agenteespecifico'] || row['detalle'] || row['especifico'] || '';
     const tipoExposicionRaw = (row['tipoexposicion'] || row['tipo'] || '').toString().toUpperCase();
     const subArea = row['subarea'] || row['seccion'];
+    const descTareas = row['descripciontareas'] || row['descripcion'] || row['tareas'];
 
-    if (!nombreEmpresa || !nombreGes) continue;
+    // Si no hay empresa, usamos una por defecto para no perder la data
+    let currentCompanyId = '';
+    
+    if (nombreEmpresa) {
+        const company = await prisma.company.upsert({
+            where: { rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}` }, // Rut dummy generado
+            update: {},
+            create: { name: nombreEmpresa, rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}`, contactEmail: 'admin@empresa.com' }
+        });
+        currentCompanyId = company.id;
+        stats.companies++;
+    } else {
+        // Fallback: Buscar la primera empresa existente
+        const defaultComp = await prisma.company.findFirst();
+        if (defaultComp) currentCompanyId = defaultComp.id;
+        else {
+            // Si no hay nada, creamos una
+            const newComp = await prisma.company.create({ data: { name: 'Empresa Principal', rut: '99.999.999-0', contactEmail: 'admin@empresa.com' }});
+            currentCompanyId = newComp.id;
+        }
+    }
 
-    // 1. Jerarquía (Empresa -> Centro -> Área)
-    const company = await prisma.company.upsert({
-      where: { rut: `RUT-${nombreEmpresa.replace(/\s+/g, '').toUpperCase()}` },
-      update: {},
-      create: { name: nombreEmpresa, rut: `RUT-${nombreEmpresa.replace(/\s+/g, '').toUpperCase()}`, contactEmail: 'x' }
-    });
+    // 1. Jerarquía (Centro -> Área)
+    const centroNombre = row['centro'] || row['centrotrabajo'] || 'Casa Matriz';
+    let workCenter = await prisma.workCenter.findFirst({ where: { name: centroNombre, companyId: currentCompanyId } });
+    if (!workCenter) workCenter = await prisma.workCenter.create({ data: { name: centroNombre, companyId: currentCompanyId } });
 
-    let workCenter = await prisma.workCenter.findFirst({ where: { name: row['centro'] || 'Centro Principal', companyId: company.id } });
-    if (!workCenter) workCenter = await prisma.workCenter.create({ data: { name: row['centro'] || 'Centro Principal', companyId: company.id } });
+    const areaNombre = row['area'] || 'Operaciones';
+    let area = await prisma.area.findFirst({ where: { name: areaNombre, workCenterId: workCenter.id } });
+    if (!area) area = await prisma.area.create({ data: { name: areaNombre, workCenterId: workCenter.id } });
 
-    let area = await prisma.area.findFirst({ where: { name: row['area'] || 'Área General', workCenterId: workCenter.id } });
-    if (!area) area = await prisma.area.create({ data: { name: row['area'] || 'Área General', workCenterId: workCenter.id } });
+    if (!nombreGes) continue; // Si no hay GES, saltamos a la siguiente fila
 
     // 2. GES
     let ges = await prisma.ges.findFirst({ where: { name: nombreGes, areaId: area.id } });
+    
     const gesData = {
       name: nombreGes,
       areaId: area.id,
-      tasksDescription: row['descripciontareas'] || '',
+      tasksDescription: descTareas || '',
       subArea: subArea || null,
       reportDate: new Date(),
-      reportNumber: 'IMP-AUTO',
+      reportNumber: 'CARGA-MASIVA',
       menCount: 0, womenCount: 0
     };
 
     if (ges) {
-      // Si ya existe, actualizamos info general (pero no borramos riesgos aún)
-      ges = await prisma.ges.update({ where: { id: ges.id }, data: { 
-          tasksDescription: gesData.tasksDescription,
-          subArea: gesData.subArea 
-      }});
+      // Si existe, actualizamos descripción si viene nueva info
+      await prisma.ges.update({ 
+          where: { id: ges.id }, 
+          data: { 
+              tasksDescription: descTareas || ges.tasksDescription,
+              subArea: subArea || ges.subArea 
+          }
+      });
     } else {
       ges = await prisma.ges.create({ data: gesData });
       stats.ges++;
     }
 
-    // 3. RIESGOS (Lógica Acumulativa)
+    // 3. RIESGOS (Aquí es donde ocurre la magia)
     if (listaAgentes) {
-      // Separamos por si vienen varios en una celda, aunque lo ideal es 1 por fila
       const agentesArray = listaAgentes.toString().split(/[,;\n]+/).map((s: string) => s.trim());
 
       for (const nombreAgente of agentesArray) {
         if (!nombreAgente || nombreAgente.length < 2) continue;
 
-        // A. Buscar Riesgo Global
-        const riskAgent = await prisma.riskAgent.upsert({
-            where: { name: nombreAgente },
-            update: {},
-            create: { name: nombreAgente }
+        // A. Crear Agente Global (Ej: "Ruido")
+        // Usamos findFirst en lugar de upsert directo para ser case-insensitive
+        let riskAgent = await prisma.riskAgent.findFirst({
+            where: { name: { equals: nombreAgente, mode: 'insensitive' } }
         });
 
-        // B. Buscar Batería (Inteligencia)
-        const bateriaSugerida = await prisma.examBattery.findFirst({
-            where: { name: { contains: nombreAgente, mode: 'insensitive' } }
-        });
+        if (!riskAgent) {
+            riskAgent = await prisma.riskAgent.create({ data: { name: nombreAgente } });
+        }
 
-        // C. Mapear Tipo
+        // B. Mapear Tipo de Exposición
         let exposureType: ExposureType | null = null;
         if (tipoExposicionRaw.includes('CRONI')) exposureType = ExposureType.CRONICA;
         else if (tipoExposicionRaw.includes('AGUD')) exposureType = ExposureType.AGUDA;
         else if (tipoExposicionRaw.includes('INTER')) exposureType = ExposureType.INTERMITENTE;
         else if (tipoExposicionRaw.includes('CONT')) exposureType = ExposureType.CONTINUA;
 
-        // D. UPSERT ESPECÍFICO (La solución al problema)
-        // Buscamos si YA existe este riesgo CON este detalle específico
+        // C. Vincular al GES (RiskExposure)
+        // Buscamos si ya existe este riesgo ESPECÍFICO en este GES
         const existingExposure = await prisma.riskExposure.findFirst({
             where: {
                 gesId: ges.id,
                 riskAgentId: riskAgent.id,
-                specificAgentDetails: agenteEspecifico // <--- Clave: Buscamos por detalle exacto
+                // Clave: diferenciamos por el detalle específico (ej: Ruido - Sierra vs Ruido - Martillo)
+                specificAgentDetails: agenteEspecifico 
             }
         });
 
         if (existingExposure) {
-            // Actualizamos si cambió el tipo
+            // Si ya existe, actualizamos el tipo si cambió
             await prisma.riskExposure.update({
                 where: { id: existingExposure.id },
-                data: { exposureType, specificAgentDetails: agenteEspecifico }
+                data: { exposureType }
             });
         } else {
-            // Creamos NUEVO registro (así acumulamos Tolueno, Xileno, etc.)
+            // Si no existe, lo creamos
+            // Intentamos buscar una batería que coincida por nombre (Inteligencia básica)
+            const bateriaSugerida = await prisma.examBattery.findFirst({
+                where: { name: { contains: nombreAgente, mode: 'insensitive' } }
+            });
+
             await prisma.riskExposure.create({
                 data: {
                     gesId: ges.id,
                     riskAgentId: riskAgent.id,
                     specificAgentDetails: agenteEspecifico,
                     exposureType: exposureType,
+                    // Si encontramos una batería que se llame igual al riesgo, la vinculamos de una vez
                     examBatteries: bateriaSugerida ? { connect: { id: bateriaSugerida.id } } : undefined
                 }
             });
@@ -134,5 +168,5 @@ export const processExcel = async (fileBuffer: Buffer) => {
     }
   }
 
-  return { message: 'Carga con detalle específico completada', stats };
+  return { message: 'Carga masiva completada con éxito', stats };
 };
