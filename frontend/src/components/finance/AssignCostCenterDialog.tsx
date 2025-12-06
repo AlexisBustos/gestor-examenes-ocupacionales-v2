@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import {
     Dialog,
@@ -20,46 +20,43 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+// Definimos qué forma tiene un Centro de Costos
+interface CostCenter {
+    id: string;
+    code: string;
+    name: string;
+}
+
 interface AssignCostCenterDialogProps {
     areaId: string;
-    companyId: string;
     currentCostCenterId?: string | null;
     open: boolean;
     onOpenChange: (open: boolean) => void;
+    availableCostCenters: CostCenter[]; // <--- NUEVA PROP: Recibimos la lista lista
 }
 
 export function AssignCostCenterDialog({
     areaId,
-    companyId,
     currentCostCenterId,
     open,
     onOpenChange,
+    availableCostCenters, // <--- La usamos aquí
 }: AssignCostCenterDialogProps) {
     const queryClient = useQueryClient();
     const [selectedCostCenterId, setSelectedCostCenterId] = useState<string>(currentCostCenterId || '');
 
-    // Sincronizar estado cuando cambia la prop (o se abre el modal)
     useEffect(() => {
         setSelectedCostCenterId(currentCostCenterId || '');
     }, [currentCostCenterId, open]);
 
-    // 1. Cargar Centros de Costos de la Empresa
-    const { data: costCenters, isLoading } = useQuery({
-        queryKey: ['cost-centers', companyId],
-        queryFn: async () => {
-            const { data } = await axios.get(`/cost-centers?companyId=${companyId}`);
-            return data;
-        },
-        enabled: open && !!companyId,
-    });
+    // YA NO NECESITAMOS EL USEQUERY AQUÍ (Borramos la carga duplicada)
 
-    // 2. Mutación para asignar
     const assignMutation = useMutation({
         mutationFn: async (costCenterId: string) => {
             await axios.patch(`/areas/${areaId}`, { costCenterId });
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['company', companyId] }); // Recargar ficha empresa
+            queryClient.invalidateQueries({ queryKey: ['areas'] }); // Recargamos las áreas para ver el cambio
             toast.success('Centro de Costos asignado correctamente');
             onOpenChange(false);
         },
@@ -84,27 +81,26 @@ export function AssignCostCenterDialog({
                 </DialogHeader>
 
                 <div className="grid gap-4 py-4">
-                    {isLoading ? (
-                        <div className="flex justify-center py-4">
-                            <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-                        </div>
-                    ) : (
-                        <Select
-                            value={selectedCostCenterId}
-                            onValueChange={setSelectedCostCenterId}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un Centro de Costos" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {costCenters?.map((cc: any) => (
-                                    <SelectItem key={cc.id} value={cc.id}>
-                                        {cc.code} - {cc.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    )}
+                    <Select
+                        value={selectedCostCenterId}
+                        onValueChange={setSelectedCostCenterId}
+                    >
+                        <SelectTrigger>
+                            <SelectValue placeholder="Seleccione un Centro de Costos" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {availableCostCenters?.map((cc) => (
+                                <SelectItem key={cc.id} value={cc.id}>
+                                    {cc.code} - {cc.name}
+                                </SelectItem>
+                            ))}
+                            {availableCostCenters?.length === 0 && (
+                                <div className="p-2 text-sm text-gray-500 text-center">
+                                    No hay centros disponibles
+                                </div>
+                            )}
+                        </SelectContent>
+                    </Select>
                 </div>
 
                 <DialogFooter>

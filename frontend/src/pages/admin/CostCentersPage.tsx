@@ -25,6 +25,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Loader2, Building, Upload, Plus, Search, Trash2 } from 'lucide-react';
 
+// Importamos el componente de lista de áreas
+import { AreasList } from '@/components/finance/AreasList';
+
 export default function CostCentersPage() {
   const queryClient = useQueryClient();
   const [newCode, setNewCode] = useState('');
@@ -32,6 +35,8 @@ export default function CostCentersPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // NOTA: Ya no necesitamos la variable companyId aquí, AreasList se encarga de sus datos.
 
   const { data: costCenters, isLoading } = useQuery({
     queryKey: ['cost-centers'],
@@ -78,13 +83,15 @@ export default function CostCentersPage() {
   if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 container mx-auto py-6">
+      
+      {/* HEADER */}
       <div className="flex justify-between items-center border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-100 rounded-lg text-blue-600"><Building className="h-8 w-8" /></div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Centros de Costos</h1>
-            <p className="text-muted-foreground">Gestión financiera.</p>
+            <p className="text-muted-foreground">Gestión financiera y áreas organizacionales.</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -99,7 +106,9 @@ export default function CostCentersPage() {
         </div>
       </div>
 
+      {/* GRILLA SUPERIOR: CREACIÓN Y LISTADO DE CC */}
       <div className="grid gap-6 md:grid-cols-3">
+        {/* COLUMNA 1: CREAR */}
         <Card className="md:col-span-1 h-fit sticky top-6">
           <CardHeader><CardTitle className="text-lg">Nuevo Centro</CardTitle><CardDescription>Ingresa los datos del nuevo CC.</CardDescription></CardHeader>
           <CardContent className="space-y-4">
@@ -111,6 +120,7 @@ export default function CostCentersPage() {
           </CardContent>
         </Card>
 
+        {/* COLUMNA 2 y 3: LISTADO */}
         <Card className="md:col-span-2">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle>Listado Actual</CardTitle>
@@ -139,6 +149,13 @@ export default function CostCentersPage() {
         </Card>
       </div>
 
+      {/* --- SECCIÓN NUEVA: ÁREAS IMPORTADAS --- */}
+      {/* Aquí insertamos la lista de áreas limpiamente sin props */}
+      <div className="pt-6 border-t mt-8">
+        <AreasList costCenters={costCenters} />
+      </div>
+
+      {/* MODAL DE ELIMINACIÓN */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader><AlertDialogTitle>¿Eliminar Centro?</AlertDialogTitle><AlertDialogDescription>Esta acción es irreversible.</AlertDialogDescription></AlertDialogHeader>
