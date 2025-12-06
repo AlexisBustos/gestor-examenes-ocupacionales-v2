@@ -4,13 +4,14 @@ import {
   getAllOrders,
   updateOrderStatus,
   updateBatteryResult,
-  getWorkerOrderSuggestions
+  getWorkerOrderSuggestions,
+  getOrderById // <--- Importante: Importamos esto del servicio
 } from './orders.service';
 
-// 👇 ESTA ES LA LÍNEA NUEVA (Para poder crear/buscar trabajadores)
+// Importamos para crear trabajador si no existe
 import { createWorkerDb } from '../workers/workers.service';
 
-// --- LISTAR ÓRDENES (INTACTO) ---
+// --- LISTAR ÓRDENES ---
 export const getOrders = async (req: Request, res: Response) => {
   try {
     const orders = await getAllOrders(req.query.status as string);
@@ -21,7 +22,24 @@ export const getOrders = async (req: Request, res: Response) => {
   }
 };
 
-// --- SUGERENCIAS (INTACTO) ---
+// --- OBTENER UNA ORDEN POR ID (ESTA ES LA QUE FALTABA) ---
+export const getOne = async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const order = await getOrderById(id);
+  
+      if (!order) {
+        return res.status(404).json({ error: 'Orden no encontrada' });
+      }
+  
+      res.json(order);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Error al obtener la orden' });
+    }
+};
+
+// --- SUGERENCIAS ---
 export const getSuggestions = async (req: Request, res: Response) => {
   try {
     const { workerId, gesId } = req.query;
@@ -35,29 +53,25 @@ export const getSuggestions = async (req: Request, res: Response) => {
   }
 };
 
-// --- CREAR ORDEN (ESTO ES LO ÚNICO QUE CAMBIÓ) ---
+// --- CREAR ORDEN ---
 export const create = async (req: Request, res: Response) => {
   try {
-    // 1. Recibimos los datos del formulario
     const { worker, gesId, companyId, evaluationType, examBatteries } = req.body;
 
-    // 2. NUEVO: Creamos o buscamos al trabajador PRIMERO
-    // Al pasarle 'evaluationType', el servicio sabrá si ponerlo en 'TRANSITO' o 'NOMINA'
+    // Creamos o buscamos al trabajador
     const savedWorker = await createWorkerDb({
         ...worker,
         companyId,
-        evaluationType // <--- Este es el dato clave para el semáforo
+        evaluationType
     });
 
-    // 3. Preparamos los datos para guardar la orden vinculada a ese trabajador
+    // Datos de la orden
     const orderData = {
         evaluationType,
         status: 'SOLICITADO',
-        // Conectamos con el ID real del trabajador (sea nuevo o antiguo)
         worker: { connect: { id: savedWorker.id } },
         company: { connect: { id: companyId } },
         ges: { connect: { id: gesId } },
-        // Creamos la lista de baterías
         orderBatteries: {
             create: examBatteries.map((bat: any) => ({
                 batteryId: bat.id,
@@ -66,18 +80,15 @@ export const create = async (req: Request, res: Response) => {
         }
     };
 
-    // 4. Guardamos la orden
     const order = await createOrder(orderData);
-    
     res.status(201).json(order);
   } catch (error: any) {
     console.error("Error al crear orden:", error);
-    // Devolvemos el mensaje de error para saber qué pasó si falla
     res.status(400).json({ error: 'Error al crear la orden: ' + error.message });
   }
 };
 
-// --- ACTUALIZAR ESTADO (INTACTO) ---
+// --- ACTUALIZAR ESTADO ---
 export const updateStatus = async (req: Request, res: Response) => {
   try {
     const { status, scheduledAt, providerName, externalId } = req.body;
@@ -89,7 +100,7 @@ export const updateStatus = async (req: Request, res: Response) => {
   }
 };
 
-// --- GUARDAR RESULTADO DE BATERÍA (INTACTO) ---
+// --- GUARDAR RESULTADO DE BATERÍA ---
 export const setResult = async (req: Request, res: Response) => {
   try {
     const { status, expirationDate, resultDate, clinicalNotes } = req.body;

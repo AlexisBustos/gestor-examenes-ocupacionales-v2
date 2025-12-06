@@ -79,7 +79,16 @@ export const getOrderById = async (id: string) => {
     include: {
       worker: true,
       company: true,
-      ges: true,
+      // 👇 AQUÍ ESTÁ LA CORRECCIÓN
+      ges: {
+        include: {
+          riskExposures: {
+            include: {
+              riskAgent: true // <--- ¡Esto traerá los nombres (Ruido, Sílice, etc)!
+            }
+          }
+        }
+      },
       orderBatteries: {
         include: {
           battery: true,

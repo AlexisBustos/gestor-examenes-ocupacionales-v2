@@ -15,8 +15,12 @@ import {
   XCircle,
   AlertCircle,
   Calendar,
+  Loader2 // Agregamos icono de carga
 } from "lucide-react";
 import type { Order } from "@/types/order.types";
+// 👇 IMPORTACIONES NUEVAS NECESARIAS
+import { useQuery } from '@tanstack/react-query';
+import axios from '@/lib/axios';
 
 interface Props {
   order: Order;
@@ -24,7 +28,25 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
-export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
+export function OrderDetailsSheet({ order: initialOrder, open, onOpenChange }: Props) {
+  
+  // 👇 MAGIA NUEVA: Consultamos los detalles frescos al abrir
+  // Esto llamará a tu backend arreglado (getOrderById)
+  const { data: fullOrder, isLoading } = useQuery({
+    queryKey: ['order-detail', initialOrder.id],
+    queryFn: async () => (await axios.get(`/orders/${initialOrder.id}`)).data,
+    enabled: open, // Solo busca si la ficha está abierta
+    initialData: initialOrder // Muestra lo que ya tiene mientras carga lo nuevo
+  });
+
+  // 👇 AGREGA ESTO AQUÍ:
+  console.log("--- ESTADO DE LA ORDEN ---");
+  console.log("1. ¿Está cargando?", isLoading);
+  console.log("2. Data completa recibida:", fullOrder);
+  console.log("3. Riesgos en la data:", fullOrder?.ges?.riskExposures);
+  // Usamos la data fresca (fullOrder) o la inicial si falla
+  const order = fullOrder || initialOrder;
+
   const formatDate = (dateString?: string | null) => {
     if (!dateString) return '-';
     return new Date(dateString).toLocaleDateString('es-CL', {
@@ -44,7 +66,10 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
       <SheetContent className="overflow-y-auto sm:max-w-[600px]">
         <SheetHeader className="mb-6">
           <div className="flex items-center justify-between">
-            <SheetTitle>Ficha de Solicitud</SheetTitle>
+            <SheetTitle className="flex items-center gap-2">
+              Ficha de Solicitud
+              {isLoading && <Loader2 className="h-4 w-4 animate-spin text-blue-500" />}
+            </SheetTitle>
             <Badge variant={order.status === 'AGENDADO' ? 'default' : 'secondary'}>{order.status}</Badge>
           </div>
           <SheetDescription>ID: {order.id}</SheetDescription>
@@ -64,7 +89,27 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
                   {order.ges?.name || 'GES No Asignado'}
                 </p>
                 <div className="text-xs text-slate-600 mt-2">
-                  <strong>Riesgos Asociados:</strong> {order.ges?.riskExposures?.map(r => r.riskAgent.name).join(', ') || 'Sin riesgos'}
+                  <strong>Riesgos Asociados:</strong> 
+                  {/* BLOQUE CORREGIDO: Usando 'specificAgentDetails' */}
+<div className="flex flex-wrap gap-1 mt-1">
+  {order.ges?.riskExposures && order.ges.riskExposures.length > 0 ? (
+     order.ges.riskExposures.map((r: any, i: number) => (
+       <Badge key={i} variant="outline" className="bg-white text-blue-700 border-blue-200">
+         {/* 1. Nombre del Agente General (Ej: Metales) */}
+         <span className="font-semibold">{r.riskAgent.name}</span>
+         
+         {/* 2. Detalle Específico usando el nombre REAL de tu base de datos */}
+         {r.specificAgentDetails && (
+            <span className="ml-1 font-normal text-blue-600 opacity-90">
+              — {r.specificAgentDetails}
+            </span>
+         )}
+       </Badge>
+     ))
+  ) : (
+    <span className="italic text-slate-400">Sin riesgos asociados (o cargando...)</span>
+  )}
+</div>
                 </div>
               </div>
             </div>
@@ -85,16 +130,15 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
 
           <Separator />
 
-          {/* 3. RESULTADOS / BATERÍAS (Tabla Detallada) */}
+          {/* 3. RESULTADOS / BATERÍAS */}
           <section className="space-y-3">
             <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <Activity className="h-4 w-4" /> Resultados Clínicos
             </h3>
 
             <div className="space-y-3">
-              {/* Usamos orderBatteries (nuevo) o examBatteries (viejo fallback) */}
               {(order.orderBatteries && order.orderBatteries.length > 0) ? (
-                order.orderBatteries.map(ob => (
+                order.orderBatteries.map((ob: any) => (
                   <div key={ob.id} className="flex flex-col gap-2 bg-white border p-3 rounded-md shadow-sm">
                     <div className="flex justify-between items-start">
                       <div className="flex items-center gap-2 font-medium text-slate-800">
@@ -114,7 +158,7 @@ export function OrderDetailsSheet({ order, open, onOpenChange }: Props) {
                   </div>
                 ))
               ) : (
-                order.examBatteries?.map(bat => (
+                order.examBatteries?.map((bat: any) => (
                   <div key={bat.id} className="bg-slate-50 p-3 rounded border text-sm text-slate-600 flex justify-between">
                     {bat.name}
                     <Badge variant="outline">Sin resultado</Badge>
