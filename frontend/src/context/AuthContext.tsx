@@ -2,11 +2,15 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from '@/lib/axios';
 
-interface User {
+// 1. EXPORTAMOS LOS ROLES (Crucial para que RoleGuard funcione)
+export type UserRole = 'ADMIN_VITAM' | 'USER_VITAM' | 'ADMIN_EMPRESA' | 'USER_EMPRESA';
+
+// 2. Definimos el Usuario usando ese tipo
+export interface User {
     id: string;
     email: string;
     name?: string;
-    role: string;
+    role: UserRole; 
     companyId?: string;
     companyName?: string;
 }
@@ -34,7 +38,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (storedToken && storedUser) {
             setToken(storedToken);
-            setUser(JSON.parse(storedUser));
+            try {
+                setUser(JSON.parse(storedUser));
+            } catch (e) {
+                console.error("Error al leer usuario", e);
+            }
             axios.defaults.headers.common['Authorization'] = `Bearer ${storedToken}`;
         }
         setIsLoading(false);

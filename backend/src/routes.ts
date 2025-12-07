@@ -16,6 +16,9 @@ import analyticsRouter from './modules/analytics/analytics.routes';
 import configRouter from './modules/config/config.routes';
 import batteriesRouter from './modules/batteries/batteries.routes';
 
+// 👇 1. IMPORTAMOS LA NUEVA RUTA DE USUARIOS
+import usersRouter from './modules/users/user.routes';
+
 const router = Router();
 
 // Definición de rutas base (sin /api, eso ya lo pone server.ts)
@@ -34,5 +37,8 @@ router.use('/workers', workersRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/config', configRouter);
 router.use('/batteries', batteriesRouter);
+
+// 👇 2. ACTIVAMOS LA RUTA DE USUARIOS
+router.use('/users', usersRouter);
 
 export default router;

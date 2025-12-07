@@ -2,14 +2,19 @@ import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
 
-// PÁGINAS
+// IMPORTAMOS EL GUARDIA DE SEGURIDAD (Asegúrate de haber creado este componente)
+import { RoleGuard } from '@/components/auth/RoleGuard';
+
+// PÁGINAS GENERALES (LAYOUTS)
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage';
 import ImportPage from '@/pages/ImportPage';
 
-// PÁGINAS ADMIN (Verifica que existan estos archivos en src/pages/admin/)
+// PÁGINAS ADMIN
+// Asegúrate de que creaste UsersPage en el paso anterior
+import UsersPage from '@/pages/admin/UsersPage'; 
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import WorkersPage from '@/pages/admin/WorkersPage';
 import CostCentersPage from '@/pages/admin/CostCentersPage';
@@ -17,7 +22,6 @@ import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
 import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage';
 import ConfigPage from '@/pages/admin/ConfigPage';
 import BatteriesPage from '@/pages/admin/BatteriesPage';
-// 👇 NUEVA PÁGINA
 import GesRulesPage from '@/pages/admin/GesRulesPage'; 
 
 const AppLayout = () => (
@@ -45,23 +49,42 @@ export const router = createBrowserRouter([
           {
             element: <DashboardLayout />,
             children: [
+              // ------------------------------------------------------------------
+              // NIVEL 1: ACCESO GLOBAL (Permitido para TODOS los roles)
+              // Según tu matriz: Inicio, Órdenes, Vigilancia y Nómina tienen "SÍ" en todos.
+              // ------------------------------------------------------------------
               { index: true, element: <DashboardPage /> },
-              
-              // Módulos Principales
               { path: 'orders', element: <OrdersPage /> },
               { path: 'surveillance', element: <MedicalSurveillancePage /> },
-              { path: 'import', element: <ImportPage /> },
+              { path: 'workers', element: <WorkersPage /> }, // Nómina accesible por todos según tabla
 
-              // Módulos Administrativos
-              { path: 'companies', element: <CompaniesPage /> },
-              { path: 'workers', element: <WorkersPage /> },
-              { path: 'cost-centers', element: <CostCentersPage /> },
-              { path: 'risks-library', element: <RisksLibraryPage /> },
-              { path: 'config', element: <ConfigPage /> },
-              { path: 'batteries', element: <BatteriesPage /> },
-              
-              // 👇 RUTA NUEVA
-              { path: 'ges-rules', element: <GesRulesPage /> },
+              // ------------------------------------------------------------------
+              // NIVEL 2: GESTIÓN DE EMPRESAS
+              // Permitido para: ADMIN_VITAM y ADMIN_EMPRESA
+              // ------------------------------------------------------------------
+              {
+                element: <RoleGuard allowedRoles={['ADMIN_VITAM', 'ADMIN_EMPRESA']} />,
+                children: [
+                  { path: 'companies', element: <CompaniesPage /> },
+                ]
+              },
+
+              // ------------------------------------------------------------------
+              // NIVEL 3: SUPER ADMIN (Exclusivo ADMIN_VITAM)
+              // Aquí van todos los módulos donde los demás tienen "NO" en tu tabla.
+              // ------------------------------------------------------------------
+              {
+                element: <RoleGuard allowedRoles={['ADMIN_VITAM']} />,
+                children: [
+                  { path: 'users', element: <UsersPage /> },            // Gestión de Usuarios
+                  { path: 'cost-centers', element: <CostCentersPage /> }, // Tu tabla dice NO para Admin Empresa
+                  { path: 'risks-library', element: <RisksLibraryPage /> },
+                  { path: 'ges-rules', element: <GesRulesPage /> },
+                  { path: 'config', element: <ConfigPage /> },
+                  { path: 'batteries', element: <BatteriesPage /> },
+                  { path: 'import', element: <ImportPage /> },
+                ]
+              }
             ],
           },
         ],
