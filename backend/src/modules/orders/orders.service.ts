@@ -2,21 +2,83 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../../config/prisma';
 
 /**
- * Crear una orden de exámenes.
- * (Compatibilidad con el controller actual)
+ * Crear una orden de exámenes CON HOMOLOGACIÓN AUTOMÁTICA.
+ * Si el trabajador ya tiene un examen vigente, lo incluimos en la nueva orden
+ * pero ya marcado como APTO/REALIZADO y con una nota explicativa.
  */
 export const createOrder = async (data: any) => {
-  return prisma.examOrder.create({
+  // 1. Extraer ID del trabajador
+  const workerId = data.worker?.connect?.id;
+  const requestedBatteries = data.orderBatteries?.create;
+
+  if (workerId && Array.isArray(requestedBatteries) && requestedBatteries.length > 0) {
+    
+    // 2. Buscar Historial Vigente
+    const validBatteries = await prisma.orderBattery.findMany({
+      where: {
+        order: { 
+          workerId: workerId,
+          status: { not: 'ANULADO' } 
+        },
+        status: { in: ['APTO', 'APTO_CON_OBSERVACIONES'] },
+        expirationDate: { gt: new Date() }
+      },
+      // Traemos más datos para poder copiar la información
+      select: { 
+        batteryId: true, 
+        status: true, 
+        expirationDate: true 
+      }
+    });
+
+    // Creamos un mapa para acceso rápido: ID -> Datos del examen vigente
+    const coveredMap = new Map();
+    validBatteries.forEach(b => {
+      coveredMap.set(b.batteryId, b);
+    });
+
+    // 3. Procesar la lista de baterías solicitadas
+    const processedBatteries = requestedBatteries.map((item: any) => {
+      const incomingId = item.batteryId || item.battery?.connect?.id;
+      
+      // Verificamos si este examen ya está cubierto/vigente
+      const existingExam = coveredMap.get(incomingId);
+
+      if (existingExam) {
+        // CASO A: YA EXISTE VIGENTE -> LO HOMOLOGAMOS
+        // En lugar de borrarlo, lo creamos pero ya "listo"
+        return {
+          batteryId: incomingId, // Mismo ID
+          status: existingExam.status, // Heredamos el estado (APTO)
+          expirationDate: existingExam.expirationDate, // Heredamos la fecha de vencimiento
+          resultDate: new Date(), // Fecha de "hoy" como fecha de convalidación
+          clinicalNotes: "✅ CONVALIDADO: Examen vigente detectado en historial." // Nota explicativa
+        };
+      } else {
+        // CASO B: NO EXISTE -> LO CREAMOS PENDIENTE (Como siempre)
+        return item; // Se mantiene tal cual (PENDIENTE)
+      }
+    });
+
+    // 4. Reemplazamos la lista original con la lista procesada
+    data.orderBatteries.create = processedBatteries;
+  }
+
+  // 5. Crear la orden
+  const newOrder = await prisma.examOrder.create({
     data,
   });
+
+  // 6. Recalcular estado inmediato
+  // Como insertamos exámenes ya "listos", puede que la orden nazca parcialmente completa.
+  // Ejecutamos el recálculo para que el estado global (SOLICITADO/REALIZADO) sea coherente.
+  await recalculateOrderStatus(newOrder.id);
+
+  return newOrder;
 };
 
-/**
- * Sugerencias de órdenes para un trabajador.
- *
- * Firma compatible con el controller:
- *   getWorkerOrderSuggestions(workerId, gesId?)
- */
+// --- EL RESTO DE LAS FUNCIONES SE MANTIENEN IGUALES ---
+
 export const getWorkerOrderSuggestions = async (
   workerId: string,
   gesId?: string
@@ -43,10 +105,6 @@ export const getWorkerOrderSuggestions = async (
   });
 };
 
-/**
- * Obtener todas las órdenes, opcionalmente filtradas por estado.
- * Esto alimenta la tabla de Órdenes en el frontend.
- */
 export const getAllOrders = async (status?: string) => {
   const where: Prisma.ExamOrderWhereInput = status
     ? { status: status as any }
@@ -70,21 +128,17 @@ export const getAllOrders = async (status?: string) => {
   });
 };
 
-/**
- * Obtener una orden específica por ID, con sus relaciones.
- */
 export const getOrderById = async (id: string) => {
   return prisma.examOrder.findUnique({
     where: { id },
     include: {
       worker: true,
       company: true,
-      // 👇 AQUÍ ESTÁ LA CORRECCIÓN
       ges: {
         include: {
           riskExposures: {
             include: {
-              riskAgent: true // <--- ¡Esto traerá los nombres (Ruido, Sílice, etc)!
+              riskAgent: true 
             }
           }
         }
@@ -98,12 +152,6 @@ export const getOrderById = async (id: string) => {
   });
 };
 
-/**
- * Actualizar el estado general de la orden (cambios manuales o al agendar).
- *
- * Firma compatible con el controller:
- *   updateOrderStatus(id, status, scheduledAt, providerName, externalId)
- */
 export const updateOrderStatus = async (
   id: string,
   status: string,
@@ -122,17 +170,6 @@ export const updateOrderStatus = async (
   });
 };
 
-/**
- * Recalcula el estado global de la ORDEN según:
- * - Estado de sus baterías (PENDIENTE / APTO / NO_APTO / APTO_CON_OBSERVACIONES)
- * - Si tiene o no fecha de agenda (scheduledAt)
- *
- * Regla:
- * - Si TODAS las baterías tienen dictamen (ninguna PENDIENTE) → REALIZADO
- * - Si NO todas tienen dictamen y hay scheduledAt → AGENDADO
- * - Si NO todas tienen dictamen y NO hay scheduledAt → SOLICITADO
- * - Si está ANULADO o CERRADO → no se toca
- */
 export const recalculateOrderStatus = async (orderId: string) => {
   const order = await prisma.examOrder.findUnique({
     where: { id: orderId },
@@ -143,14 +180,12 @@ export const recalculateOrderStatus = async (orderId: string) => {
 
   if (!order) return;
 
-  // No tocar si está anulada o cerrada
   if (order.status === 'ANULADO' || order.status === 'CERRADO') {
     return order.status;
   }
 
   const batteries = order.orderBatteries;
 
-  // Si no hay baterías, la lógica depende solo de la agenda
   if (!batteries || batteries.length === 0) {
     const statusFromSchedule = order.scheduledAt ? 'AGENDADO' : 'SOLICITADO';
 
@@ -164,7 +199,6 @@ export const recalculateOrderStatus = async (orderId: string) => {
     return statusFromSchedule;
   }
 
-  // TS: tipamos explícitamente 'b' para evitar any
   const allEvaluated = batteries.every(
     (b: {
       status: 'PENDIENTE' | 'APTO' | 'NO_APTO' | 'APTO_CON_OBSERVACIONES';
@@ -191,29 +225,6 @@ export const recalculateOrderStatus = async (orderId: string) => {
   return newStatus;
 };
 
-/**
- * Actualizar resultado clínico de una batería específica.
- *
- * Firma compatible con el controller actual:
- *   updateBatteryResult(
- *     batteryId,
- *     status,
- *     expirationDate,
- *     resultDate,
- *     clinicalNotes
- *   )
- *
- * OJO: el controller hoy la llama en este orden:
- *   updateBatteryResult(id, status, expirationDate, resultDate, clinicalNotes)
- *
- * Regla de negocio:
- * - Solo APTO puede tener fecha de caducidad.
- *   - Si status !== 'APTO' → expirationDate se fuerza a null.
- * - resultDate puede existir para cualquier dictamen.
- *
- * Además:
- * - Recalcula el estado global de la orden usando recalculateOrderStatus.
- */
 export const updateBatteryResult = async (
   batteryId: string,
   status: 'PENDIENTE' | 'APTO' | 'NO_APTO' | 'APTO_CON_OBSERVACIONES',
@@ -221,7 +232,6 @@ export const updateBatteryResult = async (
   resultDate?: string | null,
   clinicalNotes?: string | null
 ) => {
-  // 1) Traemos la batería + la orden asociada
   const battery = await prisma.orderBattery.findUnique({
     where: { id: batteryId },
     include: { order: true },
@@ -233,9 +243,7 @@ export const updateBatteryResult = async (
 
   const updateData: Prisma.OrderBatteryUpdateInput = {
     status,
-    // si viene fecha de resultado, la parseamos; si no, null
     resultDate: resultDate ? new Date(resultDate) : null,
-    // REGLA: solo APTO lleva fecha de caducidad, el resto queda null
     expirationDate:
       status === 'APTO' && expirationDate
         ? new Date(expirationDate)
@@ -243,13 +251,11 @@ export const updateBatteryResult = async (
     clinicalNotes: clinicalNotes ?? null,
   };
 
-  // 2) Actualizamos la batería
   const updatedBattery = await prisma.orderBattery.update({
     where: { id: batteryId },
     data: updateData,
   });
 
-  // 3) Recalculamos el estado global de la ORDEN
   await recalculateOrderStatus(battery.orderId);
 
   return updatedBattery;
