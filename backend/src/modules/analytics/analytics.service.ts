@@ -2,6 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// --- 1. LÓGICA ORIGINAL (Vigilancia y Documentos) ---
 export const getSurveillanceData = async () => {
   // 1. Vigilancia Médica (Trabajadores)
   const medicalResults = await prisma.orderBattery.findMany({
@@ -62,4 +63,38 @@ export const getSurveillanceData = async () => {
         coverage: totalGes > 0 ? Math.round((gesWithReport / totalGes) * 100) : 0
     }
   };
+};
+
+// 👇👇👇 AGREGADO NUEVO: ANÁLISIS DE CENTROS DE COSTOS 👇👇👇
+export const getCostCenterAnalytics = async () => {
+    // Buscamos todos los centros de costos y sus relaciones
+    const centers = await prisma.costCenter.findMany({
+        include: {
+            workers: {
+                select: {
+                    id: true,
+                    // Contamos las órdenes para saber la "actividad/gasto"
+                    examOrders: { select: { id: true } } 
+                }
+            }
+        }
+    });
+
+    // Procesamos la data
+    const stats = centers.map(cc => {
+        const workerCount = cc.workers.length;
+        // Sumamos el total de órdenes de todos los trabajadores de este centro
+        const orderCount = cc.workers.reduce((acc, curr) => acc + curr.examOrders.length, 0);
+        
+        return {
+            name: cc.name,
+            code: cc.code,
+            workers: workerCount,
+            orders: orderCount
+        };
+    });
+
+    // Ordenamos: Los que tienen más actividad (órdenes) primero
+    // Devolvemos el Top 5 para el gráfico
+    return stats.sort((a, b) => b.orders - a.orders).slice(0, 5);
 };
