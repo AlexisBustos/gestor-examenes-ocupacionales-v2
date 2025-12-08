@@ -1,19 +1,14 @@
 import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import { Toaster } from 'sonner';
-
-// IMPORTAMOS EL GUARDIA DE SEGURIDAD (Asegúrate de haber creado este componente)
 import { RoleGuard } from '@/components/auth/RoleGuard';
 
-// PÁGINAS GENERALES (LAYOUTS)
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
 import DashboardPage from '@/pages/DashboardPage';
-import OrdersPage from '@/pages/OrdersPage';
-import ImportPage from '@/pages/ImportPage';
+import OrdersPage from '@/pages/OrdersPage'; 
+import ImportPage from '@/pages/ImportPage'; 
 
-// PÁGINAS ADMIN
-// Asegúrate de que creaste UsersPage en el paso anterior
 import UsersPage from '@/pages/admin/UsersPage'; 
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import WorkersPage from '@/pages/admin/WorkersPage';
@@ -22,7 +17,7 @@ import RisksLibraryPage from '@/pages/admin/RisksLibraryPage';
 import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage';
 import ConfigPage from '@/pages/admin/ConfigPage';
 import BatteriesPage from '@/pages/admin/BatteriesPage';
-import GesRulesPage from '@/pages/admin/GesRulesPage'; 
+import GesRulesPage from '@/pages/admin/GesRulesPage';
 
 const AppLayout = () => (
   <AuthProvider>
@@ -44,41 +39,39 @@ export const router = createBrowserRouter([
       { path: '/login', element: <LoginPage /> },
       {
         path: '/dashboard',
-        element: <ProtectedRoute />,
+        element: <ProtectedRoute />, 
         children: [
           {
             element: <DashboardLayout />,
             children: [
-              // ------------------------------------------------------------------
-              // NIVEL 1: ACCESO GLOBAL (Permitido para TODOS los roles)
-              // Según tu matriz: Inicio, Órdenes, Vigilancia y Nómina tienen "SÍ" en todos.
-              // ------------------------------------------------------------------
+              // ============================================================
+              // NIVEL 1: ACCESO GLOBAL (TODOS)
+              // ============================================================
               { index: true, element: <DashboardPage /> },
               { path: 'orders', element: <OrdersPage /> },
               { path: 'surveillance', element: <MedicalSurveillancePage /> },
-              { path: 'workers', element: <WorkersPage /> }, // Nómina accesible por todos según tabla
+              { path: 'workers', element: <WorkersPage /> }, 
 
-              // ------------------------------------------------------------------
-              // NIVEL 2: GESTIÓN DE EMPRESAS
-              // Permitido para: ADMIN_VITAM y ADMIN_EMPRESA
-              // ------------------------------------------------------------------
+              // ============================================================
+              // NIVEL 2: GESTIÓN DE EMPRESA (ADMIN_VITAM + ADMIN_EMPRESA)
+              // ============================================================
               {
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM', 'ADMIN_EMPRESA']} />,
                 children: [
                   { path: 'companies', element: <CompaniesPage /> },
+                  // 👇 MOVIMOS ESTO AQUÍ: Ahora el Admin Empresa puede entrar
+                  { path: 'risks-library', element: <RisksLibraryPage /> }, 
                 ]
               },
 
-              // ------------------------------------------------------------------
-              // NIVEL 3: SUPER ADMIN (Exclusivo ADMIN_VITAM)
-              // Aquí van todos los módulos donde los demás tienen "NO" en tu tabla.
-              // ------------------------------------------------------------------
+              // ============================================================
+              // NIVEL 3: EXCLUSIVO SUPER ADMIN (SOLO ADMIN_VITAM)
+              // ============================================================
               {
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM']} />,
                 children: [
-                  { path: 'users', element: <UsersPage /> },            // Gestión de Usuarios
-                  { path: 'cost-centers', element: <CostCentersPage /> }, // Tu tabla dice NO para Admin Empresa
-                  { path: 'risks-library', element: <RisksLibraryPage /> },
+                  { path: 'users', element: <UsersPage /> },
+                  { path: 'cost-centers', element: <CostCentersPage /> },
                   { path: 'ges-rules', element: <GesRulesPage /> },
                   { path: 'config', element: <ConfigPage /> },
                   { path: 'batteries', element: <BatteriesPage /> },

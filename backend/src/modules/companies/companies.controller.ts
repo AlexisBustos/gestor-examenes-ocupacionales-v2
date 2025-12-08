@@ -1,7 +1,15 @@
 import { Request, Response } from 'express';
-import { createCompany, deleteCompany, getAllCompanies, getCompanyById, updateCompany } from './companies.service';
+import { 
+    createCompany, 
+    deleteCompany, 
+    getAllCompanies, 
+    getCompanyById, 
+    updateCompany,
+    addTechnicalReportDb,    // Nueva función del servicio
+    addQuantitativeReportDb  // Nueva función del servicio
+} from './companies.service';
 
-// Listar
+// --- FUNCIONES EXISTENTES (LISTAR, CREAR, ETC.) ---
 export const list = async (req: Request, res: Response) => {
   try {
     const companies = await getAllCompanies();
@@ -11,7 +19,6 @@ export const list = async (req: Request, res: Response) => {
   }
 };
 
-// Obtener UNA (Con stats)
 export const getOne = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -26,13 +33,11 @@ export const getOne = async (req: Request, res: Response) => {
   }
 };
 
-// Crear
 export const create = async (req: Request, res: Response) => {
   try {
     const company = await createCompany(req.body);
     res.status(201).json(company);
   } catch (error: any) {
-    // Manejo de error de duplicados (P2002)
     if (error.code === 'P2002') {
       return res.status(409).json({ error: 'Ya existe una empresa con ese RUT' });
     }
@@ -40,7 +45,6 @@ export const create = async (req: Request, res: Response) => {
   }
 };
 
-// Actualizar
 export const update = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -51,7 +55,6 @@ export const update = async (req: Request, res: Response) => {
   }
 };
 
-// Eliminar
 export const remove = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
@@ -60,5 +63,74 @@ export const remove = async (req: Request, res: Response) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al eliminar empresa' });
+  }
+};
+
+// 👇 NUEVAS FUNCIONES PARA CARGA DE INFORMES S3 👇
+
+// 1. Subir Informe CUALITATIVO
+export const uploadQualitative = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params; // ID de la empresa
+        const { reportNumber, reportDate } = req.body;
+        const file = req.file as any; // Viene de S3
+
+        if (!file) return res.status(400).json({ error: 'Falta el archivo PDF' });
+
+        const report = await addTechnicalReportDb({
+            companyId: id,
+            reportNumber,
+            reportDate: new Date(reportDate),
+            pdfUrl: file.location // URL de S3
+        });
+
+        res.json(report);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al subir informe cualitativo' });
+    }
+};
+
+// 2. Subir Informe CUANTITATIVO
+export const uploadQuantitative = async (req: Request, res: Response) => {
+    try {
+        const { technicalReportId, name, reportDate } = req.body;
+        const file = req.file as any;
+
+        if (!file) return res.status(400).json({ error: 'Falta el archivo PDF' });
+
+        const report = await addQuantitativeReportDb({
+            technicalReportId,
+            name,
+            reportDate: new Date(reportDate),
+            pdfUrl: file.location // URL de S3
+        });
+
+        res.json(report);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: 'Error al subir informe cuantitativo' });
+    }
+};
+
+import { deleteTechnicalReportDb, deleteQuantitativeReportDb } from './companies.service';
+
+// Eliminar Cualitativo
+export const removeTechnicalReport = async (req: Request, res: Response) => {
+  try {
+    await deleteTechnicalReportDb(req.params.reportId);
+    res.json({ message: 'Informe eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar informe' });
+  }
+};
+
+// Eliminar Cuantitativo
+export const removeQuantitativeReport = async (req: Request, res: Response) => {
+  try {
+    await deleteQuantitativeReportDb(req.params.reportId);
+    res.json({ message: 'Informe eliminado' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al eliminar informe' });
   }
 };

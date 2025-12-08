@@ -86,7 +86,7 @@ export default function LoginPage() {
                 <div className="relative z-20 max-w-lg">
                     <blockquote className="space-y-4">
                         <p className="text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
-                            "La seguridad de tus colaboradores es nuestro compromiso. Gestionamos la salud ocupacional con precisión y transparencia."
+                            La seguridad de tus colaboradores es nuestro compromiso. Gestionamos la salud ocupacional con precisión y transparencia.
                         </p>
                         <footer className="text-sm text-slate-300 font-medium flex items-center gap-4">
                             <span>&copy; 2025 Vitam Healthcare</span>

@@ -20,16 +20,23 @@ export function WorkerCreateDialog({ open, onOpenChange }: Props) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [position, setPosition] = useState('');
-  const [costCenter, setCostCenter] = useState('');
-  const [companyId, setCompanyId] = useState('');
+  // CAMBIO: Ahora usamos ID para conectarlo a la tabla real
+  const [costCenterId, setCostCenterId] = useState(''); 
+  const [companyId, setCompanyId] = useState(''); // Opcional si ya la deduces en backend, pero la dejamos por si acaso
 
-  // Cargar Empresas (Para asignar)
-  const { data: companies } = useQuery<any[]>({ queryKey: ['companies'], queryFn: async () => (await axios.get('/companies')).data });
+  // CAMBIO: Cargamos Centros de Costos Reales
+  const { data: costCenters } = useQuery<any[]>({ 
+      queryKey: ['cost-centers'], 
+      queryFn: async () => (await axios.get('/cost-centers')).data 
+  });
 
   const createMutation = useMutation({
     mutationFn: async () => {
       await axios.post('/workers', {
-        rut, name, email, phone, position, costCenter, companyId
+        rut, name, email, phone, position, 
+        costCenterId, // Enviamos el ID
+        // companyId, // Si el backend lo pide explícitamente, lo enviamos. Si lo deduce del usuario, no hace falta.
+        evaluationType: 'NOMINA'
       });
     },
     onSuccess: () => {
@@ -37,7 +44,7 @@ export function WorkerCreateDialog({ open, onOpenChange }: Props) {
       toast.success("Trabajador creado");
       onOpenChange(false);
       // Reset
-      setRut(''); setName(''); setEmail(''); setPhone(''); setPosition('');
+      setRut(''); setName(''); setEmail(''); setPhone(''); setPosition(''); setCostCenterId('');
     },
     onError: (err: any) => {
         const msg = err.response?.data?.error || "Error al crear";
@@ -55,19 +62,23 @@ export function WorkerCreateDialog({ open, onOpenChange }: Props) {
                 <div><Label>Nombre Completo *</Label><Input placeholder="Juan Pérez" value={name} onChange={e => setName(e.target.value)} /></div>
             </div>
             
-            <div>
-                <Label>Empresa *</Label>
-                <Select onValueChange={setCompanyId}>
-                    <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
-                    <SelectContent>
-                        {companies?.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                    </SelectContent>
-                </Select>
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
                 <div><Label>Cargo</Label><Input value={position} onChange={e => setPosition(e.target.value)} /></div>
-                <div><Label>Centro Costo</Label><Input value={costCenter} onChange={e => setCostCenter(e.target.value)} /></div>
+                
+                {/* SELECTOR DE CENTRO DE COSTOS REAL */}
+                <div>
+                    <Label>Centro de Costos</Label>
+                    <Select onValueChange={setCostCenterId} value={costCenterId}>
+                        <SelectTrigger><SelectValue placeholder="Seleccione CC..." /></SelectTrigger>
+                        <SelectContent>
+                            {costCenters?.map(cc => (
+                                <SelectItem key={cc.id} value={cc.id}>
+                                    {cc.code} - {cc.name}
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
             </div>
             
             <div className="grid grid-cols-2 gap-4">
@@ -76,7 +87,7 @@ export function WorkerCreateDialog({ open, onOpenChange }: Props) {
             </div>
         </div>
         <DialogFooter>
-            <Button onClick={() => createMutation.mutate()} disabled={!rut || !name || !companyId || createMutation.isPending}>
+            <Button onClick={() => createMutation.mutate()} disabled={!rut || !name || createMutation.isPending}>
                 {createMutation.isPending ? <Loader2 className="animate-spin"/> : "Guardar"}
             </Button>
         </DialogFooter>

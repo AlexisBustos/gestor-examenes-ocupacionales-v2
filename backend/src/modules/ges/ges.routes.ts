@@ -1,9 +1,8 @@
 import { Router } from 'express';
 import * as GesController from './ges.controller';
-import multer from 'multer';
+import { uploadS3 } from '../../config/upload'; // 👈 CAMBIO 1: Usamos el puente S3
 
 const router = Router();
-const upload = multer({ dest: 'uploads/' });
 
 // CRUD
 router.get('/', GesController.list);
@@ -16,9 +15,15 @@ router.put('/:id/batteries', GesController.updateRules);
 
 // Documentos
 router.get('/:id/documents', GesController.getDocuments);
-router.post('/:id/documents', upload.single('file'), GesController.uploadDocument);
 
-// 👇 NUEVO: HISTORIAL COMPLETO (Antes de /:id)
+// 👈 CAMBIO 2: Usamos uploadS3 aquí
+router.post('/:id/documents', uploadS3.single('file'), GesController.uploadDocument);
+
+// 👈 CAMBIO 3: Rutas para borrar documentos
+router.delete('/:id/documents/qualitative/:docId', GesController.deleteQualitative);
+router.delete('/:id/documents/quantitative/:docId', GesController.deleteQuantitative);
+
+// Historial
 router.get('/:id/history', GesController.getHistory);
 
 // Detalle

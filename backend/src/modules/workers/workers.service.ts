@@ -26,14 +26,15 @@ export const findWorkerByRut = async (rut: string) => {
   });
 };
 
-// 👇 ACTUALIZADO: AHORA INCLUYE LOS EVENTOS EN LA FICHA
+// 👇 ACTUALIZADO Y CORREGIDO (COMAS REVISADAS)
 export const getWorkerById = async (id: string) => {
   return await prisma.worker.findUnique({
     where: { id },
     include: { 
         company: true, 
         currentGes: true,
-        events: { orderBy: { createdAt: 'desc' } }, // <--- TRAEMOS LA BITÁCORA
+        costCenter: true, // <--- Agregada y con coma al final
+        events: { orderBy: { createdAt: 'desc' } }, // <--- Esto ya no dará error
         examOrders: { 
             orderBy: { createdAt: 'desc' },
             include: { 
@@ -45,7 +46,7 @@ export const getWorkerById = async (id: string) => {
   });
 };
 
-// 👇 ACTUALIZADO: DETECTA CAMBIOS Y LOS REGISTRA
+// --- UPDATE ---
 export const updateWorker = async (id: string, data: any) => {
     // 1. Obtenemos el trabajador antes del cambio para comparar
     const current = await prisma.worker.findUnique({ where: { id } });
@@ -65,7 +66,6 @@ export const updateWorker = async (id: string, data: any) => {
 
         // B) Cambio de Puesto (Transferencia)
         if (current.currentGesId !== updated.currentGesId) {
-            // Buscamos el nombre del nuevo GES para el detalle
             const newGes = updated.currentGesId ? await prisma.ges.findUnique({ where: { id: updated.currentGesId }}) : null;
             await logWorkerEvent(id, 'CAMBIO_PUESTO', 
                 'Cambio de Puesto de Trabajo',
@@ -81,8 +81,7 @@ export const deleteWorker = async (id: string) => {
     return await prisma.worker.delete({ where: { id } });
 };
 
-// 👇 ACTUALIZADO: REGISTRA LA CREACIÓN
-// 👇 ACTUALIZADO: AHORA GUARDA LA RELACIÓN REAL (ID)
+// --- CREATE ---
 export const createWorkerDb = async (data: any) => {
   const exists = await prisma.worker.findUnique({ where: { rut: data.rut } });
   if (exists) return exists; 
@@ -104,7 +103,7 @@ export const createWorkerDb = async (data: any) => {
       phone: data.phone,
       position: data.position || 'Sin Cargo',
       
-      // CAMBIO CLAVE: Usamos el ID para conectar la tabla
+      // RELACIÓN CORRECTA CON CENTRO DE COSTOS
       costCenterId: data.costCenterId ? data.costCenterId : null,
       
       companyId: companyId,
@@ -113,17 +112,14 @@ export const createWorkerDb = async (data: any) => {
     }
   });
 
-  // LOG: Registramos el nacimiento del trabajador
   await logWorkerEvent(newWorker.id, 'CREACION', 'Creación de Ficha', 
       initialStatus === 'TRANSITO' ? 'Ingresa como Candidato (En Tránsito)' : 'Ingresa directo a Nómina');
 
   return newWorker;
 };
 
+// --- IMPORT ---
 export const importWorkersDb = async (fileBuffer: Buffer) => {
-  // (Mantén tu lógica de importación aquí, no cambia mucho por ahora)
-  // ... Para no hacer el código gigante, deja la función importWorkersDb como la tenías.
-  // Si la necesitas completa avísame.
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
@@ -140,12 +136,12 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
         if (rut && name) {
             await prisma.worker.upsert({
                 where: { rut: rut.toString() },
-                update: { name: name.toString() }, // Simplificado
+                update: { name: name.toString() },
                 create: { 
                     rut: rut.toString(), 
                     name: name.toString(), 
                     companyId: defaultCompany.id,
-                    employmentStatus: 'NOMINA' // Asumimos nómina al importar masivo
+                    employmentStatus: 'NOMINA'
                 }
             });
             count++;
@@ -154,22 +150,13 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     return { message: `Nómina procesada.` };
 };
 
-// --- MOVILIDAD (Mantén tus funciones existing analyzeJobChange y transferWorker) ---
-// Solo asegúrate de que transferWorker use updateWorker o haga el log manualmente.
-// Como transferWorker es simple, la reemplazamos para usar updateWorker y aprovechar el log automático:
-
-// --- MOVILIDAD: LÓGICA REAL DE ANÁLISIS ---
-// --- MOVILIDAD: LÓGICA CON BYPASS DE TIPOS ---
-// --- MOVILIDAD: LÓGICA CON BYPASS DE TIPOS ---
+// --- MOVILIDAD ---
 export const analyzeJobChange = async (workerId: string, newGesId: string) => {
-    // 1. Obtener datos (USAMOS : any PARA QUE TYPESCRIPT NO RECLAME)
     const worker: any = await prisma.worker.findUnique({
         where: { id: workerId },
         include: {
             currentGes: true,
             examOrders: {
-                // 👇 COMENTAMOS ESTO TEMPORALMENTE HASTA SABER LA PALABRA EXACTA
-                // where: { status: 'COMPLETADA' }, 
                 include: {
                     orderBatteries: {
                         where: { status: 'APTO' },
@@ -186,13 +173,10 @@ export const analyzeJobChange = async (workerId: string, newGesId: string) => {
 
     if (!worker || !newGes) throw new Error("Trabajador o GES no encontrado");
 
-    // 3. Obtener requisitos
     const requiredBatteries = await getSuggestedBatteries(newGesId);
 
-    // 4. CALCULAR BRECHAS
     const myPassedExamIds = new Set();
     
-    // Como worker es 'any', ya no nos reclamará por examOrders
     if (worker.examOrders) {
         worker.examOrders.forEach((order: any) => {
             if (order.orderBatteries) {
@@ -223,6 +207,5 @@ export const analyzeJobChange = async (workerId: string, newGesId: string) => {
 };
 
 export const transferWorker = async (workerId: string, newGesId: string) => {
-    // Usamos nuestra función updateWorker mejorada para que detecte el cambio y lo registre
     return await updateWorker(workerId, { currentGesId: newGesId });
 };

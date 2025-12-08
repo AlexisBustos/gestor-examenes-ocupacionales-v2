@@ -7,17 +7,18 @@ export const findAllRisks = async () => {
   return await prisma.riskAgent.findMany({
     orderBy: { name: 'asc' },
     include: {
-      protocols: true // <--- Traemos la lista de archivos
+      protocols: true 
     }
   });
 };
 
-// Guardar NUEVO protocolo (Agrega a la lista)
-export const addProtocolDb = async (riskId: string, filename: string, originalName: string) => {
+// Guardar NUEVO protocolo (Conectado a S3)
+// CAMBIO: Ahora recibimos 'fileUrl' que viene de Amazon
+export const addProtocolDb = async (riskId: string, fileUrl: string, originalName: string) => {
   return await prisma.riskProtocol.create({
     data: {
       name: originalName,
-      url: `/uploads/${filename}`,
+      url: fileUrl, // Guardamos la URL de AWS S3 (ej: https://tu-bucket.s3...)
       riskAgentId: riskId
     }
   });

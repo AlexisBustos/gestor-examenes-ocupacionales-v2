@@ -57,7 +57,10 @@ export const getDocuments = async (req: Request, res: Response) => {
 export const uploadDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const file = req.file;
+    
+    // Al usar multer-s3 (uploadS3), el archivo viene aquí. 
+    // TypeScript puede quejarse si no usamos 'as any' porque multer-s3 agrega propiedades extra.
+    const file = req.file as any; 
     
     if (!file) return res.status(400).json({ error: 'Falta archivo PDF' });
     
@@ -82,4 +85,25 @@ export const getHistory = async (req: Request, res: Response) => {
     console.error(e);
     res.status(500).json({ error: 'Error al obtener historia del GES' });
   }
+};
+
+// 👇 FUNCIONES CORREGIDAS (Usando GesService.)
+export const deleteQualitative = async (req: Request, res: Response) => {
+    try {
+        // Usamos GesService para llamar a la función que agregamos en el servicio
+        await GesService.removeTechnicalReport(req.params.docId);
+        res.json({ message: 'Documento eliminado' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar documento' });
+    }
+};
+
+export const deleteQuantitative = async (req: Request, res: Response) => {
+    try {
+        // Usamos GesService para llamar a la función que agregamos en el servicio
+        await GesService.removeQuantitativeReport(req.params.docId);
+        res.json({ message: 'Documento eliminado' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar documento' });
+    }
 };

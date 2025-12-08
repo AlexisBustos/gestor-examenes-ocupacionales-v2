@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { useAuth } from '@/context/AuthContext'; // <--- YA NO IMPORTAMOS UserRole
+import { useAuth } from '@/context/AuthContext'; 
 import { cn } from '@/lib/utils';
 import {
   LayoutDashboard,
@@ -17,7 +17,6 @@ import {
   Shield
 } from 'lucide-react';
 
-// 👇 DEFINICIÓN LOCAL PARA EVITAR PANTALLA BLANCA
 type UserRole = 'ADMIN_VITAM' | 'USER_VITAM' | 'ADMIN_EMPRESA' | 'USER_EMPRESA';
 
 interface NavItem {
@@ -29,20 +28,64 @@ interface NavItem {
 }
 
 const navigation: NavItem[] = [
+  // --- NIVEL 1: GLOBAL ---
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true, allowedRoles: 'ALL' },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet, allowedRoles: 'ALL' },
   { name: 'Vigilancia Médica', href: '/dashboard/surveillance', icon: Activity, allowedRoles: 'ALL' },
   { name: 'Nómina', href: '/dashboard/workers', icon: Users, allowedRoles: 'ALL' },
-  
-  { name: 'Empresas', href: '/dashboard/companies', icon: Building2, allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] },
 
-  { name: 'Gestión Usuarios', href: '/dashboard/users', icon: Shield, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Centros de Costos', href: '/dashboard/cost-centers', icon: Receipt, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Biblioteca Técnica', href: '/dashboard/risks-library', icon: BookOpen, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Reglas Médicas', href: '/dashboard/ges-rules', icon: ShieldCheck, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Baterías', href: '/dashboard/batteries', icon: Stethoscope, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Configuración', href: '/dashboard/config', icon: Settings, allowedRoles: ['ADMIN_VITAM'] },
-  { name: 'Importar Datos', href: '/dashboard/import', icon: Upload, allowedRoles: ['ADMIN_VITAM'] },
+  // --- NIVEL 2: ADMIN EMPRESA + VITAM ---
+  { 
+    name: 'Empresas', 
+    href: '/dashboard/companies', 
+    icon: Building2, 
+    allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] 
+  },
+  { 
+    // 👇 CAMBIO AQUÍ: Agregamos ADMIN_EMPRESA
+    name: 'Biblioteca Técnica', 
+    href: '/dashboard/risks-library', 
+    icon: BookOpen, 
+    allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] 
+  },
+
+  // --- NIVEL 3: SOLO SUPER ADMIN ---
+  { 
+    name: 'Gestión Usuarios', 
+    href: '/dashboard/users', 
+    icon: Shield, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
+    name: 'Centros de Costos', 
+    href: '/dashboard/cost-centers', 
+    icon: Receipt, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
+    name: 'Reglas Médicas', 
+    href: '/dashboard/ges-rules', 
+    icon: ShieldCheck, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
+    name: 'Baterías', 
+    href: '/dashboard/batteries', 
+    icon: Stethoscope, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
+    name: 'Configuración', 
+    href: '/dashboard/config', 
+    icon: Settings, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
+    name: 'Importar Datos', 
+    href: '/dashboard/import', 
+    icon: Upload, 
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
 ];
 
 export function Sidebar() {
@@ -51,12 +94,13 @@ export function Sidebar() {
   const filteredNavigation = navigation.filter((item) => {
     if (!user) return false;
     if (item.allowedRoles === 'ALL') return true;
-    // Forzamos al sistema a tratar el rol como nuestro tipo local
     return item.allowedRoles.includes(user.role as UserRole);
   });
 
   return (
     <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl">
+      
+      {/* HEADER */}
       <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
         <img 
           src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
@@ -73,6 +117,7 @@ export function Sidebar() {
         </span>
       </div>
 
+      {/* USUARIO */}
       <div className="p-4 border-b border-slate-800 bg-slate-900/50">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-slate-700">
@@ -88,6 +133,7 @@ export function Sidebar() {
         </div>
       </div>
 
+      {/* NAVEGACIÓN */}
       <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto">
         {filteredNavigation.map((item) => (
           <NavLink
@@ -103,12 +149,16 @@ export function Sidebar() {
               )
             }
           >
-            <item.icon className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors")} />
+            <item.icon
+              className={cn("mr-3 h-5 w-5 flex-shrink-0 transition-colors")}
+              aria-hidden="true"
+            />
             {item.name}
           </NavLink>
         ))}
       </nav>
 
+      {/* LOGOUT */}
       <div className="p-4 border-t border-slate-800 bg-slate-900">
         <button
           onClick={logout}

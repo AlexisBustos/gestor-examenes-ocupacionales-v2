@@ -2,16 +2,15 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- HELPERS ---
+// --- HELPERS (Tus funciones de búsqueda de baterías) ---
 const normalizeText = (text: string) => text ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
 
-// 👇 MEJORA 1: Diccionario ampliado con casos específicos
 const KEYWORD_MAP: Record<string, string> = {
   'ruido': 'RUIDO', 'prexor': 'RUIDO', 
   'silice': 'SÍLICE', 'polvo': 'SÍLICE',
   'solvente': 'SOLVENTES', 'tolueno': 'TOLUENO', 'xileno': 'XILENO',
   'metal': 'METALES', 'humo': 'HUMOS', 
-  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'hierro': 'HIERRO', // <--- AGREGADO HIERRO
+  'manganeso': 'MANGANESO', 'plomo': 'PLOMO', 'hierro': 'HIERRO',
   'soldadura': 'HUMOS', 'respirable': 'SÍLICE',
   'calor': 'ESTRÉS', 'termico': 'ESTRÉS', 
   'altura': 'ALTURA', 'vibracion': 'VIBRACIONES',
@@ -29,9 +28,7 @@ const findBatteriesByKeywords = async (riskExposures: any[]) => {
     
     let matched = false;
 
-    // 👇 MEJORA 2: PRIORIDAD AL DETALLE ESPECÍFICO (EL "APELLIDO")
-    // Si el detalle es "Hierro", busca primero una batería que se llame "Hierro"
-    if (details.length > 2) { // Solo si hay un detalle válido
+    if (details.length > 2) { 
         const specificBattery = allBatteries.find(b => normalizeText(b.name).includes(details));
         if (specificBattery) {
             suggestions.push(specificBattery);
@@ -39,16 +36,9 @@ const findBatteriesByKeywords = async (riskExposures: any[]) => {
         }
     }
 
-    // 2. Búsqueda por Diccionario (Mapa de Palabras Clave)
     for (const [trigger, target] of Object.entries(KEYWORD_MAP)) {
-      // Usamos regex para buscar la palabra completa y evitar falsos positivos parciales
       if (fullText.includes(trigger)) {
-        // OJO: Usamos filter en vez de find para traer TODAS las coincidencias posibles
-        // Ej: Si dice "Metales", podría traer Manganeso y Hierro si ambos tienen la etiqueta "Metales"
-        // Pero para ser precisos, buscamos la batería que coincida con el TARGET del mapa
         const bat = allBatteries.find(b => normalizeText(b.name).includes(normalizeText(target)));
-        
-        // Solo agregamos si no la hemos agregado ya en el paso 1
         if (bat) { 
              suggestions.push(bat); 
              matched = true; 
@@ -56,14 +46,12 @@ const findBatteriesByKeywords = async (riskExposures: any[]) => {
       }
     }
 
-    // 3. Fallback: Si no encontró nada, busca por el nombre del Agente General
     if (!matched) {
         const bat = allBatteries.find(b => normalizeText(b.name).includes(agentName));
         if (bat) suggestions.push(bat);
     }
   }
 
-  // Eliminar duplicados por ID
   const uniqueMap = new Map(suggestions.map(i => [i.id, i]));
   return Array.from(uniqueMap.values());
 };
@@ -112,10 +100,7 @@ export const getSuggestedBatteries = async (gesId: string) => {
   });
   if (!ges) return [];
   
-  // Prioridad 1: Baterías manuales asignadas al GES
   if (ges.examBatteries && ges.examBatteries.length > 0) return ges.examBatteries;
-  
-  // Prioridad 2: Cálculo automático basado en riesgos
   if (ges.riskExposures) return findBatteriesByKeywords(ges.riskExposures);
   
   return [];
@@ -172,6 +157,7 @@ export const getGesDocuments = async (gesId: string) => {
     ];
 };
 
+// 👇 AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA 👇
 export const uploadGesDocument = async (gesId: string, file: any, meta: any) => {
     const ges = await prisma.ges.findUnique({ 
         where: { id: gesId }, 
@@ -180,7 +166,8 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
     
     if (!ges) throw new Error("GES no encontrado");
 
-    const fileUrl = `/uploads/${file.filename}`;
+    // CORRECCIÓN: Usamos file.location (S3 URL) en lugar de file.filename
+    const fileUrl = file.location; 
     const reportDate = new Date(meta.reportDate);
 
     if (meta.type === 'CUALITATIVO') {
@@ -188,7 +175,7 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
             data: {
                 reportNumber: meta.reportName || meta.reportNumber || 'S/N',
                 reportDate: reportDate,
-                pdfUrl: fileUrl,
+                pdfUrl: fileUrl, // Guardamos la URL de S3
                 companyId: ges.area.workCenter.companyId,
                 gesGroups: { connect: { id: gesId } }
             }
@@ -218,7 +205,7 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
             data: {
                 name: meta.reportName,
                 reportDate: reportDate,
-                pdfUrl: fileUrl,
+                pdfUrl: fileUrl, // Guardamos la URL de S3
                 technicalReportId: ges.technicalReportId
             }
         });
@@ -228,7 +215,7 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
     throw new Error("Tipo de documento no válido");
 };
 
-// 👇 NUEVO: HISTORIAL COMPLETO
+// --- HISTORIAL COMPLETO ---
 export const getGesFullHistory = async (gesId: string) => {
     const ges = await prisma.ges.findUnique({
         where: { id: gesId },
@@ -253,7 +240,6 @@ export const getGesFullHistory = async (gesId: string) => {
 
     if (!ges) return null;
 
-    // Mapeo limpio a la estructura DTO solicitada
     return {
         id: ges.id,
         name: ges.name,
@@ -281,4 +267,12 @@ export const getGesFullHistory = async (gesId: string) => {
             quantitativeReports: ges.technicalReport.quantitativeReports
         } : null
     };
+};
+
+export const removeTechnicalReport = async (id: string) => {
+    return await prisma.technicalReport.delete({ where: { id } });
+};
+
+export const removeQuantitativeReport = async (id: string) => {
+    return await prisma.quantitativeReport.delete({ where: { id } });
 };

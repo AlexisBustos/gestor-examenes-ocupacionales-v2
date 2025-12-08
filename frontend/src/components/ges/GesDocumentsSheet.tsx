@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
+import { toast } from 'sonner';
 import {
   Sheet,
   SheetContent,
@@ -16,11 +17,14 @@ import {
   FileBarChart,
   Plus,
   ListChecks,
+  Trash2, // Icono nuevo
+  Download,
+  FileText
 } from 'lucide-react';
 
 import { GesUploadSheet } from './GesUploadSheet';
 import { GesPrescriptionSheet } from './GesPrescriptionSheet';
-import { GesHistoryTimeline } from './GesHistoryTimeline'; // 👈 NUEVO IMPORT
+import { GesHistoryTimeline } from './GesHistoryTimeline';
 
 interface GesDocumentsSheetProps {
   gesId: string | null;
@@ -35,6 +39,7 @@ export function GesDocumentsSheet({
   open,
   onOpenChange,
 }: GesDocumentsSheetProps) {
+  const queryClient = useQueryClient();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
   // Estado para prescripciones
@@ -55,6 +60,22 @@ export function GesDocumentsSheet({
     enabled: !!gesId && open,
   });
 
+  // 👇 MUTACIONES PARA ELIMINAR DOCUMENTOS
+  const deleteMutation = useMutation({
+    mutationFn: async ({ id, type }: { id: string; type: string }) => {
+        const endpoint = type === 'CUALITATIVO' 
+            ? 'qualitative' 
+            : 'quantitative';
+        
+        await axios.delete(`/ges/${gesId}/documents/${endpoint}/${id}`);
+    },
+    onSuccess: () => {
+        toast.success("Documento eliminado correctamente");
+        queryClient.invalidateQueries({ queryKey: ['ges-documents', gesId] });
+    },
+    onError: () => toast.error("Error al eliminar documento")
+  });
+
   const handleOpenPrescriptions = (doc: any) => {
     setSelectedDoc({
       id: doc.id,
@@ -72,7 +93,7 @@ export function GesDocumentsSheet({
             <div>
               <SheetTitle>Documentos del GES</SheetTitle>
               <SheetDescription>
-                Protocolos, matrices y respaldos asociados.
+                Protocolos, matrices y respaldos S3.
               </SheetDescription>
             </div>
             <div className="mt-0 flex gap-2">
@@ -85,7 +106,7 @@ export function GesDocumentsSheet({
 
           {isLoading ? (
             <div className="py-10 flex justify-center">
-              <Loader2 className="h-6 w-6 animate-spin" />
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
             </div>
           ) : !data || data.length === 0 ? (
             <div className="py-10 text-center border-2 border-dashed rounded-lg mt-6">
@@ -102,30 +123,25 @@ export function GesDocumentsSheet({
               {data.map((doc: any) => (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm"
+                  className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm hover:border-blue-200 transition-colors"
                 >
-                  <div className="flex items-center gap-3">
+                  {/* LADO IZQUIERDO: INFO */}
+                  <div className="flex items-center gap-3 overflow-hidden">
                     <div
-                      className={`p-2 rounded-full ${
+                      className={`p-2 rounded-full shrink-0 ${
                         doc.type === 'CUALITATIVO'
-                          ? 'bg-blue-50'
-                          : 'bg-purple-50'
+                          ? 'bg-blue-50 text-blue-600'
+                          : 'bg-purple-50 text-purple-600'
                       }`}
                     >
-                      <FileBarChart
-                        className={`h-4 w-4 ${
-                          doc.type === 'CUALITATIVO'
-                            ? 'text-blue-600'
-                            : 'text-purple-600'
-                        }`}
-                      />
+                      {doc.type === 'CUALITATIVO' ? <FileText className="h-4 w-4" /> : <FileBarChart className="h-4 w-4" />}
                     </div>
-                    <div>
-                      <div className="font-semibold text-slate-800">
+                    <div className="min-w-0">
+                      <div className="font-semibold text-slate-800 truncate" title={doc.name}>
                         {doc.name || 'Documento sin nombre'}
                       </div>
-                      <div className="text-xs text-slate-500 flex gap-2">
-                        <span>{doc.type}</span>
+                      <div className="text-xs text-slate-500 flex gap-2 items-center">
+                        <span className="font-medium">{doc.type}</span>
                         <span>•</span>
                         <span>
                           {new Date(doc.reportDate).toLocaleDateString()}
@@ -134,54 +150,73 @@ export function GesDocumentsSheet({
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    {doc.valid ? (
-                      <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                    ) : (
-                      <AlertTriangle className="h-4 w-4 text-amber-500" />
-                    )}
-                    {doc.url && (
+                  {/* LADO DERECHO: ACCIONES */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    
+                    {/* BOTÓN VER (S3) */}
+                    {doc.url ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-8"
+                        className="h-8 w-8 p-0 border-blue-200 text-blue-600 hover:bg-blue-50"
+                        title="Ver PDF"
                         asChild
                       >
                         <a href={doc.url} target="_blank" rel="noreferrer">
-                          Ver
+                          <Download className="h-4 w-4" />
                         </a>
                       </Button>
+                    ) : (
+                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled>
+                            <Download className="h-4 w-4 text-slate-300" />
+                        </Button>
                     )}
 
-                    {/* Botón para prescripciones */}
+                    {/* BOTÓN PRESCRIPCIONES */}
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 px-2 text-slate-700 hover:text-emerald-700"
+                      className="h-8 px-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
                       onClick={() => handleOpenPrescriptions(doc)}
+                      title="Gestionar Medidas/Prescripciones"
                     >
                       <ListChecks className="h-4 w-4 mr-1" />
                       Medidas
                     </Button>
+
+                    {/* BOTÓN ELIMINAR */}
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                        title="Eliminar documento"
+                        disabled={deleteMutation.isPending}
+                        onClick={() => {
+                            if(confirm("¿Estás seguro de eliminar este documento?")) {
+                                deleteMutation.mutate({ id: doc.id, type: doc.type });
+                            }
+                        }}
+                    >
+                        {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                    </Button>
+
                   </div>
                 </div>
               ))}
             </div>
           )}
 
-          {/* 🔽 NUEVO: TIMELINE DEL GES */}
+          {/* TIMELINE DEL GES */}
           {gesId && <GesHistoryTimeline gesId={gesId} />}
         </SheetContent>
       </Sheet>
 
-      {/* Sheet de subida */}
       <GesUploadSheet
         gesId={gesId}
         open={isUploadOpen}
         onOpenChange={setIsUploadOpen}
       />
 
-      {/* Sheet de prescripciones */}
       <GesPrescriptionSheet
         gesId={gesId}
         documentId={selectedDoc?.id ?? null}
