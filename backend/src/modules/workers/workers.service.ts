@@ -82,6 +82,7 @@ export const deleteWorker = async (id: string) => {
 };
 
 // 👇 ACTUALIZADO: REGISTRA LA CREACIÓN
+// 👇 ACTUALIZADO: AHORA GUARDA LA RELACIÓN REAL (ID)
 export const createWorkerDb = async (data: any) => {
   const exists = await prisma.worker.findUnique({ where: { rut: data.rut } });
   if (exists) return exists; 
@@ -102,14 +103,17 @@ export const createWorkerDb = async (data: any) => {
       email: data.email,
       phone: data.phone,
       position: data.position || 'Sin Cargo',
-      costCenter: data.costCenter,
+      
+      // CAMBIO CLAVE: Usamos el ID para conectar la tabla
+      costCenterId: data.costCenterId ? data.costCenterId : null,
+      
       companyId: companyId,
       active: true,
       employmentStatus: initialStatus
     }
   });
 
-  // LOG: Registramos el nacimiento del trabajador en el sistema
+  // LOG: Registramos el nacimiento del trabajador
   await logWorkerEvent(newWorker.id, 'CREACION', 'Creación de Ficha', 
       initialStatus === 'TRANSITO' ? 'Ingresa como Candidato (En Tránsito)' : 'Ingresa directo a Nómina');
 

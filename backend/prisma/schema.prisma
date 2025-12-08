@@ -54,6 +54,7 @@ model CostCenter {
   companyId String?
   company   Company? @relation(fields: [companyId], references: [id])
   areas     Area[]
+  workers   Worker[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
@@ -248,7 +249,8 @@ model Worker {
   position       String?
   managementArea String?
   active         Boolean     @default(true)
-  costCenter     String?
+  costCenterId    String?
+  costCenter      CostCenter? @relation(fields: [costCenterId], references: [id])
   currentGesId   String?
   currentGes     Ges?        @relation("CurrentGes", fields: [currentGesId], references: [id])
   companyId      String
