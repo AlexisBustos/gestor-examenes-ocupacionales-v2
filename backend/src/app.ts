@@ -5,13 +5,16 @@ import path from 'path';
 import * as Sentry from "@sentry/node";
 import AppRoutes from './routes';
 
+// 🚑 1. IMPORTAMOS LA RUTA DE AUTH DIRECTAMENTE (SALTANDO INTERMEDIARIOS)
+import AuthRoutesDirect from './modules/auth/auth.routes';
+
 const app = express();
 
-// 🚨 1. SENTRY REQUEST HANDLER
+// 🚨 SENTRY
 Sentry.setupExpressErrorHandler(app);
 
 // ---------------------------------------------------------
-// 2. CONFIGURACIÓN CORS
+// CONFIGURACIÓN CORS
 // ---------------------------------------------------------
 const allowedOrigins = [
   'http://localhost:5173',
@@ -20,62 +23,50 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // En producción a veces queremos ser estrictos, pero para depurar hoy, 
-      // permitiremos el acceso si viene de tu Frontend y loguearemos si falla.
-      console.log(`[CORS CHECK] Origin: ${origin}`); 
-      if (process.env.NODE_ENV === 'development') {
-        callback(null, true);
-      } else {
-        // Si tienes problemas de CORS en producción, cambia esto temporalmente a true
-        callback(null, true); 
-      }
-    }
+    // Permitimos acceso temporalmente para asegurar que no sea bloqueo
+    callback(null, true);
   },
   credentials: true
 }));
 
 // ---------------------------------------------------------
-// 3. MIDDLEWARES ESTÁNDAR Y LOGS (MODIFICADO)
+// MIDDLEWARES Y LOGS
 // ---------------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// 🔥 CAMBIO CRÍTICO: Loguear SIEMPRE, no solo en development
-// Esto es vital para ver en Render qué ruta está llegando
+// Log para ver en Render
 app.use((req, res, next) => {
   console.log(`[DEBUG RENDER] Método: ${req.method} | URL: ${req.url}`);
   next();
 });
 
-// ---------------------------------------------------------
-// 4. CARPETA PÚBLICA
-// ---------------------------------------------------------
+// CARPETA PÚBLICA
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ---------------------------------------------------------
-// 5. RUTAS DE LA API
+// 🚑 RUTAS DE LA API (AQUÍ ESTÁ LA SOLUCIÓN)
 // ---------------------------------------------------------
+
 app.get("/debug-sentry", function mainHandler(req, res) {
   throw new Error("Sentry Test Error");
 });
 
-// Aquí definimos que todo lo que venga en AppRoutes tendrá el prefijo /api
-// Ejemplo: si AppRoutes tiene '/auth/login', la ruta final es '/api/auth/login'
+// 1. CONEXIÓN DIRECTA PARA EL LOGIN (El arreglo)
+// Al poner esto ANTES de AppRoutes, Express atenderá el login aquí mismo.
+// Ruta final: /api/auth/login
+app.use('/api/auth', AuthRoutesDirect);
+
+// 2. RESTO DEL SISTEMA (Empresas, trabajadores, etc.)
+// Esto sigue funcionando igual para no romper nada más.
 app.use('/api', AppRoutes);
 
-// He comentado esto para evitar duplicidad y confusión. 
-// Forcemos al frontend a usar /api siempre.
-// app.use('/', AppRoutes); 
 
 // Healthcheck
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    message: 'Backend GEOVITAM funcionando 🚀',
+    message: 'Backend GEOVITAM con Bypass de Auth 🚀',
     timestamp: new Date().toISOString()
   });
 });
