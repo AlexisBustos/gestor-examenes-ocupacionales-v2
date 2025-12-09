@@ -1,7 +1,6 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
-import { toast } from 'sonner';
 
 import {
   Sheet,
@@ -24,9 +23,7 @@ import {
   FileSpreadsheet,
   Wallet,
   FileText,
-  Trash2,
-  Download,
-  FileBarChart // Icono para Cuantitativos
+  Layers // Icono para las áreas
 } from 'lucide-react';
 
 import { GesDocumentsSheet } from '@/components/ges/GesDocumentsSheet';
@@ -43,7 +40,6 @@ export function CompanyDetailsSheet({
   onOpenChange,
 }: CompanyDetailsSheetProps) {
   const [selectedGesId, setSelectedGesId] = useState<string | null>(null);
-  const queryClient = useQueryClient();
 
   const { data: company, isLoading } = useQuery<any>({
     queryKey: ['company-details', companyId],
@@ -54,29 +50,19 @@ export function CompanyDetailsSheet({
     enabled: !!companyId && open,
   });
 
-  // 1. Eliminar CUALITATIVO (Informe Técnico Padre)
-  const deleteQualitativeMutation = useMutation({
-    mutationFn: async (reportId: string) => {
-        await axios.delete(`/companies/${companyId}/qualitative/${reportId}`);
-    },
-    onSuccess: () => {
-        toast.success("Informe Técnico eliminado");
-        queryClient.invalidateQueries({ queryKey: ['company-details', companyId] });
-    },
-    onError: () => toast.error("Error al eliminar informe")
-  });
+  // --- LÓGICA DE AGRUPACIÓN POR ÁREA ---
+  const groupedGes = company?.gesList?.reduce((acc: any, ges: any) => {
+    // Si tiene área usa el nombre, si no, lo pone en 'General'
+    const areaName = ges.area?.name || 'General';
+    if (!acc[areaName]) {
+      acc[areaName] = [];
+    }
+    acc[areaName].push(ges);
+    return acc;
+  }, {}) || {};
 
-  // 2. Eliminar CUANTITATIVO (Informe Hijo)
-  const deleteQuantitativeMutation = useMutation({
-    mutationFn: async (reportId: string) => {
-        await axios.delete(`/companies/${companyId}/quantitative/${reportId}`);
-    },
-    onSuccess: () => {
-        toast.success("Informe Cuantitativo eliminado");
-        queryClient.invalidateQueries({ queryKey: ['company-details', companyId] });
-    },
-    onError: () => toast.error("Error al eliminar informe")
-  });
+  // Ordenamos las llaves (nombres de áreas) alfabéticamente
+  const sortedAreaNames = Object.keys(groupedGes).sort();
 
   return (
     <>
@@ -85,7 +71,7 @@ export function CompanyDetailsSheet({
           <div className="border-b px-6 py-4">
              <SheetHeader>
                <SheetTitle>{company ? company.name : 'Detalle de Empresa'}</SheetTitle>
-               <SheetDescription>Información general, indicadores y biblioteca técnica.</SheetDescription>
+               <SheetDescription>Información general, indicadores y programas GES.</SheetDescription>
              </SheetHeader>
           </div>
 
@@ -131,127 +117,49 @@ export function CompanyDetailsSheet({
                  </Card>
               </div>
 
-              {/* === SECCIÓN DE INFORMES TÉCNICOS (MEJORADA) === */}
-              <Card>
-                  <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 border-b bg-slate-50/50">
-                      <CardTitle className="text-sm flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-orange-600" />
-                          Informes Técnicos y Evaluaciones
-                      </CardTitle>
-                  </CardHeader>
-                  <CardContent className="p-4 space-y-4">
-                      {company.technicalReports && company.technicalReports.length > 0 ? (
-                          company.technicalReports.map((report: any) => (
-                              <div key={report.id} className="border rounded-md bg-white overflow-hidden">
-                                  
-                                  {/* 1. INFORME CUALITATIVO (PADRE) */}
-                                  <div className="flex items-center justify-between p-3 bg-slate-50 border-b">
-                                      <div className="flex items-center gap-3">
-                                          <div className="bg-orange-100 p-2 rounded text-orange-600">
-                                              <FileText className="h-5 w-5" />
-                                          </div>
-                                          <div>
-                                              <p className="text-sm font-bold text-slate-800">
-                                                  Informe N° {report.reportNumber}
-                                              </p>
-                                              <p className="text-xs text-slate-500">
-                                                  Fecha: {new Date(report.reportDate).toLocaleDateString()}
-                                              </p>
-                                          </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                          <Button 
-                                            variant="outline" size="sm" className="h-8 gap-1 text-xs" 
-                                            disabled={!report.pdfUrl} // Desactivar si no hay link
-                                            asChild={!!report.pdfUrl}
-                                          >
-                                              {report.pdfUrl ? (
-                                                  <a href={report.pdfUrl} target="_blank" rel="noopener noreferrer">
-                                                      <Download className="h-3 w-3" /> PDF
-                                                  </a>
-                                              ) : (
-                                                  <span>Sin Archivo</span>
-                                              )}
-                                          </Button>
-                                          <Button 
-                                              variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-red-600"
-                                              onClick={() => {
-                                                  if(confirm("¿Eliminar informe técnico y todos sus cuantitativos?")) deleteQualitativeMutation.mutate(report.id);
-                                              }}
-                                          >
-                                              <Trash2 className="h-4 w-4" />
-                                          </Button>
-                                      </div>
-                                  </div>
+              {/* SECCIÓN DE INFORMES TÉCNICOS (ELIMINADA COMO PEDISTE) */}
 
-                                  {/* 2. INFORMES CUANTITATIVOS (HIJOS) */}
-                                  {report.quantitativeReports && report.quantitativeReports.length > 0 && (
-                                      <div className="p-3 bg-white space-y-2 pl-12 border-l-4 border-orange-100">
-                                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">Evaluaciones Cuantitativas Asociadas:</p>
-                                          {report.quantitativeReports.map((quant: any) => (
-                                              <div key={quant.id} className="flex items-center justify-between py-1 border-b last:border-0 border-slate-100">
-                                                  <div className="flex items-center gap-2">
-                                                      <FileBarChart className="h-4 w-4 text-blue-500" />
-                                                      <span className="text-xs font-medium text-slate-700">{quant.name}</span>
-                                                      <span className="text-[10px] text-slate-400">({new Date(quant.reportDate).toLocaleDateString()})</span>
-                                                  </div>
-                                                  <div className="flex gap-2">
-                                                      <a 
-                                                        href={quant.pdfUrl} 
-                                                        target="_blank" 
-                                                        rel="noopener noreferrer"
-                                                        className={`text-xs hover:underline flex items-center gap-1 ${!quant.pdfUrl ? 'pointer-events-none text-slate-300' : 'text-blue-600'}`}
-                                                      >
-                                                          <Download className="h-3 w-3" /> Ver
-                                                      </a>
-                                                      <button 
-                                                          onClick={() => {
-                                                              if(confirm("¿Eliminar evaluación cuantitativa?")) deleteQuantitativeMutation.mutate(quant.id);
-                                                          }}
-                                                          className="text-slate-400 hover:text-red-500"
-                                                      >
-                                                          <Trash2 className="h-3 w-3" />
-                                                      </button>
-                                                  </div>
-                                              </div>
-                                          ))}
-                                      </div>
-                                  )}
-                              </div>
-                          ))
-                      ) : (
-                          <div className="text-center py-6 text-slate-400 text-xs italic">
-                              No hay informes técnicos cargados.
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
-
-              {/* LISTA DE GES (Sin cambios) */}
-              {Array.isArray(company.gesList) && company.gesList.length > 0 && (
+              {/* LISTA DE GES (AGRUPADA POR ÁREA) */}
+              {sortedAreaNames.length > 0 && (
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 border-b bg-slate-50/50">
                     <CardTitle className="text-sm flex items-center gap-2">
                       <FileText className="h-4 w-4 text-blue-600" /> Programas GES
                     </CardTitle>
                   </CardHeader>
-                  <CardContent className="p-4 pt-2 space-y-2">
-                    {company.gesList.map((ges: any) => (
-                      <div key={ges.id} className="flex items-center justify-between border-b last:border-b-0 py-2 text-xs">
-                        <div className="space-y-1">
-                          <div className="font-semibold text-slate-800">{ges.name}</div>
-                          {ges.area && <div className="text-slate-500">Área: {ges.area.name}</div>}
+                  <CardContent className="p-4 pt-4 space-y-6">
+                    
+                    {/* Iteramos por cada Área encontrada */}
+                    {sortedAreaNames.map((areaName) => (
+                      <div key={areaName} className="space-y-2">
+                        {/* Título del Área */}
+                        <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
+                          <Layers className="h-3 w-3" />
+                          {areaName}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={ges.isActive ? 'default' : 'destructive'} className="text-[10px] px-2 h-5">
-                              {ges.isActive ? 'Vigente' : 'Inactivo'}
-                          </Badge>
-                          <Button variant="outline" size="sm" className="gap-1 text-[11px] h-7" onClick={() => setSelectedGesId(ges.id)}>
-                            <FileText className="h-3 w-3" /> Ver documentos
-                          </Button>
+
+                        {/* Lista de GES de esa área */}
+                        <div className="space-y-1">
+                          {groupedGes[areaName].map((ges: any) => (
+                            <div key={ges.id} className="flex items-center justify-between py-2 px-2 hover:bg-slate-50 rounded-md transition-colors text-xs">
+                              <div className="space-y-1">
+                                <div className="font-semibold text-slate-800">{ges.name}</div>
+                                {/* Ya no mostramos el área aquí abajo porque está en el título */}
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Badge variant={ges.isActive ? 'default' : 'destructive'} className="text-[10px] px-2 h-5">
+                                    {ges.isActive ? 'Vigente' : 'Inactivo'}
+                                </Badge>
+                                <Button variant="outline" size="sm" className="gap-1 text-[11px] h-7" onClick={() => setSelectedGesId(ges.id)}>
+                                  <FileText className="h-3 w-3" /> Ver documentos
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
                         </div>
                       </div>
                     ))}
+
                   </CardContent>
                 </Card>
               )}
