@@ -1,13 +1,14 @@
 import { Request, Response } from 'express';
-// 👇 CAMBIO 1: Usamos 'as' para cambiar el nombre y evitar conflictos de nombres
+// 👇 TRUCO IMPORTANTE: Renombramos la importación para evitar conflicto de nombres
 import { login as loginService, register as registerService } from './auth.service';
 
-// --- HANDLE LOGIN ---
-// 👇 CAMBIO 2: Exportamos como 'login' para que auth.routes.ts lo encuentre
+// --- LOGIN ---
+// Ahora la función se llama 'login' exactamente como lo pide tu archivo de rutas
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    // Llamamos al servicio con el nuevo nombre
+    
+    // Llamamos al servicio (con el nombre alias)
     const result = await loginService(email, password);
     res.json(result);
   } catch (error: any) {
@@ -17,8 +18,8 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
-// --- HANDLE REGISTER ---
-// 👇 Exportamos como 'register' por consistencia
+// --- REGISTER ---
+// Lo renombramos a 'register' para mantener consistencia
 export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
@@ -27,7 +28,6 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ message: 'Faltan datos obligatorios' });
     }
 
-    // Llamamos al servicio con el nuevo nombre
     const newUser = await registerService({ name, email, password, role });
     
     res.status(201).json({
