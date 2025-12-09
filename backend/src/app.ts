@@ -5,16 +5,15 @@ import path from 'path';
 import * as Sentry from "@sentry/node";
 import AppRoutes from './routes';
 
-// 👇 IMPORTS NECESARIOS PARA EL ARREGLO
-import { PrismaClient } from '@prisma/client';
-import bcrypt from 'bcryptjs';
+// 🧹 LIMPIEZA: Ya quitamos Prisma y Bcrypt porque app.ts solo debe configurar, no procesar lógica.
 
-const prisma = new PrismaClient();
 const app = express();
 
+// 1. SENTRY (Monitoreo)
 Sentry.setupExpressErrorHandler(app);
 
-// CONFIGURACIÓN CORS
+// 2. CONFIGURACIÓN CORS
+// Mantenemos la lista para seguridad futura, pero la configuración sigue siendo amigable.
 const allowedOrigins = [
   'http://localhost:5173',
   process.env.FRONTEND_URL
@@ -22,61 +21,40 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, true); 
+    // Permitimos peticiones sin origen (como Postman) o si coinciden con la lista
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`[CORS] Nota: Origen ${origin} no está en la lista blanca (pero permitido por ahora)`);
+      // Mantenemos esto permissive para asegurar que Vercel entre sin problemas
+      callback(null, true); 
+    }
   },
   credentials: true
 }));
 
+// 3. MIDDLEWARES BÁSICOS
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// LOGS
+// Log limpio
 app.use((req, res, next) => {
   console.log(`[API] ${req.method} ${req.url}`);
   next();
 });
 
-// ---------------------------------------------------------
-// 🚑 RUTA DE EMERGENCIA: ARREGLAR PASSWORD (ESTA FALTABA)
-// ---------------------------------------------------------
-app.get('/api/encrypt-me', async (req, res) => {
-    try {
-        console.log('Encriptando contraseña...');
-        // 1. Creamos el hash seguro de "123456"
-        const hashedPassword = await bcrypt.hash('123456', 10);
-        
-        // 2. Actualizamos al usuario
-        const user = await prisma.user.update({
-            where: { email: 'admin@geovitam.com' },
-            data: { 
-                password: hashedPassword,
-                role: 'ADMIN_VITAM'
-            }
-        });
-        
-        res.json({ 
-            status: 'ARREGLADO', 
-            msg: '✅ Contraseña actualizada a formato seguro (Bcrypt).', 
-            user: { email: user.email, role: user.role }
-        });
-    } catch (error: any) {
-        console.error(error);
-        res.status(500).json({ error: error.message, hint: '¿Seguro que el usuario existe?' });
-    }
-});
-// ---------------------------------------------------------
-
-
+// 4. ARCHIVOS PÚBLICOS
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// RUTAS PRINCIPALES
+// 5. RUTAS DEL SISTEMA
+// Aquí conectamos toda la lógica real (Login, Empresas, etc.)
 app.use('/api', AppRoutes);
 
-// Healthcheck
+// Healthcheck (Raíz)
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    system: 'Gestor Exámenes Ocupacionales v2 (Modo Fix)',
+    system: 'Gestor Exámenes Ocupacionales v2 (Producción)',
     timestamp: new Date().toISOString()
   });
 });
