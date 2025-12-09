@@ -21,9 +21,21 @@ import usersRouter from './modules/users/user.routes';
 
 const router = Router();
 
+// 🕵️‍♂️ LOG DE DEPURACIÓN GLOBAL (Para ver si entra al archivo)
+router.use((req, res, next) => {
+    console.log(`📍 [ROUTES.TS] Petición recibida en router principal: ${req.url}`);
+    next();
+});
+
 // Definición de rutas base (sin /api, eso ya lo pone server.ts)
 router.use('/health', healthRouter);
-router.use('/auth', authRouter);
+
+// 👇 AQUÍ PONEMOS EL LOG ESPECÍFICO PARA AUTH
+router.use('/auth', (req, res, next) => {
+    console.log('📍 [ROUTES.TS] Entrando a rutas de /auth...');
+    next();
+}, authRouter);
+
 router.use('/companies', companiesRouter);
 router.use('/work-centers', workCentersRouter);
 router.use('/areas', areasRouter);

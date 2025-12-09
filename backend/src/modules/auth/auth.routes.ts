@@ -1,9 +1,16 @@
 import { Router } from 'express';
-import { handleLogin, handleRegister } from './auth.controller';
+import * as authController from './auth.controller'; // Asegúrate que esto apunte a tu controlador
 
 const router = Router();
 
-router.post('/login', handleLogin);
-router.post('/register', handleRegister); // <--- Agregamos esta línea
+// 🛑 DEBUG: Imprimir en consola cuando alguien intente entrar aquí
+router.use((req, res, next) => {
+    console.log('🕵️‍♂️ ROUTER AUTH ALCANZADO:', req.method, req.url);
+    next();
+});
+
+// ✅ Definimos la ruta de login explícitamente
+// La ruta final será: /api/auth/login
+router.post('/login', authController.login);
 
 export default router;
