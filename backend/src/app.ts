@@ -6,6 +6,12 @@ import * as Sentry from "@sentry/node";
 // 👇 Importamos tus rutas modulares (que ya arreglamos antes)
 import AppRoutes from './routes'; 
 
+// 🚑 IMPORTS TEMPORALES PARA EL ARREGLO
+import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcryptjs';
+const prisma = new PrismaClient();
+// -------------------------------------
+
 const app = express();
 
 // 1. SENTRY (Monitoreo)
