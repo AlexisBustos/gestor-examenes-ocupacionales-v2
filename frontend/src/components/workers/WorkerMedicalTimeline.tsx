@@ -14,7 +14,6 @@ import {
   History
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
 import { MedicalResultDialog } from "@/components/orders/MedicalResultDialog";
 
 interface WorkerMedicalTimelineProps {
@@ -75,7 +74,7 @@ export function WorkerMedicalTimeline({ worker }: WorkerMedicalTimelineProps) {
 
         {/* LOOP UNIFICADO */}
         {timelineItems.length > 0 ? (
-          timelineItems.map((item: any, index: number) => {
+          timelineItems.map((item: any) => {
             
             // --- RENDERIZADO SI ES UN EVENTO ADMINISTRATIVO ---
             if (item.type === 'EVENT') {

@@ -22,8 +22,7 @@ export function WorkerCreateDialog({ open, onOpenChange }: Props) {
   const [position, setPosition] = useState('');
   // CAMBIO: Ahora usamos ID para conectarlo a la tabla real
   const [costCenterId, setCostCenterId] = useState(''); 
-  const [companyId, setCompanyId] = useState(''); // Opcional si ya la deduces en backend, pero la dejamos por si acaso
-
+  
   // CAMBIO: Cargamos Centros de Costos Reales
   const { data: costCenters } = useQuery<any[]>({ 
       queryKey: ['cost-centers'], 

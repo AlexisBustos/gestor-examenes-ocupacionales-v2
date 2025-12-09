@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
-import { Loader2, BookOpen, Plus, FileText, Trash2, Download } from 'lucide-react';
+import { Loader2, BookOpen, Plus, FileText, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';

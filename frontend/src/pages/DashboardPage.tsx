@@ -24,7 +24,6 @@ import {
   HeartPulse,
   UserCheck,
   ShieldCheck,
-  LayoutList,
   Building2,
   Activity,
   Upload,
@@ -41,15 +40,16 @@ export default function DashboardPage() {
   const { user } = useAuth();
 
   // 1. CARGA DE DATOS
-  const { data: orders, isLoading: loadingOrders } = useOrders();
-  const { data: gesList, isLoading: loadingGes } = useQuery({ queryKey: ['all-ges'], queryFn: async () => (await axios.get('/ges')).data });
-  const { data: companies, isLoading: loadingCompanies } = useQuery({ queryKey: ['all-companies'], queryFn: async () => (await axios.get('/companies')).data });
-  const { data: analytics, isLoading: loadingSurv } = useQuery({ queryKey: ['analytics'], queryFn: async () => (await axios.get('/analytics/surveillance')).data });
+  // Se agregan valores por defecto y cast a 'any' para evitar errores de tipo '{}' en el build
+  const { data: orders = [], isLoading: loadingOrders } = useOrders() as any;
+  const { data: gesList = [], isLoading: loadingGes } = useQuery({ queryKey: ['all-ges'], queryFn: async () => (await axios.get('/ges')).data }) as any;
+  const { data: companies = [], isLoading: loadingCompanies } = useQuery({ queryKey: ['all-companies'], queryFn: async () => (await axios.get('/companies')).data }) as any;
+  const { data: analytics = {}, isLoading: loadingSurv } = useQuery({ queryKey: ['analytics'], queryFn: async () => (await axios.get('/analytics/surveillance')).data }) as any;
   
-  const { data: costStats, isLoading: loadingCosts } = useQuery({ 
+  const { data: costStats = [], isLoading: loadingCosts } = useQuery({ 
       queryKey: ['analytics-costs'], 
       queryFn: async () => (await axios.get('/analytics/costs')).data 
-  });
+  }) as any;
 
   const isLoading = loadingOrders || loadingGes || loadingCompanies || loadingSurv || loadingCosts;
 
@@ -189,7 +189,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* C. CENTROS DE COSTOS (CORREGIDO CIERRE DE TAG) */}
+        {/* C. CENTROS DE COSTOS */}
         <Card className="shadow-md border-slate-200">
             <CardHeader className="pb-2">
                 <CardTitle className="flex items-center gap-2 text-slate-800">

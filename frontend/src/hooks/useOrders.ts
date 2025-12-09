@@ -10,7 +10,7 @@ import { ordersService } from '../services/orders.service';
 export const useOrders = () => {
     return useQuery({
         queryKey: ['orders'],
-        queryFn: ordersService.getOrders,
+        queryFn: () => ordersService.getOrders(status),
         staleTime: 1000 * 60 * 5, // Consider data fresh for 5 minutes
         refetchOnWindowFocus: true,
     });
