@@ -13,4 +13,8 @@ router.use((req, res, next) => {
 // La ruta final será: /api/auth/login
 router.post('/login', authController.login);
 
+// 👇 ESTA ES LA LÍNEA QUE FALTA PARA QUE FUNCIONE EL CREAR USUARIO
+// La ruta final será: /api/auth/register
+router.post('/register', authController.register);
+
 export default router;
