@@ -60,19 +60,14 @@ export default function LoginPage() {
                 {/* Imagen de fondo con filtro azul corporativo */}
                 <div className="absolute inset-0 bg-blue-950/50 mix-blend-multiply z-10" />
                 
-                {/* CAMBIO DE IMAGEN: 
-                   Ahora usamos una foto de entorno industrial/planta con profesionales usando EPP.
-                */}
                 <img 
                     src="https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=2070&auto=format&fit=crop" 
                     alt="Seguridad Industrial y Salud Ocupacional" 
-                    // 1. En className dejamos solo las clases estándar de Tailwind
                     className="absolute inset-0 w-full h-full object-cover opacity-60 hover:scale-105 transition-transform"
-                    // 2. Pasamos la duración exacta por estilo directo para evitar warnings
                     style={{ transitionDuration: '20s' }}
                 />
                 
-                {/* Logo sobre la imagen */}
+                {/* Logo y texto sobre la imagen izquierda (Marca de agua) */}
                 <div className="relative z-20">
                     <div className="flex items-center gap-2 font-bold text-xl">
                         <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20">
@@ -82,7 +77,7 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Cita Corporativa (La que te gustó) */}
+                {/* Cita Corporativa */}
                 <div className="relative z-20 max-w-lg">
                     <blockquote className="space-y-4">
                         <p className="text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
@@ -90,7 +85,6 @@ export default function LoginPage() {
                         </p>
                         <footer className="text-sm text-slate-300 font-medium flex items-center gap-4">
                             <span>&copy; 2025 Vitam Healthcare</span>
-                            {/* Badge de versión */}
                             <span className="px-2 py-0.5 rounded-full bg-white/10 text-xs border border-white/20 backdrop-blur-md">
                                 v{APP_VERSION}
                             </span>
@@ -100,7 +94,7 @@ export default function LoginPage() {
             </div>
 
             {/* ---------------------------------------------------------- */}
-            {/* SECCIÓN DERECHA: FORMULARIO                                */}
+            {/* SECCIÓN DERECHA: FORMULARIO (AQUÍ ESTÁ TU LOGO)            */}
             {/* ---------------------------------------------------------- */}
             <div className="flex items-center justify-center p-8 bg-gray-50/50 dark:bg-gray-900 relative">
                 
@@ -114,12 +108,18 @@ export default function LoginPage() {
                     
                     {/* Encabezado Mobile/Desktop */}
                     <div className="flex flex-col space-y-2 text-center">
-                        <div className="lg:hidden flex justify-center mb-4">
-                            <div className="p-3 bg-blue-100 rounded-full">
-                                <ShieldCheck className="h-8 w-8 text-blue-600" />
-                            </div>
+                        
+                        {/* 👇 AQUÍ ESTÁ EL CAMBIO: TU LOGO VITAM 👇 */}
+                        <div className="flex justify-center mb-6">
+                            <img 
+                                src="/logo.png" 
+                                alt="Logo Vitam" 
+                                className="h-40 w-auto object-contain" // Ajusta h-20 si lo quieres más grande o pequeño
+                            />
                         </div>
 
+                        {/* He quitado el icono antiguo de ShieldCheck para que no se vea doble */}
+                        
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
                             Iniciar Sesión
                         </h1>
