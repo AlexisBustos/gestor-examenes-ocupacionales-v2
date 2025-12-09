@@ -11,7 +11,7 @@ import axios from "axios";
  *        .env.production    → https://tu-backend.com/api
  *
  */
-export const API_URL =
+export const API_URL = "https://gestor-examenes-ocupacionales.onrender.com/api";
   import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
 // Para servir archivos estáticos (PDFs, imágenes, etc.)

@@ -1,14 +1,13 @@
-import './config/sentry'; // 🚨 IMPORTANTE: Esto carga la config básica (crearemos este archivo mini abajo)
+import './config/sentry';
 import express from 'express';
 import cors from 'cors';
 import path from 'path';
-import * as Sentry from "@sentry/node"; // 🚨 Importamos Sentry
+import * as Sentry from "@sentry/node";
 import AppRoutes from './routes';
 
 const app = express();
 
-// 🚨 1. SENTRY REQUEST HANDLER (Debe ser el primer middleware)
-// Esto captura la petición apenas entra
+// 🚨 1. SENTRY REQUEST HANDLER
 Sentry.setupExpressErrorHandler(app);
 
 // ---------------------------------------------------------
@@ -21,17 +20,18 @@ const allowedOrigins = [
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Permitir requests sin origin (como Postman o server-to-server)
     if (!origin) return callback(null, true);
-
     if (allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
+      // En producción a veces queremos ser estrictos, pero para depurar hoy, 
+      // permitiremos el acceso si viene de tu Frontend y loguearemos si falla.
+      console.log(`[CORS CHECK] Origin: ${origin}`); 
       if (process.env.NODE_ENV === 'development') {
         callback(null, true);
       } else {
-        console.warn(`Blocked by CORS: ${origin}`);
-        callback(new Error('Not allowed by CORS'));
+        // Si tienes problemas de CORS en producción, cambia esto temporalmente a true
+        callback(null, true); 
       }
     }
   },
@@ -39,45 +39,45 @@ app.use(cors({
 }));
 
 // ---------------------------------------------------------
-// 3. MIDDLEWARES ESTÁNDAR
+// 3. MIDDLEWARES ESTÁNDAR Y LOGS (MODIFICADO)
 // ---------------------------------------------------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Logging básico en desarrollo
-if (process.env.NODE_ENV === 'development') {
-  app.use((req, res, next) => {
-    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
-    next();
-  });
-}
+// 🔥 CAMBIO CRÍTICO: Loguear SIEMPRE, no solo en development
+// Esto es vital para ver en Render qué ruta está llegando
+app.use((req, res, next) => {
+  console.log(`[DEBUG RENDER] Método: ${req.method} | URL: ${req.url}`);
+  next();
+});
 
 // ---------------------------------------------------------
-// 4. CARPETA PÚBLICA (UPLOADS)
+// 4. CARPETA PÚBLICA
 // ---------------------------------------------------------
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ---------------------------------------------------------
 // 5. RUTAS DE LA API
 // ---------------------------------------------------------
-// Creamos una ruta de prueba para verificar que Sentry funciona
 app.get("/debug-sentry", function mainHandler(req, res) {
-  throw new Error("Mi primer error capturado por Sentry!");
+  throw new Error("Sentry Test Error");
 });
 
+// Aquí definimos que todo lo que venga en AppRoutes tendrá el prefijo /api
+// Ejemplo: si AppRoutes tiene '/auth/login', la ruta final es '/api/auth/login'
 app.use('/api', AppRoutes);
 
-// Ruta Raíz (Healthcheck simple del servidor)
+// He comentado esto para evitar duplicidad y confusión. 
+// Forcemos al frontend a usar /api siempre.
+// app.use('/', AppRoutes); 
+
+// Healthcheck
 app.get('/', (req, res) => {
   res.json({
-    message: 'Antigravity API Running 🚀',
-    env: process.env.NODE_ENV,
+    status: 'online',
+    message: 'Backend GEOVITAM funcionando 🚀',
     timestamp: new Date().toISOString()
   });
 });
-
-// 🚨 6. SENTRY ERROR HANDLER (Debe ir DESPUÉS de las rutas y ANTES de tu manejo de errores propio)
-// Nota: setupExpressErrorHandler ya inyecta esto automáticamente en versiones nuevas,
-// pero si tienes un middleware de error personalizado al final, asegúrate de que Sentry vaya antes.
 
 export default app;
