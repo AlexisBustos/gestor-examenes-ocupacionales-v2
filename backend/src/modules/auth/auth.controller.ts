@@ -1,33 +1,34 @@
 import { Request, Response } from 'express';
-// Importamos login Y register del servicio
-import { login, register } from './auth.service';
+// 👇 CAMBIO 1: Usamos 'as' para cambiar el nombre y evitar conflictos de nombres
+import { login as loginService, register as registerService } from './auth.service';
 
-// --- HANDLE LOGIN (Igual que antes) ---
-export const handleLogin = async (req: Request, res: Response) => {
+// --- HANDLE LOGIN ---
+// 👇 CAMBIO 2: Exportamos como 'login' para que auth.routes.ts lo encuentre
+export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
-    const result = await login(email, password);
+    // Llamamos al servicio con el nuevo nombre
+    const result = await loginService(email, password);
     res.json(result);
   } catch (error: any) {
     console.error('Login Error:', error.message);
-    // Manejo simple de errores
     const status = error.message === 'Usuario no encontrado' || error.message === 'Contraseña incorrecta' ? 401 : 500;
     res.status(status).json({ error: error.message });
   }
 };
 
-// --- HANDLE REGISTER (Nuevo) ---
-export const handleRegister = async (req: Request, res: Response) => {
+// --- HANDLE REGISTER ---
+// 👇 Exportamos como 'register' por consistencia
+export const register = async (req: Request, res: Response) => {
   try {
     const { name, email, password, role } = req.body;
 
-    // Validación básica antes de llamar al servicio
     if (!email || !password || !name) {
       return res.status(400).json({ message: 'Faltan datos obligatorios' });
     }
 
-    // Llamamos al servicio
-    const newUser = await register({ name, email, password, role });
+    // Llamamos al servicio con el nuevo nombre
+    const newUser = await registerService({ name, email, password, role });
     
     res.status(201).json({
       message: 'Usuario creado exitosamente',
@@ -36,7 +37,6 @@ export const handleRegister = async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('Register Error:', error.message);
-    // Si el error es que ya existe, devolvemos 400, si no 500
     const status = error.message === 'El correo ya está registrado' ? 400 : 500;
     res.status(status).json({ message: error.message });
   }
