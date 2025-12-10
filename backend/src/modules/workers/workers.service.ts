@@ -33,8 +33,8 @@ export const getWorkerById = async (id: string) => {
     include: { 
         company: true, 
         currentGes: true,
-        costCenter: true, // <--- Agregada y con coma al final
-        events: { orderBy: { createdAt: 'desc' } }, // <--- Esto ya no dará error
+        costCenter: true, 
+        events: { orderBy: { createdAt: 'desc' } }, 
         examOrders: { 
             orderBy: { createdAt: 'desc' },
             include: { 
@@ -118,36 +118,66 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// --- IMPORT ---
+// --- IMPORT (AHORA SÍ MAPEA CENTRO DE COSTOS Y CARGO) ---
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
     let count = 0;
+    
+    // Obtenemos la empresa por defecto
     const defaultCompany = await prisma.company.findFirst();
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
     for (const row of rows) {
         const clean: any = {};
+        // Limpieza de cabeceras (trim y minusculas)
         Object.keys(row).forEach(k => clean[k.toLowerCase().trim()] = row[k]);
+        
         const rut = clean['rut'];
-        const name = clean['nombre'] || clean['trabajador'];
+        const name = clean['nombre'] || clean['trabajador'] || clean['name'];
+        const cargo = clean['cargo'] || clean['posicion'] || clean['puesto'] || 'Sin Cargo';
+        
+        // Buscamos Centro de Costos por NOMBRE o CÓDIGO
+        const centroRaw = clean['centro'] || clean['centrocosto'] || clean['cc'] || clean['costcenter'];
+        let costCenterId = null;
+
+        if (centroRaw) {
+            // Buscamos si existe un centro de costos con ese nombre o código
+            const foundCC = await prisma.costCenter.findFirst({
+                where: {
+                    OR: [
+                        { name: { equals: centroRaw.toString(), mode: 'insensitive' } },
+                        { code: { equals: centroRaw.toString(), mode: 'insensitive' } }
+                    ]
+                }
+            });
+            if (foundCC) {
+                costCenterId = foundCC.id;
+            }
+        }
         
         if (rut && name) {
             await prisma.worker.upsert({
                 where: { rut: rut.toString() },
-                update: { name: name.toString() },
+                update: { 
+                    name: name.toString(),
+                    position: cargo.toString(),
+                    costCenterId: costCenterId // Actualizamos CC si existe
+                },
                 create: { 
                     rut: rut.toString(), 
                     name: name.toString(), 
+                    position: cargo.toString(),
                     companyId: defaultCompany.id,
+                    costCenterId: costCenterId, // Asignamos CC al crear
                     employmentStatus: 'NOMINA'
                 }
             });
             count++;
         }
     }
-    return { message: `Nómina procesada.` };
+    return { message: `Nómina procesada (${count} registros).` };
 };
 
 // --- MOVILIDAD ---
