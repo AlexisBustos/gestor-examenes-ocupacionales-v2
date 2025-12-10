@@ -110,7 +110,7 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// 👇 IMPORTACIÓN BLINDADA (Lógica simplificada y robusta)
+// 👇 IMPORTACIÓN BLINDADA & MULTI-EMPRESA
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     console.log("📢 INICIANDO PROCESO DE CARGA...");
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
@@ -118,19 +118,18 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
     let count = 0;
     
+    // Empresa por defecto (Fallback)
     const defaultCompany = await prisma.company.findFirst();
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
     if (rows.length > 0) {
-        // Log para ver qué está leyendo realmente el servidor
         console.log("👀 Cabeceras detectadas:", Object.keys(rows[0]));
     }
 
     for (const row of rows) {
         const clean: any = {};
         
-        // 1. Limpieza SIMPLE de claves (Solo minúsculas y quitar espacios)
-        // "Centro de Costos" -> "centrodecostos"
+        // 1. Limpieza de claves
         Object.keys(row).forEach(k => {
             const cleanKey = k.toLowerCase().trim().replace(/\s+/g, '');
             clean[cleanKey] = row[k];
@@ -139,19 +138,16 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
         const rut = clean['rut'];
         const name = clean['nombre'] || clean['trabajador'] || clean['name'] || clean['nombres'];
         
-        // 2. Mapeo de datos (con múltiples opciones)
+        // 2. Mapeo de datos básicos
         const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'];
         const email = clean['email'] || clean['correo'] || clean['mail'] || clean['correoelectronico'];
         const phone = clean['phone'] || clean['telefono'] || clean['celular'] || clean['movil'];
         
         // 3. CENTRO DE COSTOS
-        // Busca cualquier variante probable
         const centroRaw = clean['centro'] || clean['centros'] || clean['centrocosto'] || clean['centrodecosto'] || clean['centrodecostos'] || clean['centroscosto'] || clean['cc'] || clean['costcenter'] || clean['centrodetrabajo'];
         
         let costCenterId = null;
-
         if (centroRaw) {
-            // console.log(`🔎 Buscando CC: ${centroRaw}`);
             const foundCC = await prisma.costCenter.findFirst({
                 where: {
                     OR: [
@@ -160,16 +156,38 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
                     ]
                 }
             });
-            if (foundCC) {
-                costCenterId = foundCC.id;
+            if (foundCC) costCenterId = foundCC.id;
+        }
+
+        // 4. EMPRESA (Lógica Nueva Agregada) 🔴
+        const empresaRaw = clean['empresa'] || clean['company'] || clean['razonsocial'] || clean['emp'];
+        let targetCompanyId = defaultCompany.id; // Empezamos con la default
+
+        if (empresaRaw) {
+            // Buscamos la empresa específica si viene en el Excel
+            const foundComp = await prisma.company.findFirst({
+                where: {
+                    OR: [
+                        { name: { equals: empresaRaw.toString(), mode: 'insensitive' } },
+                        { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } }
+                    ]
+                }
+            });
+            
+            if (foundComp) {
+                targetCompanyId = foundComp.id;
             } else {
-                console.warn(`⚠️ CC no encontrado: "${centroRaw}"`);
+                console.warn(`⚠️ Empresa no encontrada: "${empresaRaw}". Se usará la default.`);
             }
         }
         
         if (rut && name) {
-            // Preparamos objeto de actualización (solo campos que traigan datos)
-            const updateData: any = { name: name.toString() };
+            // Preparamos los datos a actualizar
+            const updateData: any = { 
+                name: name.toString(),
+                companyId: targetCompanyId // 👈 ¡ESTO LOS MUEVE DE EMPRESA SI ESTÁN MAL!
+            };
+            
             if (cargo) updateData.position = cargo.toString();
             if (costCenterId) updateData.costCenterId = costCenterId;
             if (email) updateData.email = email.toString();
@@ -177,12 +195,12 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
 
             await prisma.worker.upsert({
                 where: { rut: rut.toString() },
-                update: updateData, // Solo actualiza si hay datos nuevos
+                update: updateData, 
                 create: { 
                     rut: rut.toString(), 
                     name: name.toString(), 
                     position: cargo ? cargo.toString() : 'Sin Cargo',
-                    companyId: defaultCompany.id,
+                    companyId: targetCompanyId, // Usa la empresa correcta al crear
                     costCenterId: costCenterId,
                     email: email ? email.toString() : null,
                     phone: phone ? phone.toString() : null,
@@ -196,7 +214,7 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     return { message: `Nómina procesada (${count} registros).` };
 };
 
-// ... (Las funciones de movilidad déjalas igual) ...
+// ... (Las funciones de movilidad siguen igual) ...
 export const analyzeJobChange = async (workerId: string, newGesId: string) => {
     const worker: any = await prisma.worker.findUnique({
         where: { id: workerId },
