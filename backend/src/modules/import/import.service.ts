@@ -31,7 +31,9 @@ export const processExcel = async (fileBuffer: Buffer) => {
     // Normalizamos las claves para que "Agente Específico" sea igual a "agenteespecifico"
     Object.keys(rawRow).forEach(key => row[normalizeKey(key)] = rawRow[key]);
 
-    const nombreEmpresa = row['empresa'];
+    // 🛡️ LIMPIEZA 1: Quitamos espacios al principio y final del nombre de la empresa
+    let nombreEmpresa = row['empresa'] ? row['empresa'].toString().trim() : '';
+    
     // Buscamos 'ges', 'puesto' o 'cargo' como nombre del GES
     const nombreGes = row['ges'] || row['puesto'] || row['cargo'];
     
@@ -47,13 +49,32 @@ export const processExcel = async (fileBuffer: Buffer) => {
     let currentCompanyId = '';
     
     if (nombreEmpresa) {
-        const company = await prisma.company.upsert({
-            where: { rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}` }, // Rut dummy generado
-            update: {},
-            create: { name: nombreEmpresa, rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}`, contactEmail: 'admin@empresa.com' }
+        // 🔥 ARREGLO INTELIGENTE:
+        // 1. Primero buscamos por NOMBRE (ignorando mayúsculas/minúsculas)
+        // Esto evita duplicados si la empresa ya existe con su RUT real.
+        let company = await prisma.company.findFirst({
+            where: { 
+                name: { equals: nombreEmpresa, mode: 'insensitive' } 
+            }
         });
+
+        // 2. Si no existe por nombre, usamos la lógica del RUT Dummy
+        if (!company) {
+            company = await prisma.company.upsert({
+                where: { rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}` }, 
+                update: {},
+                create: { 
+                    name: nombreEmpresa, // Ya viene sin espacios gracias al trim() de arriba
+                    rut: `RUT-${normalizeText(nombreEmpresa).toUpperCase()}`, 
+                    contactEmail: 'admin@empresa.com' 
+                }
+            });
+        }
+
         currentCompanyId = company.id;
+        // Solo contamos como "nueva empresa" si stats es relevante, pero aquí sumamos procesadas
         stats.companies++;
+
     } else {
         // Fallback: Buscar la primera empresa existente
         const defaultComp = await prisma.company.findFirst();
@@ -66,21 +87,26 @@ export const processExcel = async (fileBuffer: Buffer) => {
     }
 
     // 1. Jerarquía (Centro -> Área)
-    const centroNombre = row['centro'] || row['centrotrabajo'] || 'Casa Matriz';
+    let centroNombre = row['centro'] || row['centrotrabajo'] || 'Casa Matriz';
+    centroNombre = centroNombre.toString().trim(); // Limpiamos espacios también aquí
+
     let workCenter = await prisma.workCenter.findFirst({ where: { name: centroNombre, companyId: currentCompanyId } });
     if (!workCenter) workCenter = await prisma.workCenter.create({ data: { name: centroNombre, companyId: currentCompanyId } });
 
-    const areaNombre = row['area'] || 'Operaciones';
+    let areaNombre = row['area'] || 'Operaciones';
+    areaNombre = areaNombre.toString().trim(); // Y aquí
+
     let area = await prisma.area.findFirst({ where: { name: areaNombre, workCenterId: workCenter.id } });
     if (!area) area = await prisma.area.create({ data: { name: areaNombre, workCenterId: workCenter.id } });
 
     if (!nombreGes) continue; // Si no hay GES, saltamos a la siguiente fila
 
     // 2. GES
-    let ges = await prisma.ges.findFirst({ where: { name: nombreGes, areaId: area.id } });
+    let gesNameClean = nombreGes.toString().trim();
+    let ges = await prisma.ges.findFirst({ where: { name: gesNameClean, areaId: area.id } });
     
     const gesData = {
-      name: nombreGes,
+      name: gesNameClean,
       areaId: area.id,
       tasksDescription: descTareas || '',
       subArea: subArea || null,
@@ -103,15 +129,14 @@ export const processExcel = async (fileBuffer: Buffer) => {
       stats.ges++;
     }
 
-    // 3. RIESGOS (Aquí es donde ocurre la magia)
+    // 3. RIESGOS
     if (listaAgentes) {
       const agentesArray = listaAgentes.toString().split(/[,;\n]+/).map((s: string) => s.trim());
 
       for (const nombreAgente of agentesArray) {
         if (!nombreAgente || nombreAgente.length < 2) continue;
 
-        // A. Crear Agente Global (Ej: "Ruido")
-        // Usamos findFirst en lugar de upsert directo para ser case-insensitive
+        // A. Crear Agente Global
         let riskAgent = await prisma.riskAgent.findFirst({
             where: { name: { equals: nombreAgente, mode: 'insensitive' } }
         });
@@ -127,26 +152,23 @@ export const processExcel = async (fileBuffer: Buffer) => {
         else if (tipoExposicionRaw.includes('INTER')) exposureType = ExposureType.INTERMITENTE;
         else if (tipoExposicionRaw.includes('CONT')) exposureType = ExposureType.CONTINUA;
 
-        // C. Vincular al GES (RiskExposure)
-        // Buscamos si ya existe este riesgo ESPECÍFICO en este GES
+        // C. Vincular al GES
+        const specificClean = agenteEspecifico.toString().trim();
+
         const existingExposure = await prisma.riskExposure.findFirst({
             where: {
                 gesId: ges.id,
                 riskAgentId: riskAgent.id,
-                // Clave: diferenciamos por el detalle específico (ej: Ruido - Sierra vs Ruido - Martillo)
-                specificAgentDetails: agenteEspecifico 
+                specificAgentDetails: specificClean 
             }
         });
 
         if (existingExposure) {
-            // Si ya existe, actualizamos el tipo si cambió
             await prisma.riskExposure.update({
                 where: { id: existingExposure.id },
                 data: { exposureType }
             });
         } else {
-            // Si no existe, lo creamos
-            // Intentamos buscar una batería que coincida por nombre (Inteligencia básica)
             const bateriaSugerida = await prisma.examBattery.findFirst({
                 where: { name: { contains: nombreAgente, mode: 'insensitive' } }
             });
@@ -155,9 +177,8 @@ export const processExcel = async (fileBuffer: Buffer) => {
                 data: {
                     gesId: ges.id,
                     riskAgentId: riskAgent.id,
-                    specificAgentDetails: agenteEspecifico,
+                    specificAgentDetails: specificClean,
                     exposureType: exposureType,
-                    // Si encontramos una batería que se llame igual al riesgo, la vinculamos de una vez
                     examBatteries: bateriaSugerida ? { connect: { id: bateriaSugerida.id } } : undefined
                 }
             });
