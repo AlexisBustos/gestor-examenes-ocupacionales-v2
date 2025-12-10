@@ -1,4 +1,3 @@
-// backend/src/modules/workers/worker.service.ts
 import { PrismaClient } from '@prisma/client';
 import xlsx from 'xlsx';
 import { getSuggestedBatteries } from '../ges/ges.service';
@@ -12,14 +11,14 @@ export const logWorkerEvent = async (workerId: string, type: string, title: stri
     });
 };
 
-// --- READ (CORREGIDO: Ahora trae el Centro de Costos para la lista) ---
+// --- READ (Con CostCenter incluido) ---
 export const findAllWorkers = async () => {
   return await prisma.worker.findMany({
     orderBy: { name: 'asc' },
     include: { 
         company: true, 
         currentGes: true,
-        costCenter: true // 👈 ¡CRÍTICO! Esto permite que se vea en la tabla principal
+        costCenter: true 
     }
   });
 };
@@ -111,9 +110,9 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// 👇 AQUÍ ESTÁ LA IMPORTACIÓN COMPLETA (Email, Teléfono, Cargo, Centro) 👇
+// 👇 IMPORTACIÓN BLINDADA (Lógica simplificada y robusta)
 export const importWorkersDb = async (fileBuffer: Buffer) => {
-    console.log("📢 INICIANDO IMPORTACIÓN DE TRABAJADORES...");
+    console.log("📢 INICIANDO PROCESO DE CARGA...");
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
@@ -123,35 +122,36 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
     if (rows.length > 0) {
-        console.log("👀 Cabeceras detectadas (fila 1):", Object.keys(rows[0]));
+        // Log para ver qué está leyendo realmente el servidor
+        console.log("👀 Cabeceras detectadas:", Object.keys(rows[0]));
     }
 
     for (const row of rows) {
         const clean: any = {};
-        // Limpieza de claves (quita tildes, espacios, etc.)
+        
+        // 1. Limpieza SIMPLE de claves (Solo minúsculas y quitar espacios)
+        // "Centro de Costos" -> "centrodecostos"
         Object.keys(row).forEach(k => {
-            const cleanKey = k.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]/g, "");
+            const cleanKey = k.toLowerCase().trim().replace(/\s+/g, '');
             clean[cleanKey] = row[k];
         });
         
         const rut = clean['rut'];
         const name = clean['nombre'] || clean['trabajador'] || clean['name'] || clean['nombres'];
         
-        // 1. CARGO
-        const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'] || 'Sin Cargo';
+        // 2. Mapeo de datos (con múltiples opciones)
+        const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'];
+        const email = clean['email'] || clean['correo'] || clean['mail'] || clean['correoelectronico'];
+        const phone = clean['phone'] || clean['telefono'] || clean['celular'] || clean['movil'];
         
-        // 2. EMAIL (Agregado)
-        const email = clean['email'] || clean['correo'] || clean['mail'] || clean['correoelectronico'] || null;
-
-        // 3. TELEFONO (Agregado)
-        const phone = clean['phone'] || clean['telefono'] || clean['celular'] || clean['movil'] || null;
-        
-        // 4. CENTRO DE COSTOS (Búsqueda inteligente)
+        // 3. CENTRO DE COSTOS
+        // Busca cualquier variante probable
         const centroRaw = clean['centro'] || clean['centros'] || clean['centrocosto'] || clean['centrodecosto'] || clean['centrodecostos'] || clean['centroscosto'] || clean['cc'] || clean['costcenter'] || clean['centrodetrabajo'];
         
         let costCenterId = null;
 
         if (centroRaw) {
+            // console.log(`🔎 Buscando CC: ${centroRaw}`);
             const foundCC = await prisma.costCenter.findFirst({
                 where: {
                     OR: [
@@ -163,25 +163,25 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
             if (foundCC) {
                 costCenterId = foundCC.id;
             } else {
-                console.warn(`⚠️ Centro no encontrado en BD: "${centroRaw}"`);
+                console.warn(`⚠️ CC no encontrado: "${centroRaw}"`);
             }
         }
         
         if (rut && name) {
+            // Preparamos objeto de actualización (solo campos que traigan datos)
+            const updateData: any = { name: name.toString() };
+            if (cargo) updateData.position = cargo.toString();
+            if (costCenterId) updateData.costCenterId = costCenterId;
+            if (email) updateData.email = email.toString();
+            if (phone) updateData.phone = phone.toString();
+
             await prisma.worker.upsert({
                 where: { rut: rut.toString() },
-                update: { 
-                    name: name.toString(),
-                    position: cargo.toString(),
-                    costCenterId: costCenterId,
-                    // Actualizamos email y teléfono si vienen en el excel
-                    email: email ? email.toString() : undefined,
-                    phone: phone ? phone.toString() : undefined
-                },
+                update: updateData, // Solo actualiza si hay datos nuevos
                 create: { 
                     rut: rut.toString(), 
                     name: name.toString(), 
-                    position: cargo.toString(),
+                    position: cargo ? cargo.toString() : 'Sin Cargo',
                     companyId: defaultCompany.id,
                     costCenterId: costCenterId,
                     email: email ? email.toString() : null,
@@ -192,7 +192,7 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
             count++;
         }
     }
-    console.log(`✅ FIN IMPORTACIÓN. Procesados: ${count}`);
+    console.log(`✅ FIN PROCESO. Actualizados/Creados: ${count}`);
     return { message: `Nómina procesada (${count} registros).` };
 };
 
