@@ -16,7 +16,7 @@ import {
   FileBarChart,
   Plus,
   ListChecks,
-  Trash2, // Icono nuevo
+  Trash2,
   Download,
   FileText
 } from 'lucide-react';
@@ -87,126 +87,141 @@ export function GesDocumentsSheet({
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent className="sm:max-w-[600px]">
-          <SheetHeader className="flex flex-row justify-between items-start">
-            <div>
-              <SheetTitle>Documentos del GES</SheetTitle>
-              <SheetDescription>
-                Protocolos, matrices y respaldos S3.
-              </SheetDescription>
-            </div>
-            <div className="mt-0 flex gap-2">
-              <Button size="sm" onClick={() => setIsUploadOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Cargar Informe
-              </Button>
-            </div>
-          </SheetHeader>
-
-          {isLoading ? (
-            <div className="py-10 flex justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-            </div>
-          ) : !data || data.length === 0 ? (
-            <div className="py-10 text-center border-2 border-dashed rounded-lg mt-6">
-              <div className="flex flex-col items-center gap-2 text-slate-500">
-                <AlertTriangle className="h-8 w-8 text-amber-500/50" />
-                <p>No hay documentos registrados.</p>
-                <Button variant="link" onClick={() => setIsUploadOpen(true)}>
-                  Subir el primer documento
+        {/* 🔥 ARREGLO 1: Usamos flex-col y h-full para controlar la altura */}
+        <SheetContent className="sm:max-w-[600px] flex flex-col h-full p-0">
+          
+          {/* HEADER FIJO */}
+          <div className="px-6 py-6 border-b">
+            <SheetHeader className="flex flex-row justify-between items-start space-y-0">
+                <div className="space-y-1">
+                <SheetTitle>Documentos del GES</SheetTitle>
+                <SheetDescription>
+                    Protocolos, matrices y respaldos S3.
+                </SheetDescription>
+                </div>
+                <Button size="sm" onClick={() => setIsUploadOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Cargar
                 </Button>
-              </div>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-3">
-              {data.map((doc: any) => (
-                <div
-                  key={doc.id}
-                  className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm hover:border-blue-200 transition-colors"
-                >
-                  {/* LADO IZQUIERDO: INFO */}
-                  <div className="flex items-center gap-3 overflow-hidden">
-                    <div
-                      className={`p-2 rounded-full shrink-0 ${
-                        doc.type === 'CUALITATIVO'
-                          ? 'bg-blue-50 text-blue-600'
-                          : 'bg-purple-50 text-purple-600'
-                      }`}
-                    >
-                      {doc.type === 'CUALITATIVO' ? <FileText className="h-4 w-4" /> : <FileBarChart className="h-4 w-4" />}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="font-semibold text-slate-800 truncate" title={doc.name}>
-                        {doc.name || 'Documento sin nombre'}
-                      </div>
-                      <div className="text-xs text-slate-500 flex gap-2 items-center">
-                        <span className="font-medium">{doc.type}</span>
-                        <span>•</span>
-                        <span>
-                          {new Date(doc.reportDate).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
+            </SheetHeader>
+          </div>
 
-                  {/* LADO DERECHO: ACCIONES */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    
-                    {/* BOTÓN VER (S3) */}
-                    {doc.url ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-8 p-0 border-blue-200 text-blue-600 hover:bg-blue-50"
-                        title="Ver PDF"
-                        asChild
-                      >
-                        <a href={doc.url} target="_blank" rel="noreferrer">
-                          <Download className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    ) : (
-                        <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled>
-                            <Download className="h-4 w-4 text-slate-300" />
-                        </Button>
-                    )}
-
-                    {/* BOTÓN PRESCRIPCIONES */}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-8 px-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50"
-                      onClick={() => handleOpenPrescriptions(doc)}
-                      title="Gestionar Medidas/Prescripciones"
-                    >
-                      <ListChecks className="h-4 w-4 mr-1" />
-                      Medidas
+          {/* CUERPO CON SCROLL (Flex-1 toma el espacio restante) */}
+          <div className="flex-1 overflow-y-auto px-6 py-6">
+            
+            {isLoading ? (
+                <div className="py-10 flex justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                </div>
+            ) : !data || data.length === 0 ? (
+                <div className="py-10 text-center border-2 border-dashed rounded-lg">
+                <div className="flex flex-col items-center gap-2 text-slate-500">
+                    <AlertTriangle className="h-8 w-8 text-amber-500/50" />
+                    <p>No hay documentos registrados.</p>
+                    <Button variant="link" onClick={() => setIsUploadOpen(true)}>
+                    Subir el primer documento
                     </Button>
+                </div>
+                </div>
+            ) : (
+                <div className="space-y-3 pb-6"> {/* pb-6 para dar aire al final */}
+                {data.map((doc: any) => (
+                    <div
+                    key={doc.id}
+                    className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm hover:border-blue-200 transition-colors group"
+                    >
+                    {/* LADO IZQUIERDO: INFO */}
+                    <div className="flex items-center gap-3 overflow-hidden flex-1 mr-4"> {/* flex-1 para empujar botones */}
+                        <div
+                        className={`p-2 rounded-full shrink-0 ${
+                            doc.type === 'CUALITATIVO'
+                            ? 'bg-blue-50 text-blue-600'
+                            : 'bg-purple-50 text-purple-600'
+                        }`}
+                        >
+                        {doc.type === 'CUALITATIVO' ? <FileText className="h-4 w-4" /> : <FileBarChart className="h-4 w-4" />}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                        <div className="font-semibold text-slate-800 truncate" title={doc.name}>
+                            {doc.name || 'Documento sin nombre'}
+                        </div>
+                        <div className="text-xs text-slate-500 flex gap-2 items-center mt-0.5">
+                            <span className="font-medium px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">{doc.type}</span>
+                            <span>•</span>
+                            <span>
+                            {new Date(doc.reportDate).toLocaleDateString()}
+                            </span>
+                        </div>
+                        </div>
+                    </div>
 
-                    {/* BOTÓN ELIMINAR */}
-                    <Button
+                    {/* LADO DERECHO: ACCIONES (No se aplastan) */}
+                    <div className="flex items-center gap-1 shrink-0">
+                        
+                        {/* VER */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                            title="Ver PDF"
+                            asChild
+                            disabled={!doc.url}
+                        >
+                            {doc.url ? (
+                                <a href={doc.url} target="_blank" rel="noreferrer">
+                                    <Download className="h-4 w-4" />
+                                </a>
+                            ) : (
+                                <Download className="h-4 w-4 opacity-50" />
+                            )}
+                        </Button>
+
+                        {/* MEDIDAS */}
+                        <Button
                         variant="ghost"
                         size="sm"
-                        className="h-8 w-8 p-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
-                        title="Eliminar documento"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => {
-                            if(confirm("¿Estás seguro de eliminar este documento?")) {
-                                deleteMutation.mutate({ id: doc.id, type: doc.type });
-                            }
-                        }}
-                    >
-                        {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
-                    </Button>
+                        className="h-8 px-2 text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 border border-transparent hover:border-emerald-200"
+                        onClick={() => handleOpenPrescriptions(doc)}
+                        title="Gestionar Medidas"
+                        >
+                        <ListChecks className="h-4 w-4 mr-1.5" />
+                        <span className="hidden sm:inline">Medidas</span> {/* Texto oculto en pantallas muy chicas */}
+                        </Button>
 
-                  </div>
+                        {/* ELIMINAR */}
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            title="Eliminar"
+                            disabled={deleteMutation.isPending}
+                            onClick={() => {
+                                if(confirm("¿Estás seguro de eliminar este documento?")) {
+                                    deleteMutation.mutate({ id: doc.id, type: doc.type });
+                                }
+                            }}
+                        >
+                            {deleteMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin"/> : <Trash2 className="h-4 w-4" />}
+                        </Button>
+
+                    </div>
+                    </div>
+                ))}
                 </div>
-              ))}
-            </div>
-          )}
+            )}
 
-          {/* TIMELINE DEL GES */}
-          {gesId && <GesHistoryTimeline gesId={gesId} />}
+            {/* TIMELINE DEL GES (Separador visual) */}
+            {gesId && (
+                <div className="pt-6 border-t mt-4">
+                    <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                        <ListChecks className="h-4 w-4 text-slate-500" /> Historial de Actividad
+                    </h4>
+                    <GesHistoryTimeline gesId={gesId} />
+                </div>
+            )}
+            
+          </div>
+
         </SheetContent>
       </Sheet>
 

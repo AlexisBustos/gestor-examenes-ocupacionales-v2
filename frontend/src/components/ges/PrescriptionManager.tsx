@@ -238,19 +238,20 @@ export function PrescriptionManager({
                 : 'bg-white hover:bg-slate-50'
             } transition-colors`}
           >
-            <div className="space-y-1 w-full mr-4">
+            {/* PARTE IZQUIERDA (Texto): flex-1 min-w-0 para que se encoja si es necesario */}
+            <div className="space-y-1 flex-1 min-w-0 mr-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {p.folio && (
                   <Badge
                     variant="outline"
-                    className="text-[10px] font-mono"
+                    className="text-[10px] font-mono shrink-0"
                   >
                     {p.folio}
                   </Badge>
                 )}
 
                 <Badge
-                  className={
+                  className={`shrink-0 ${
                     p.status === 'REALIZADA'
                       ? 'bg-green-600 hover:bg-green-700'
                       : p.status === 'EN_PROCESO'
@@ -260,38 +261,40 @@ export function PrescriptionManager({
                       : p.isImmediate
                       ? 'bg-amber-600 hover:bg-amber-700'
                       : 'bg-slate-500 hover:bg-slate-600'
-                  }
+                  }`}
                 >
                   {p.status.replace('_', ' ')}
                 </Badge>
 
                 {p.measureType && (
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground whitespace-nowrap">
                     | {p.measureType}
                   </span>
                 )}
               </div>
 
-              <p className="text-sm font-medium text-slate-800 mt-1">
+              {/* Descripción: break-words para que baje de línea si es muy larga */}
+              <p className="text-sm font-medium text-slate-800 mt-1 break-words">
                 {p.description}
               </p>
 
-              <div className="flex items-center gap-4 text-xs text-muted-foreground pt-1">
-                <span className="flex items-center gap-1 font-medium text-slate-600">
+              <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground pt-1">
+                <span className="flex items-center gap-1 font-medium text-slate-600 shrink-0">
                   <Calendar className="h-3 w-3" /> Límite:{' '}
                   {new Date(
                     p.implementationDate,
                   ).toLocaleDateString()}
                 </span>
                 {p.observation && (
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" /> {p.observation}
+                  <span className="flex items-center gap-1 break-all">
+                    <FileText className="h-3 w-3 shrink-0" /> {p.observation}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col gap-2 items-end">
+            {/* PARTE DERECHA (Botones): shrink-0 para que NUNCA se aplasten */}
+            <div className="flex flex-col gap-2 items-end shrink-0">
               <Select
                 defaultValue={p.status}
                 onValueChange={(val) =>
