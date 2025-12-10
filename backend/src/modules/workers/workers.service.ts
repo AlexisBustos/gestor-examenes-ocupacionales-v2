@@ -26,7 +26,7 @@ export const findWorkerByRut = async (rut: string) => {
   });
 };
 
-// 👇 ACTUALIZADO Y CORREGIDO (COMAS REVISADAS)
+// 👇 ACTUALIZADO Y CORREGIDO
 export const getWorkerById = async (id: string) => {
   return await prisma.worker.findUnique({
     where: { id },
@@ -118,7 +118,7 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// --- IMPORT (AHORA SÍ MAPEA CENTRO DE COSTOS Y CARGO) ---
+// --- IMPORT (VERSIÓN BLINDADA PARA CENTROS DE COSTOS Y CARGOS) ---
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
@@ -131,19 +131,28 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
 
     for (const row of rows) {
         const clean: any = {};
-        // Limpieza de cabeceras (trim y minusculas)
-        Object.keys(row).forEach(k => clean[k.toLowerCase().trim()] = row[k]);
+        // 🔥 Limpieza AGRESIVA de cabeceras: 
+        // "Centro de Costos" -> "centrodecostos"
+        // " Nombre " -> "nombre"
+        Object.keys(row).forEach(k => {
+            const cleanKey = k.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, '');
+            clean[cleanKey] = row[k];
+        });
         
         const rut = clean['rut'];
-        const name = clean['nombre'] || clean['trabajador'] || clean['name'];
-        const cargo = clean['cargo'] || clean['posicion'] || clean['puesto'] || 'Sin Cargo';
+        const name = clean['nombre'] || clean['trabajador'] || clean['name'] || clean['nombres'];
         
-        // Buscamos Centro de Costos por NOMBRE o CÓDIGO
-        const centroRaw = clean['centro'] || clean['centrocosto'] || clean['cc'] || clean['costcenter'];
+        // 1. CARGO: Busca todas las variantes posibles
+        const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'] || 'Sin Cargo';
+        
+        // 2. CENTRO DE COSTOS: Busca todas las variantes posibles
+        // Esto detectará "centro", "centrocosto", "centrodecostos", "cc", "costcenter"
+        const centroRaw = clean['centro'] || clean['centrocosto'] || clean['centrodecosto'] || clean['centrodecostos'] || clean['centroscosto'] || clean['cc'] || clean['costcenter'];
+        
         let costCenterId = null;
 
         if (centroRaw) {
-            // Buscamos si existe un centro de costos con ese nombre o código
+            // Buscamos si existe un centro de costos con ese nombre o código en la BD
             const foundCC = await prisma.costCenter.findFirst({
                 where: {
                     OR: [
@@ -162,15 +171,15 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
                 where: { rut: rut.toString() },
                 update: { 
                     name: name.toString(),
-                    position: cargo.toString(),
-                    costCenterId: costCenterId // Actualizamos CC si existe
+                    position: cargo.toString(), // Actualiza cargo
+                    costCenterId: costCenterId  // Actualiza Centro de Costos
                 },
                 create: { 
                     rut: rut.toString(), 
                     name: name.toString(), 
                     position: cargo.toString(),
                     companyId: defaultCompany.id,
-                    costCenterId: costCenterId, // Asignamos CC al crear
+                    costCenterId: costCenterId,
                     employmentStatus: 'NOMINA'
                 }
             });
