@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import axios from "@/lib/axios";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import {
   Loader2,
   AlertTriangle,
@@ -16,6 +15,7 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface GesHistoryTimelineProps {
   gesId: string | null;
@@ -116,7 +116,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
   ];
 
   return (
-    <div className="mt-10 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="mt-10 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
       <Card className="bg-slate-50/80 border-slate-200 shadow-sm">
         <CardContent className="p-4 space-y-4">
           {/* Header */}
@@ -159,7 +159,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
               </>
             )}
 
-            <div className="ml-auto flex flex-wrap gap-1 items-center">
+            <div className="ml-auto flex flex-wrap gap-1 items-center mt-2 sm:mt-0">
               <span className="text-[11px] text-slate-500 mr-1">
                 Filtrar medidas:
               </span>
@@ -197,21 +197,21 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                   className="flex items-center gap-2 w-full text-left"
                 >
                   {expandedQuali ? (
-                    <ChevronDown className="h-4 w-4 text-slate-600" />
+                    <ChevronDown className="h-4 w-4 text-slate-600 shrink-0" />
                   ) : (
-                    <ChevronRight className="h-4 w-4 text-slate-600" />
+                    <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
                   )}
 
-                  <Badge className="bg-blue-600 hover:bg-blue-700">
+                  <Badge className="bg-blue-600 hover:bg-blue-700 shrink-0">
                     Cualitativa
                   </Badge>
 
-                  <span className="text-xs text-slate-500">
+                  <span className="text-xs text-slate-500 truncate">
                     {new Date(tech.reportDate).toLocaleDateString()} · Folio{" "}
                     {tech.reportNumber}
                   </span>
 
-                  <span className="ml-auto text-[11px] text-slate-500">
+                  <span className="ml-auto text-[11px] text-slate-500 shrink-0">
                     Medidas:{" "}
                     <strong>{tech.prescriptions?.length || 0}</strong>
                   </span>
@@ -220,14 +220,14 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                 {expandedQuali && (
                   <div className="mt-2 pl-6 animate-in fade-in duration-300 space-y-2">
                     <div className="flex items-center gap-2 text-xs text-slate-600">
-                      <FileText className="h-3 w-3" />
+                      <FileText className="h-3 w-3 shrink-0" />
                       <span>Informe base del GES.</span>
                       {tech.pdfUrl && (
                         <Button
                           asChild
                           size="sm"
                           variant="outline"
-                          className="h-6 px-2 text-[11px]"
+                          className="h-6 px-2 text-[11px] ml-1"
                         >
                           <a
                             href={tech.pdfUrl}
@@ -249,8 +249,11 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                               key={p.id}
                               className="flex items-start gap-2 text-[11px] text-slate-700"
                             >
-                              {getStatusIcon(p.status)}
-                              <span>
+                              {/* 🔥 ARREGLO 1: shrink-0 en el contenedor del icono */}
+                              <div className="mt-0.5 shrink-0">
+                                {getStatusIcon(p.status)}
+                              </div>
+                              <span className="break-words">
                                 <strong>{p.folio || "Medida"}:</strong>{" "}
                                 {p.description}
                               </span>
@@ -293,20 +296,20 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                     className="flex items-center gap-2 w-full text-left"
                   >
                     {isOpen ? (
-                      <ChevronDown className="h-4 w-4 text-slate-600" />
+                      <ChevronDown className="h-4 w-4 text-slate-600 shrink-0" />
                     ) : (
-                      <ChevronRight className="h-4 w-4 text-slate-600" />
+                      <ChevronRight className="h-4 w-4 text-slate-600 shrink-0" />
                     )}
 
-                    <Badge className="bg-purple-600 hover:bg-purple-700">
+                    <Badge className="bg-purple-600 hover:bg-purple-700 shrink-0">
                       Cuantitativa {idx + 1}
                     </Badge>
 
-                    <span className="text-xs text-slate-500">
+                    <span className="text-xs text-slate-500 truncate">
                       {new Date(q.reportDate).toLocaleDateString()} · {q.name}
                     </span>
 
-                    <span className="ml-auto text-[11px] text-slate-500">
+                    <span className="ml-auto text-[11px] text-slate-500 shrink-0">
                       Medidas: <strong>{q.prescriptions?.length || 0}</strong>
                     </span>
                   </button>
@@ -314,14 +317,14 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                   {isOpen && (
                     <div className="mt-2 pl-6 animate-in fade-in duration-300 space-y-2">
                       <div className="flex items-center gap-2 text-xs text-slate-600">
-                        <FileText className="h-3 w-3" />
+                        <FileText className="h-3 w-3 shrink-0" />
                         <span>Medición específica asociada al GES.</span>
                         {q.pdfUrl && (
                           <Button
                             asChild
                             size="sm"
                             variant="outline"
-                            className="h-6 px-2 text-[11px]"
+                            className="h-6 px-2 text-[11px] ml-1"
                           >
                             <a
                               href={q.pdfUrl}
@@ -341,8 +344,11 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                               key={p.id}
                               className="flex items-start gap-2 text-[11px] text-slate-700"
                             >
-                              {getStatusIcon(p.status)}
-                              <span>
+                              {/* 🔥 ARREGLO 2: shrink-0 aquí también */}
+                              <div className="mt-0.5 shrink-0">
+                                {getStatusIcon(p.status)}
+                              </div>
+                              <span className="break-words">
                                 <strong>{p.folio || "Medida"}:</strong>{" "}
                                 {p.description}
                               </span>
