@@ -14,7 +14,7 @@ import { PrescriptionManager } from './PrescriptionManager';
 interface GesPrescriptionSheetProps {
   gesId: string | null;
   documentId: string | null;
-  documentType: 'CUALITATIVO' | 'CUANTITATIVO' | null;
+  documentType: 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT' | null; // 👈 AGREGADO TMERT
   documentName?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,16 +39,21 @@ export function GesPrescriptionSheet({
   });
 
   // Determinar a qué informe están asociadas las prescripciones
-  let parentType: 'qualitative' | 'quantitative' | null = null;
+  let parentType: 'qualitative' | 'quantitative' | 'tmert' | null = null; // 👈 AGREGADO tmert
   let parentId: string | null = null;
   let prescriptions: any[] = [];
 
-  if (data && documentId && documentType && data.technicalReport) {
-    if (documentType === 'CUALITATIVO') {
-      parentType = 'qualitative';
-      parentId = data.technicalReport.id;
-      prescriptions = data.technicalReport.prescriptions || [];
-    } else if (documentType === 'CUANTITATIVO') {
+  if (data && documentId && documentType) {
+    // CASO 1: CUALITATIVO
+    if (documentType === 'CUALITATIVO' && data.technicalReport) {
+      if (data.technicalReport.id === documentId) {
+          parentType = 'qualitative';
+          parentId = data.technicalReport.id;
+          prescriptions = data.technicalReport.prescriptions || [];
+      }
+    
+    // CASO 2: CUANTITATIVO
+    } else if (documentType === 'CUANTITATIVO' && data.technicalReport) {
       const q = data.technicalReport.quantitativeReports?.find(
         (qr: any) => qr.id === documentId,
       );
@@ -57,6 +62,15 @@ export function GesPrescriptionSheet({
         parentId = q.id;
         prescriptions = q.prescriptions || [];
       }
+    
+    // CASO 3: TMERT (NUEVO) 👇
+    } else if (documentType === 'TMERT' && data.tmertReports) {
+        const t = data.tmertReports.find((tr: any) => tr.id === documentId);
+        if (t) {
+            parentType = 'tmert';
+            parentId = t.id;
+            prescriptions = t.prescriptions || [];
+        }
     }
   }
 
@@ -64,14 +78,9 @@ export function GesPrescriptionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      {/* 🔥 ARREGLO DE SCROLL: 
-         - flex flex-col: Para ordenar verticalmente header y cuerpo.
-         - h-full: Para ocupar toda la altura.
-         - p-0: Quitamos el padding por defecto para manejarlo nosotros.
-      */}
       <SheetContent className="sm:max-w-[650px] flex flex-col h-full p-0">
         
-        {/* 1. HEADER FIJO (No se mueve al scrollear) */}
+        {/* HEADER FIJO */}
         <div className="px-6 py-6 border-b shrink-0">
             <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -85,7 +94,7 @@ export function GesPrescriptionSheet({
             </SheetHeader>
         </div>
 
-        {/* 2. CUERPO SCROLLABLE (Aquí va todo el contenido largo) */}
+        {/* CUERPO SCROLLABLE */}
         <div className="flex-1 overflow-y-auto px-6 py-6">
             
             {isLoading && (
@@ -106,17 +115,16 @@ export function GesPrescriptionSheet({
                 <AlertTriangle className="h-4 w-4 mt-0.5" />
                 <div>
                 No se encontró información de prescripciones para este informe.
-                Asegúrate de haber subido primero la evaluación cualitativa
-                correspondiente.
+                Asegúrate de que el informe exista y esté correctamente cargado.
                 </div>
             </div>
             )}
 
             {!isLoading && !isError && hasTarget && (
-            <div className="mt-4 pb-10"> {/* pb-10 para dar espacio al final */}
+            <div className="mt-4 pb-10">
                 <PrescriptionManager
                 parentId={parentId!}
-                parentType={parentType!}
+                parentType={parentType!} // Se pasa 'tmert' aquí si corresponde
                 prescriptions={prescriptions as any}
                 />
             </div>
