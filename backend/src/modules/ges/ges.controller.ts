@@ -59,11 +59,11 @@ export const uploadDocument = async (req: Request, res: Response) => {
     const { id } = req.params;
     
     // Al usar multer-s3 (uploadS3), el archivo viene aquí. 
-    // TypeScript puede quejarse si no usamos 'as any' porque multer-s3 agrega propiedades extra.
     const file = req.file as any; 
     
     if (!file) return res.status(400).json({ error: 'Falta archivo PDF' });
     
+    // El body debe traer { type: 'TMERT', reportName: '...', reportDate: '...' }
     const result = await GesService.uploadGesDocument(id, file, req.body);
     res.json(result);
   } catch (e: any) { 
@@ -87,10 +87,8 @@ export const getHistory = async (req: Request, res: Response) => {
   }
 };
 
-// 👇 FUNCIONES CORREGIDAS (Usando GesService.)
 export const deleteQualitative = async (req: Request, res: Response) => {
     try {
-        // Usamos GesService para llamar a la función que agregamos en el servicio
         await GesService.removeTechnicalReport(req.params.docId);
         res.json({ message: 'Documento eliminado' });
     } catch (error) {
@@ -100,10 +98,19 @@ export const deleteQualitative = async (req: Request, res: Response) => {
 
 export const deleteQuantitative = async (req: Request, res: Response) => {
     try {
-        // Usamos GesService para llamar a la función que agregamos en el servicio
         await GesService.removeQuantitativeReport(req.params.docId);
         res.json({ message: 'Documento eliminado' });
     } catch (error) {
         res.status(500).json({ error: 'Error al eliminar documento' });
+    }
+};
+
+// 👇 NUEVO: Endpoint para eliminar TMERT
+export const deleteTmert = async (req: Request, res: Response) => {
+    try {
+        await GesService.removeTmertReport(req.params.docId);
+        res.json({ message: 'Informe TMERT eliminado' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al eliminar TMERT' });
     }
 };

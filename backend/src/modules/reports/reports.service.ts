@@ -3,22 +3,24 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // --- CREAR PRESCRIPCIÓN ---
-// Esta función es polimórfica: sirve para TechnicalReport O QuantitativeReport
+// Esta función es polimórfica: sirve para Technical, Quantitative O TMERT
 export const createPrescription = async (data: {
-  technicalReportId?: string;    // Opcional (si es cualitativo)
-  quantitativeReportId?: string; // Opcional (si es cuantitativo)
+  technicalReportId?: string;    // Opcional
+  quantitativeReportId?: string; // Opcional
+  tmertReportId?: string;        // 👇 NUEVO: Opcional (si es TMERT)
   folio?: string;
   description: string;
   measureType?: string;
   isImmediate: boolean;
-  implementationDate: string;    // Viene como string del frontend
+  implementationDate: string;    
   observation?: string;
   status?: 'PENDIENTE' | 'EN_PROCESO' | 'REALIZADA' | 'VENCIDA';
 }) => {
   
   // Validar que al menos uno de los IDs venga
-  if (!data.technicalReportId && !data.quantitativeReportId) {
-    throw new Error("Debe asociar la prescripción a un informe Técnico o Cuantitativo.");
+  // 👇 ACTUALIZADO: Ahora validamos los 3 tipos
+  if (!data.technicalReportId && !data.quantitativeReportId && !data.tmertReportId) {
+    throw new Error("Debe asociar la prescripción a un informe Técnico, Cuantitativo o TMERT.");
   }
 
   return await prisma.prescription.create({
@@ -27,12 +29,14 @@ export const createPrescription = async (data: {
       description: data.description,
       measureType: data.measureType,
       isImmediate: data.isImmediate,
-      implementationDate: new Date(data.implementationDate), // Convertir a Date
+      implementationDate: new Date(data.implementationDate), 
       observation: data.observation,
       status: data.status || 'PENDIENTE',
-      // Conexiones (uno de los dos será undefined, Prisma lo ignora)
+      
+      // Conexiones (Prisma ignorará los que sean undefined)
       technicalReportId: data.technicalReportId,
-      quantitativeReportId: data.quantitativeReportId
+      quantitativeReportId: data.quantitativeReportId,
+      tmertReportId: data.tmertReportId // 👇 NUEVO
     }
   });
 };
@@ -60,4 +64,4 @@ export const deletePrescription = async (id: string) => {
   return await prisma.prescription.delete({ where: { id } });
 };
 
-// (Mantén aquí tus otras funciones de reports si existen, como createQuantitativeReport)
+// (Mantén aquí tus otras funciones de reports si existen)

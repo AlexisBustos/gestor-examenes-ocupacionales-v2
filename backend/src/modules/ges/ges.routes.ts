@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import * as GesController from './ges.controller';
-import { uploadS3 } from '../../config/upload'; // 👈 CAMBIO 1: Usamos el puente S3
+import { uploadS3 } from '../../config/upload'; 
 
 const router = Router();
 
@@ -16,12 +16,14 @@ router.put('/:id/batteries', GesController.updateRules);
 // Documentos
 router.get('/:id/documents', GesController.getDocuments);
 
-// 👈 CAMBIO 2: Usamos uploadS3 aquí
+// Subida de documentos (incluye TMERT)
 router.post('/:id/documents', uploadS3.single('file'), GesController.uploadDocument);
 
-// 👈 CAMBIO 3: Rutas para borrar documentos
+// Rutas para borrar documentos
 router.delete('/:id/documents/qualitative/:docId', GesController.deleteQualitative);
 router.delete('/:id/documents/quantitative/:docId', GesController.deleteQuantitative);
+// 👇 NUEVA RUTA PARA BORRAR TMERT
+router.delete('/:id/documents/tmert/:docId', GesController.deleteTmert);
 
 // Historial
 router.get('/:id/history', GesController.getHistory);

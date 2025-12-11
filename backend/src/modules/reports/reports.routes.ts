@@ -3,24 +3,19 @@ import * as ReportsController from './reports.controller';
 
 const router = Router();
 
-// Rutas existentes (si tenías para subir cuantitativos, déjalas aquí)
-// router.post('/quantitative', ...);
-
-// --- RUTAS NUEVAS PARA PRESCRIPCIONES ---
-
-// 1. Crear vinculada a un Informe Cualitativo
-// POST /api/reports/technical/:technicalReportId/prescriptions
+// 1. Crear Prescripción para Informe TÉCNICO (Cualitativo)
 router.post('/technical/:technicalReportId/prescriptions', ReportsController.addTechnicalPrescription);
 
-// 2. Crear vinculada a un Informe Cuantitativo
-// POST /api/reports/quantitative/:quantitativeReportId/prescriptions
+// 2. Crear Prescripción para Informe CUANTITATIVO
 router.post('/quantitative/:quantitativeReportId/prescriptions', ReportsController.addQuantitativePrescription);
 
-// 3. Gestión directa de prescripciones (Editar / Borrar)
-// PATCH /api/reports/prescriptions/:id
-router.patch('/prescriptions/:id', ReportsController.updatePrescriptionItem);
+// 👇 3. NUEVO: Crear Prescripción para TMERT
+router.post('/tmert/:tmertReportId/prescriptions', ReportsController.addTmertPrescription);
 
-// DELETE /api/reports/prescriptions/:id
+// 4. Actualizar Prescripción (Cualquier tipo)
+router.put('/prescriptions/:id', ReportsController.updatePrescriptionItem);
+
+// 5. Eliminar Prescripción
 router.delete('/prescriptions/:id', ReportsController.removePrescription);
 
 export default router;

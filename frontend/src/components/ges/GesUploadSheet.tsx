@@ -29,7 +29,7 @@ interface GesUploadSheetProps {
 }
 
 interface UploadForm {
-  type: 'CUALITATIVO' | 'CUANTITATIVO';
+  type: 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT'; // 👈 AGREGADO TMERT
   reportName: string;
   reportDate: string;
   file: FileList;
@@ -91,7 +91,7 @@ export function GesUploadSheet({
         <SheetHeader>
           <SheetTitle>Cargar Informe</SheetTitle>
           <SheetDescription>
-            Sube evaluaciones cualitativas o cuantitativas para este GES.
+            Sube evaluaciones cualitativas, cuantitativas o TMERT para este GES.
           </SheetDescription>
         </SheetHeader>
 
@@ -102,7 +102,7 @@ export function GesUploadSheet({
             <Label>Tipo de Documento</Label>
             <Select
               onValueChange={(val) =>
-                setValue('type', val as 'CUALITATIVO' | 'CUANTITATIVO')
+                setValue('type', val as 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT')
               }
               defaultValue="CUALITATIVO"
             >
@@ -115,6 +115,10 @@ export function GesUploadSheet({
                 </SelectItem>
                 <SelectItem value="CUANTITATIVO">
                   Informe Cuantitativo (Medición)
+                </SelectItem>
+                {/* 👇 NUEVA OPCIÓN TMERT */}
+                <SelectItem value="TMERT">
+                  Informe TMERT (Específico GES)
                 </SelectItem>
               </SelectContent>
             </Select>

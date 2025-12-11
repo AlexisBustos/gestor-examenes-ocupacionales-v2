@@ -2,19 +2,14 @@ import axios from "axios";
 
 /**
  * ============================================================
- *  CONFIGURACIÓN GLOBAL DE AXIOS (DEV / PRODUCCIÓN)
+ * CONFIGURACIÓN GLOBAL DE AXIOS
  * ============================================================
- *
- *  - Si VITE_API_URL NO existe, usa localhost como fallback.
- *  - Debe definirse en:
- *        .env.development   → http://localhost:3000/api
- *        .env.production    → https://tu-backend.com/api
- *
  */
-export const API_URL = "https://gestor-examenes-ocupacionales.onrender.com/api";
-  import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
-// Para servir archivos estáticos (PDFs, imágenes, etc.)
+// 👇 CORRECCIÓN: Ahora sí lee el .env o usa localhost por defecto
+export const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+
+// Para servir archivos estáticos
 export const SERVER_URL = API_URL.replace("/api", "");
 
 /**
@@ -30,11 +25,11 @@ const axiosInstance = axios.create({
 
 /**
  * ============================================================
- *  INTERCEPTORES
+ * INTERCEPTORES
  * ============================================================
  */
 
-// 🚀 Agregar token automáticamente si existe (opcional)
+// Agregar token automáticamente
 axiosInstance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("auth_token");
@@ -46,7 +41,7 @@ axiosInstance.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// 📌 Registrar errores de forma elegante
+// Manejo de errores
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {

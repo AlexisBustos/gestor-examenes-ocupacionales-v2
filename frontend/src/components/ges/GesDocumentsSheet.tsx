@@ -18,7 +18,8 @@ import {
   ListChecks,
   Trash2,
   Download,
-  FileText
+  FileText,
+  Activity // Icono nuevo para TMERT
 } from 'lucide-react';
 
 import { GesUploadSheet } from './GesUploadSheet';
@@ -31,7 +32,7 @@ interface GesDocumentsSheetProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type GesDocumentType = 'CUALITATIVO' | 'CUANTITATIVO';
+type GesDocumentType = 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT'; // 👈 AGREGADO
 
 export function GesDocumentsSheet({
   gesId,
@@ -59,12 +60,13 @@ export function GesDocumentsSheet({
     enabled: !!gesId && open,
   });
 
-  // 👇 MUTACIONES PARA ELIMINAR DOCUMENTOS
+  // 👇 MUTACIONES PARA ELIMINAR DOCUMENTOS (Actualizada con TMERT)
   const deleteMutation = useMutation({
     mutationFn: async ({ id, type }: { id: string; type: string }) => {
-        const endpoint = type === 'CUALITATIVO' 
-            ? 'qualitative' 
-            : 'quantitative';
+        let endpoint = '';
+        if (type === 'CUALITATIVO') endpoint = 'qualitative';
+        else if (type === 'CUANTITATIVO') endpoint = 'quantitative';
+        else if (type === 'TMERT') endpoint = 'tmert'; // 👈 NUEVO endpoint
         
         await axios.delete(`/ges/${gesId}/documents/${endpoint}/${id}`);
     },
@@ -84,10 +86,28 @@ export function GesDocumentsSheet({
     setIsPrescriptionsOpen(true);
   };
 
+  // Helper para icono y color según tipo
+  const getDocIcon = (type: string) => {
+      switch(type) {
+          case 'CUALITATIVO': return <FileText className="h-4 w-4" />;
+          case 'CUANTITATIVO': return <FileBarChart className="h-4 w-4" />;
+          case 'TMERT': return <Activity className="h-4 w-4" />;
+          default: return <FileText className="h-4 w-4" />;
+      }
+  }
+
+  const getDocColor = (type: string) => {
+      switch(type) {
+          case 'CUALITATIVO': return 'bg-blue-50 text-blue-600';
+          case 'CUANTITATIVO': return 'bg-purple-50 text-purple-600';
+          case 'TMERT': return 'bg-orange-50 text-orange-600'; // 👈 Color naranja para TMERT
+          default: return 'bg-slate-50 text-slate-600';
+      }
+  }
+
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
-        {/* 🔥 ARREGLO 1: Usamos flex-col y h-full para controlar la altura */}
         <SheetContent className="sm:max-w-[600px] flex flex-col h-full p-0">
           
           {/* HEADER FIJO */}
@@ -96,7 +116,7 @@ export function GesDocumentsSheet({
                 <div className="space-y-1">
                 <SheetTitle>Documentos del GES</SheetTitle>
                 <SheetDescription>
-                    Protocolos, matrices y respaldos S3.
+                    Protocolos, matrices, mediciones y TMERT.
                 </SheetDescription>
                 </div>
                 <Button size="sm" onClick={() => setIsUploadOpen(true)}>
@@ -106,7 +126,7 @@ export function GesDocumentsSheet({
             </SheetHeader>
           </div>
 
-          {/* CUERPO CON SCROLL (Flex-1 toma el espacio restante) */}
+          {/* CUERPO CON SCROLL */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
             
             {isLoading ? (
@@ -124,22 +144,16 @@ export function GesDocumentsSheet({
                 </div>
                 </div>
             ) : (
-                <div className="space-y-3 pb-6"> {/* pb-6 para dar aire al final */}
+                <div className="space-y-3 pb-6">
                 {data.map((doc: any) => (
                     <div
                     key={doc.id}
                     className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm hover:border-blue-200 transition-colors group"
                     >
                     {/* LADO IZQUIERDO: INFO */}
-                    <div className="flex items-center gap-3 overflow-hidden flex-1 mr-4"> {/* flex-1 para empujar botones */}
-                        <div
-                        className={`p-2 rounded-full shrink-0 ${
-                            doc.type === 'CUALITATIVO'
-                            ? 'bg-blue-50 text-blue-600'
-                            : 'bg-purple-50 text-purple-600'
-                        }`}
-                        >
-                        {doc.type === 'CUALITATIVO' ? <FileText className="h-4 w-4" /> : <FileBarChart className="h-4 w-4" />}
+                    <div className="flex items-center gap-3 overflow-hidden flex-1 mr-4">
+                        <div className={`p-2 rounded-full shrink-0 ${getDocColor(doc.type)}`}>
+                            {getDocIcon(doc.type)}
                         </div>
                         <div className="min-w-0 flex-1">
                         <div className="font-semibold text-slate-800 truncate" title={doc.name}>
@@ -155,7 +169,7 @@ export function GesDocumentsSheet({
                         </div>
                     </div>
 
-                    {/* LADO DERECHO: ACCIONES (No se aplastan) */}
+                    {/* LADO DERECHO: ACCIONES */}
                     <div className="flex items-center gap-1 shrink-0">
                         
                         {/* VER */}
@@ -185,7 +199,7 @@ export function GesDocumentsSheet({
                         title="Gestionar Medidas"
                         >
                         <ListChecks className="h-4 w-4 mr-1.5" />
-                        <span className="hidden sm:inline">Medidas</span> {/* Texto oculto en pantallas muy chicas */}
+                        <span className="hidden sm:inline">Medidas</span>
                         </Button>
 
                         {/* ELIMINAR */}
@@ -210,7 +224,7 @@ export function GesDocumentsSheet({
                 </div>
             )}
 
-            {/* TIMELINE DEL GES (Separador visual) */}
+            {/* TIMELINE DEL GES */}
             {gesId && (
                 <div className="pt-6 border-t mt-4">
                     <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">

@@ -2,7 +2,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- HELPERS (Tus funciones de búsqueda de baterías) ---
+// --- HELPERS ---
 const normalizeText = (text: string) => text ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim() : "";
 
 const KEYWORD_MAP: Record<string, string> = {
@@ -77,7 +77,8 @@ export const getGesById = async (id: string) => {
       riskExposures: { include: { riskAgent: true } },
       examBatteries: true, 
       area: { include: { workCenter: true } },
-      technicalReport: { include: { prescriptions: true } }
+      technicalReport: { include: { prescriptions: true } },
+      tmertReports: { include: { prescriptions: true } } // 👇 Incluimos TMERT aquí también
     },
   });
 };
@@ -123,41 +124,63 @@ export const getBatteriesByArea = async (areaId: string) => {
     return Array.from(uniqueMap.values());
 };
 
-// --- GESTIÓN DOCUMENTAL ---
+// --- GESTIÓN DOCUMENTAL (Cualitativo, Cuantitativo y TMERT) ---
 export const getGesDocuments = async (gesId: string) => {
     const ges = await prisma.ges.findUnique({
         where: { id: gesId },
-        include: { technicalReport: true }
+        include: { 
+            technicalReport: true,
+            tmertReports: { orderBy: { reportDate: 'desc' } } // 👇 Traemos los TMERT
+        }
     });
 
-    if (!ges || !ges.technicalReport) return [];
+    if (!ges) return [];
 
-    const quantitativeReports = await prisma.quantitativeReport.findMany({
-        where: { technicalReportId: ges.technicalReport.id },
-        orderBy: { reportDate: 'desc' }
-    });
+    let documents: any[] = [];
 
-    return [
-        {
+    // 1. Cualitativo (Si existe)
+    if (ges.technicalReport) {
+        documents.push({
             id: ges.technicalReport.id,
             name: `Evaluación Cualitativa ${ges.technicalReport.reportNumber}`,
             type: 'CUALITATIVO',
             reportDate: ges.technicalReport.reportDate,
             url: ges.technicalReport.pdfUrl,
             valid: true 
-        },
-        ...quantitativeReports.map(q => ({
+        });
+
+        // 2. Cuantitativos (Dependen del cualitativo)
+        const quantitativeReports = await prisma.quantitativeReport.findMany({
+            where: { technicalReportId: ges.technicalReport.id },
+            orderBy: { reportDate: 'desc' }
+        });
+
+        documents.push(...quantitativeReports.map(q => ({
             id: q.id,
             name: q.name || 'Medición Cuantitativa',
             type: 'CUANTITATIVO',
             reportDate: q.reportDate,
             url: q.pdfUrl,
             valid: true
-        }))
-    ];
+        })));
+    }
+
+    // 3. TMERT (Independientes, específicos del GES) 👇
+    if (ges.tmertReports && ges.tmertReports.length > 0) {
+        documents.push(...ges.tmertReports.map(t => ({
+            id: t.id,
+            name: t.name || 'Informe TMERT',
+            type: 'TMERT', // Etiqueta para el frontend
+            reportDate: t.reportDate,
+            url: t.pdfUrl,
+            valid: true
+        })));
+    }
+
+    return documents;
 };
 
-// 👇 AQUÍ ESTÁ LA CORRECCIÓN CRÍTICA 👇
+// 👇 AQUÍ ESTÁ LA LÓGICA DE SUBIDA ACTUALIZADA
 export const uploadGesDocument = async (gesId: string, file: any, meta: any) => {
     const ges = await prisma.ges.findUnique({ 
         where: { id: gesId }, 
@@ -166,16 +189,16 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
     
     if (!ges) throw new Error("GES no encontrado");
 
-    // CORRECCIÓN: Usamos file.location (S3 URL) en lugar de file.filename
     const fileUrl = file.location; 
     const reportDate = new Date(meta.reportDate);
 
+    // OPCIÓN A: CUALITATIVO
     if (meta.type === 'CUALITATIVO') {
         const report = await prisma.technicalReport.create({
             data: {
                 reportNumber: meta.reportName || meta.reportNumber || 'S/N',
                 reportDate: reportDate,
-                pdfUrl: fileUrl, // Guardamos la URL de S3
+                pdfUrl: fileUrl,
                 companyId: ges.area.workCenter.companyId,
                 gesGroups: { connect: { id: gesId } }
             }
@@ -197,6 +220,7 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
         }
         return report;
 
+    // OPCIÓN B: CUANTITATIVO
     } else if (meta.type === 'CUANTITATIVO') {
         if (!ges.technicalReportId) {
             throw new Error("Debe existir una Evaluación Cualitativa base para subir Cuantitativos.");
@@ -205,17 +229,29 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
             data: {
                 name: meta.reportName,
                 reportDate: reportDate,
-                pdfUrl: fileUrl, // Guardamos la URL de S3
+                pdfUrl: fileUrl,
                 technicalReportId: ges.technicalReportId
             }
         });
         return quant;
+
+    // OPCIÓN C: TMERT (NUEVO) 👇
+    } else if (meta.type === 'TMERT') {
+        const tmert = await prisma.tmertReport.create({
+            data: {
+                name: meta.reportName || 'Informe TMERT',
+                reportDate: reportDate,
+                pdfUrl: fileUrl,
+                gesId: gesId // Conexión directa al GES
+            }
+        });
+        return tmert;
     }
     
     throw new Error("Tipo de documento no válido");
 };
 
-// --- HISTORIAL COMPLETO ---
+// --- HISTORIAL COMPLETO (Incluye TMERT) ---
 export const getGesFullHistory = async (gesId: string) => {
     const ges = await prisma.ges.findUnique({
         where: { id: gesId },
@@ -226,6 +262,11 @@ export const getGesFullHistory = async (gesId: string) => {
                         include: { company: true }
                     }
                 }
+            },
+            // Incluimos historial TMERT 👇
+            tmertReports: {
+                orderBy: { reportDate: 'desc' },
+                include: { prescriptions: true }
             },
             technicalReport: {
                 include: {
@@ -258,6 +299,7 @@ export const getGesFullHistory = async (gesId: string) => {
                 }
             }
         },
+        // Estructura existente
         technicalReport: ges.technicalReport ? {
             id: ges.technicalReport.id,
             reportNumber: ges.technicalReport.reportNumber,
@@ -265,7 +307,16 @@ export const getGesFullHistory = async (gesId: string) => {
             pdfUrl: ges.technicalReport.pdfUrl,
             prescriptions: ges.technicalReport.prescriptions,
             quantitativeReports: ges.technicalReport.quantitativeReports
-        } : null
+        } : null,
+
+        // Estructura nueva para frontend 👇
+        tmertReports: ges.tmertReports.map(t => ({
+            id: t.id,
+            name: t.name,
+            reportDate: t.reportDate,
+            pdfUrl: t.pdfUrl,
+            prescriptions: t.prescriptions
+        }))
     };
 };
 
@@ -275,4 +326,9 @@ export const removeTechnicalReport = async (id: string) => {
 
 export const removeQuantitativeReport = async (id: string) => {
     return await prisma.quantitativeReport.delete({ where: { id } });
+};
+
+// 👇 Helper para eliminar TMERT
+export const removeTmertReport = async (id: string) => {
+    return await prisma.tmertReport.delete({ where: { id } });
 };
