@@ -37,7 +37,7 @@ interface Prescription {
 
 interface Props {
   parentId: string;
-  parentType: 'qualitative' | 'quantitative';
+  parentType: 'qualitative' | 'quantitative' | 'tmert'; // 👈 AGREGADO tmert
   prescriptions: Prescription[];
 }
 
@@ -57,13 +57,19 @@ export function PrescriptionManager({
   const [date, setDate] = useState('');
   const [obs, setObs] = useState('');
 
-  // MUTACIÓN: CREAR
+  // MUTACIÓN: CREAR (Actualizada para TMERT)
   const createMutation = useMutation({
     mutationFn: async () => {
-      const url =
-        parentType === 'qualitative'
-          ? `/reports/technical/${parentId}/prescriptions`
-          : `/reports/quantitative/${parentId}/prescriptions`;
+      let url = '';
+      
+      if (parentType === 'qualitative') {
+          url = `/reports/technical/${parentId}/prescriptions`;
+      } else if (parentType === 'quantitative') {
+          url = `/reports/quantitative/${parentId}/prescriptions`;
+      } else if (parentType === 'tmert') {
+          // 👇 RUTA NUEVA PARA TMERT
+          url = `/reports/tmert/${parentId}/prescriptions`;
+      }
 
       await axios.post(url, {
         folio,
@@ -238,7 +244,7 @@ export function PrescriptionManager({
                 : 'bg-white hover:bg-slate-50'
             } transition-colors`}
           >
-            {/* PARTE IZQUIERDA (Texto): flex-1 min-w-0 para que se encoja si es necesario */}
+            {/* PARTE IZQUIERDA (Texto) */}
             <div className="space-y-1 flex-1 min-w-0 mr-4">
               <div className="flex items-center gap-2 flex-wrap">
                 {p.folio && (
@@ -273,7 +279,7 @@ export function PrescriptionManager({
                 )}
               </div>
 
-              {/* Descripción: break-words para que baje de línea si es muy larga */}
+              {/* Descripción */}
               <p className="text-sm font-medium text-slate-800 mt-1 break-words">
                 {p.description}
               </p>
@@ -293,7 +299,7 @@ export function PrescriptionManager({
               </div>
             </div>
 
-            {/* PARTE DERECHA (Botones): shrink-0 para que NUNCA se aplasten */}
+            {/* PARTE DERECHA (Botones) */}
             <div className="flex flex-col gap-2 items-end shrink-0">
               <Select
                 defaultValue={p.status}
