@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { Link } from 'react-router-dom'; // 👈 IMPORTANTE: Agregamos Link
 import * as z from 'zod';
 import { Loader2, Eye, EyeOff, Lock, Mail, ShieldCheck, GitCommit } from 'lucide-react';
 import { toast } from 'sonner';
@@ -109,17 +110,14 @@ export default function LoginPage() {
                     {/* Encabezado Mobile/Desktop */}
                     <div className="flex flex-col space-y-2 text-center">
                         
-                        {/* 👇 AQUÍ ESTÁ EL CAMBIO: TU LOGO VITAM 👇 */}
                         <div className="flex justify-center mb-6">
                             <img 
                                 src="/logo.png" 
                                 alt="Logo Vitam" 
-                                className="h-40 w-auto object-contain" // Ajusta h-20 si lo quieres más grande o pequeño
+                                className="h-40 w-auto object-contain" 
                             />
                         </div>
 
-                        {/* He quitado el icono antiguo de ShieldCheck para que no se vea doble */}
-                        
                         <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
                             Iniciar Sesión
                         </h1>
@@ -174,6 +172,16 @@ export default function LoginPage() {
                             {form.formState.errors.password && (
                                 <p className="text-xs text-red-500 font-medium">{form.formState.errors.password.message}</p>
                             )}
+                            
+                            {/* 👇 AQUÍ ESTÁ EL ENLACE DE RECUPERACIÓN (Insertado con cariño) 👇 */}
+                            <div className="flex justify-end pt-1">
+                                <Link 
+                                    to="/forgot-password" 
+                                    className="text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline transition-colors"
+                                >
+                                    ¿Olvidaste tu contraseña?
+                                </Link>
+                            </div>
                         </div>
 
                         <Button className="w-full bg-blue-600 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg h-10 font-medium" type="submit" disabled={isLoading}>

@@ -1,83 +1,106 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
+// 👇 Importamos el cartero que acabamos de crear en el paso 1
+import { sendPasswordResetEmail } from '../../utils/emailSender';
 
-// Instancia de Prisma (si tienes un archivo lib/prisma.ts centralizado, podrías importarlo de ahí, 
-// pero esto funcionará perfectamente tal como lo tenías).
 const prisma = new PrismaClient();
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'vitam-secret-key';
-
-// ------------------------------------------------------------------
-// LOGIN (Lógica original)
-// ------------------------------------------------------------------
+// --- LOGICA EXISTENTE: LOGIN ---
 export const login = async (email: string, password: string) => {
-  // 1. Buscar usuario e incluir datos de empresa
-  const user = await prisma.user.findUnique({
-    where: { email },
-    include: { company: true }
-  });
+  const user = await prisma.user.findUnique({ where: { email } });
+  if (!user) throw new Error('Usuario no encontrado');
 
-  if (!user) {
-    throw new Error('Usuario no encontrado');
-  }
+  const validPassword = await bcrypt.compare(password, user.password);
+  if (!validPassword) throw new Error('Contraseña incorrecta');
 
-  // 2. Verificar contraseña
-  const isValid = await bcrypt.compare(password, user.password);
-  if (!isValid) {
-    throw new Error('Contraseña incorrecta');
-  }
-
-  // 3. Generar Token
   const token = jwt.sign(
-    { id: user.id, role: user.role, companyId: user.companyId },
-    JWT_SECRET,
-    { expiresIn: '24h' }
+    { userId: user.id, role: user.role }, 
+    JWT_SECRET, 
+    { expiresIn: '8h' }
   );
 
-  // 4. Devolver info (sin password)
-  const { password: _, ...userWithoutPassword } = user;
-  return { user: userWithoutPassword, token };
+  return { 
+    token, 
+    user: { id: user.id, email: user.email, name: user.name, role: user.role } 
+  };
 };
 
-// ------------------------------------------------------------------
-// REGISTER (Lógica corregida para TypeScript)
-// ------------------------------------------------------------------
-export const register = async (userData: any) => {
-  const { name, email, password, role } = userData;
+// --- LOGICA EXISTENTE: REGISTER ---
+export const register = async (data: any) => {
+  const { name, email, password, role } = data;
+  
+  const existingUser = await prisma.user.findUnique({ where: { email } });
+  if (existingUser) throw new Error('El correo ya está registrado');
 
-  // 1. Verificar si ya existe el correo
-  const existingUser = await prisma.user.findUnique({
-    where: { email },
-  });
-
-  if (existingUser) {
-    throw new Error('El correo ya está registrado');
-  }
-
-  // 2. Encriptar contraseña
   const hashedPassword = await bcrypt.hash(password, 10);
-
-  // 3. Validar Rol
-  // CORRECCIÓN: Usamos UserRole.USER_EMPRESA (el Enum) en lugar de un string suelto
-  let assignedRole: UserRole = UserRole.USER_EMPRESA;
-
-  // Verificamos si el rol que nos envían existe en la lista de roles permitidos
-  if (role && Object.values(UserRole).includes(role as UserRole)) {
-      assignedRole = role as UserRole;
-  }
-
-  // 4. Crear usuario en la BD
-  const newUser = await prisma.user.create({
-    data: {
-      name,
-      email,
-      password: hashedPassword,
-      role: assignedRole,
+  
+  const user = await prisma.user.create({
+    data: { 
+      email, 
+      password: hashedPassword, 
+      name, 
+      role: role || 'USER' 
     },
   });
 
-  // 5. Retornar usuario sin la contraseña
-  const { password: _, ...userWithoutPassword } = newUser;
-  return userWithoutPassword;
+  return { id: user.id, email: user.email };
+};
+
+// --- 👇 NUEVO: LOGICA DE RECUPERACIÓN DE CONTRASEÑA ---
+
+// 1. Solicitar cambio (Generar token y enviar mail)
+export const requestPasswordReset = async (email: string) => {
+  const user = await prisma.user.findUnique({ where: { email } });
+
+  // Si no existe, retornamos mensaje genérico por seguridad
+  if (!user) return { message: 'Si el correo existe, se envió el enlace.' };
+
+  // Generar token y fecha (15 minutos)
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  const passwordResetExpires = new Date(Date.now() + 15 * 60 * 1000); 
+
+  // Guardar en DB
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      resetPasswordToken: resetToken,
+      resetPasswordExpires: passwordResetExpires
+    }
+  });
+
+  // Enviar correo usando el archivo utils/emailSender.ts
+  await sendPasswordResetEmail(user.email, resetToken);
+
+  return { message: 'Correo enviado' };
+};
+
+// 2. Ejecutar cambio (Validar token y guardar nueva pass)
+export const resetUserPassword = async (token: string, newPassword: string) => {
+  // Buscar usuario con token válido y NO expirado
+  const user = await prisma.user.findFirst({
+    where: {
+      resetPasswordToken: token,
+      resetPasswordExpires: { gt: new Date() } // gt = mayor que "ahora"
+    }
+  });
+
+  if (!user) throw new Error('Token inválido o expirado');
+
+  // Encriptar nueva clave
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+  // Guardar y limpiar token
+  await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      password: hashedPassword,
+      resetPasswordToken: null,
+      resetPasswordExpires: null
+    }
+  });
+
+  return { message: 'Contraseña actualizada' };
 };

@@ -1,20 +1,20 @@
 import { Router } from 'express';
-import * as authController from './auth.controller'; // Asegúrate que esto apunte a tu controlador
+import * as authController from './auth.controller'; 
 
 const router = Router();
 
-// 🛑 DEBUG: Imprimir en consola cuando alguien intente entrar aquí
+// 🛑 DEBUG: Log para ver si entran las peticiones
 router.use((req, res, next) => {
     console.log('🕵️‍♂️ ROUTER AUTH ALCANZADO:', req.method, req.url);
     next();
 });
 
-// ✅ Definimos la ruta de login explícitamente
-// La ruta final será: /api/auth/login
+// Rutas existentes
 router.post('/login', authController.login);
-
-// 👇 ESTA ES LA LÍNEA QUE FALTA PARA QUE FUNCIONE EL CREAR USUARIO
-// La ruta final será: /api/auth/register
 router.post('/register', authController.register);
+
+// 👇 AGREGAMOS ESTAS DOS LÍNEAS NUEVAS (¡Esto es lo que faltaba!)
+router.post('/forgot-password', authController.forgotPassword);
+router.post('/reset-password', authController.resetPassword);
 
 export default router;

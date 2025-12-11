@@ -5,6 +5,10 @@ import { RoleGuard } from '@/components/auth/RoleGuard';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
+// 👇 IMPORTAMOS LAS NUEVAS PÁGINAS DE AUTH
+import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
+import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage'; 
 import ImportPage from '@/pages/ImportPage'; 
@@ -36,7 +40,13 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
+      // === RUTAS PÚBLICAS ===
       { path: '/login', element: <LoginPage /> },
+      // 👇 AGREGAMOS ESTAS DOS LÍNEAS AQUÍ
+      { path: '/forgot-password', element: <ForgotPasswordPage /> },
+      { path: '/auth/reset-password', element: <ResetPasswordPage /> },
+
+      // === RUTAS PROTEGIDAS ===
       {
         path: '/dashboard',
         element: <ProtectedRoute />, 
@@ -59,7 +69,6 @@ export const router = createBrowserRouter([
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM', 'ADMIN_EMPRESA']} />,
                 children: [
                   { path: 'companies', element: <CompaniesPage /> },
-                  // 👇 MOVIMOS ESTO AQUÍ: Ahora el Admin Empresa puede entrar
                   { path: 'risks-library', element: <RisksLibraryPage /> }, 
                 ]
               },
