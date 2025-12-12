@@ -30,3 +30,18 @@ export const removeProtocolDb = async (protocolId: string) => {
     where: { id: protocolId }
   });
 };
+
+// 4. ENVIAR CORREO DE DIFUSIÓN
+export const sendRiskDistribution = async (
+  riskId: string, 
+  email: string, 
+  subject: string, 
+  message: string
+) => {
+  await axios.post('/risks/send-email', {
+    riskId,
+    email,
+    subject,
+    message
+  });
+};

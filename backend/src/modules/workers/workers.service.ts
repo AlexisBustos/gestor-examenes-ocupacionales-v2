@@ -30,6 +30,7 @@ export const findWorkerByRut = async (rut: string) => {
   });
 };
 
+// 👇 AQUÍ ESTÁ EL CAMBIO CLAVE PARA EL TIMELINE UNIFICADO 👇
 export const getWorkerById = async (id: string) => {
   return await prisma.worker.findUnique({
     where: { id },
@@ -38,6 +39,16 @@ export const getWorkerById = async (id: string) => {
         currentGes: true,
         costCenter: true, 
         events: { orderBy: { createdAt: 'desc' } }, 
+        
+        // 1. INCLUIMOS EL HISTORIAL DE ODI (NUEVO)
+        odiDeliveries: {
+            include: { 
+                document: { include: { agent: true } } 
+            },
+            orderBy: { sentAt: 'desc' }
+        },
+
+        // 2. INCLUIMOS LAS ÓRDENES MÉDICAS (COMO ANTES)
         examOrders: { 
             orderBy: { createdAt: 'desc' },
             include: { 
@@ -110,7 +121,7 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// 👇 IMPORTACIÓN BLINDADA & MULTI-EMPRESA
+// IMPORTACIÓN BLINDADA
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     console.log("📢 INICIANDO PROCESO DE CARGA...");
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
@@ -118,7 +129,6 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
     let count = 0;
     
-    // Empresa por defecto (Fallback)
     const defaultCompany = await prisma.company.findFirst();
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
@@ -128,8 +138,6 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
 
     for (const row of rows) {
         const clean: any = {};
-        
-        // 1. Limpieza de claves
         Object.keys(row).forEach(k => {
             const cleanKey = k.toLowerCase().trim().replace(/\s+/g, '');
             clean[cleanKey] = row[k];
@@ -137,57 +145,35 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
         
         const rut = clean['rut'];
         const name = clean['nombre'] || clean['trabajador'] || clean['name'] || clean['nombres'];
-        
-        // 2. Mapeo de datos básicos
         const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'];
         const email = clean['email'] || clean['correo'] || clean['mail'] || clean['correoelectronico'];
         const phone = clean['phone'] || clean['telefono'] || clean['celular'] || clean['movil'];
         
-        // 3. CENTRO DE COSTOS
-        const centroRaw = clean['centro'] || clean['centros'] || clean['centrocosto'] || clean['centrodecosto'] || clean['centrodecostos'] || clean['centroscosto'] || clean['cc'] || clean['costcenter'] || clean['centrodetrabajo'];
-        
+        const centroRaw = clean['centro'] || clean['centros'] || clean['centrocosto'] || clean['cc'];
         let costCenterId = null;
         if (centroRaw) {
             const foundCC = await prisma.costCenter.findFirst({
-                where: {
-                    OR: [
-                        { name: { equals: centroRaw.toString(), mode: 'insensitive' } },
-                        { code: { equals: centroRaw.toString(), mode: 'insensitive' } }
-                    ]
-                }
+                where: { OR: [ { name: { equals: centroRaw.toString(), mode: 'insensitive' } }, { code: { equals: centroRaw.toString(), mode: 'insensitive' } } ] }
             });
             if (foundCC) costCenterId = foundCC.id;
         }
 
-        // 4. EMPRESA (Lógica Nueva Agregada) 🔴
         const empresaRaw = clean['empresa'] || clean['company'] || clean['razonsocial'] || clean['emp'];
-        let targetCompanyId = defaultCompany.id; // Empezamos con la default
+        let targetCompanyId = defaultCompany.id; 
 
         if (empresaRaw) {
-            // Buscamos la empresa específica si viene en el Excel
             const foundComp = await prisma.company.findFirst({
-                where: {
-                    OR: [
-                        { name: { equals: empresaRaw.toString(), mode: 'insensitive' } },
-                        { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } }
-                    ]
-                }
+                where: { OR: [ { name: { equals: empresaRaw.toString(), mode: 'insensitive' } }, { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } } ] }
             });
-            
-            if (foundComp) {
-                targetCompanyId = foundComp.id;
-            } else {
-                console.warn(`⚠️ Empresa no encontrada: "${empresaRaw}". Se usará la default.`);
-            }
+            if (foundComp) targetCompanyId = foundComp.id;
+            else console.warn(`⚠️ Empresa no encontrada: "${empresaRaw}". Se usará la default.`);
         }
         
         if (rut && name) {
-            // Preparamos los datos a actualizar
             const updateData: any = { 
                 name: name.toString(),
-                companyId: targetCompanyId // 👈 ¡ESTO LOS MUEVE DE EMPRESA SI ESTÁN MAL!
+                companyId: targetCompanyId 
             };
-            
             if (cargo) updateData.position = cargo.toString();
             if (costCenterId) updateData.costCenterId = costCenterId;
             if (email) updateData.email = email.toString();
@@ -200,7 +186,7 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
                     rut: rut.toString(), 
                     name: name.toString(), 
                     position: cargo ? cargo.toString() : 'Sin Cargo',
-                    companyId: targetCompanyId, // Usa la empresa correcta al crear
+                    companyId: targetCompanyId,
                     costCenterId: costCenterId,
                     email: email ? email.toString() : null,
                     phone: phone ? phone.toString() : null,
@@ -214,7 +200,7 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
     return { message: `Nómina procesada (${count} registros).` };
 };
 
-// ... (Las funciones de movilidad siguen igual) ...
+// --- MOVILIDAD ---
 export const analyzeJobChange = async (workerId: string, newGesId: string) => {
     const worker: any = await prisma.worker.findUnique({
         where: { id: workerId },
@@ -231,14 +217,10 @@ export const analyzeJobChange = async (workerId: string, newGesId: string) => {
         }
     });
 
-    const newGes = await prisma.ges.findUnique({
-        where: { id: newGesId }
-    });
-
+    const newGes = await prisma.ges.findUnique({ where: { id: newGesId } });
     if (!worker || !newGes) throw new Error("Trabajador o GES no encontrado");
 
     const requiredBatteries = await getSuggestedBatteries(newGesId);
-
     const myPassedExamIds = new Set();
     
     if (worker.examOrders) {

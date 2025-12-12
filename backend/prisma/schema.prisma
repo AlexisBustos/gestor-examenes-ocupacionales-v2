@@ -154,9 +154,12 @@ model Ges {
 model RiskAgent {
   id            String         @id @default(uuid())
   name          String         @unique
+  description   String?        // Descripción del riesgo (Ej: "Niveles sobre 85dB")
   protocolUrl   String?
   protocols     RiskProtocol[]
   riskExposures RiskExposure[]
+  documents       OdiDocument[]    // Historial de PDFs
+  workerExposures WorkerExposure[] // Relación directa con trabajador
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
 }
@@ -275,8 +278,10 @@ model Worker {
   employmentStatus EmploymentStatus @default(NOMINA)
   examOrders     ExamOrder[]
   events           WorkerEvent[]
+  exposures        WorkerExposure[]
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
+  odiDeliveries OdiDelivery[]
 }
 
 enum OrderStatus {
@@ -348,4 +353,59 @@ model WorkerEvent {
   details   String?  // Ej: 'Aprobado tras examen preocupacional'
   
   createdAt DateTime @default(now())
+}
+model OdiDocument {
+  id          String    @id @default(uuid())
+  title       String    // Ej: "Protocolo Sílice v2025.pdf"
+  s3Key       String    // La ruta interna en AWS S3
+  publicUrl   String    // URL firmada o pública para descarga
+  version     Int       @default(1)
+  isActive    Boolean   @default(true) // Solo el activo se envía por correo
+
+  // Relación: Este documento pertenece a un Agente de Riesgo
+  agentId     String
+  agent       RiskAgent @relation(fields: [agentId], references: [id])
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deliveries    OdiDelivery[]
+}
+
+// La Relación Directa: Trabajador <-> Riesgo
+// (Permite granularidad más allá del grupo GES)
+model WorkerExposure {
+  id        String   @id @default(uuid())
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id], onDelete: Cascade)
+  agentId   String
+  agent     RiskAgent @relation(fields: [agentId], references: [id])
+  detectedAt DateTime @default(now()) // Cuándo se detectó este riesgo
+  isActive   Boolean  @default(true)  // Si el riesgo sigue vigente
+
+  @@unique([workerId, agentId]) // Evita duplicar el mismo riesgo al mismo trabajador
+}
+
+model OdiDelivery {
+  id            String       @id @default(uuid())
+  
+  // Relación con Trabajador
+  workerId      String
+  worker        Worker       @relation(fields: [workerId], references: [id])
+  
+  // Relación con Documento
+  documentId    String
+  document      OdiDocument  @relation(fields: [documentId], references: [id])
+
+  // Datos del Envío
+  sentAt        DateTime     @default(now())
+  status        String       @default("PENDING") // PENDING | CONFIRMED | VIEWED
+
+  // Datos de Seguridad (Firma Digital Simple)
+  token         String       @unique // Token único para el link del correo
+  confirmedAt   DateTime?    // Cuándo dio clic
+  ipAddress     String?      // Desde qué IP (Prueba legal)
+  userAgent     String?      // Qué navegador usó (Chrome, Safari...)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }

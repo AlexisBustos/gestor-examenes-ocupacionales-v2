@@ -51,6 +51,12 @@ const navigation: NavItem[] = [
 
   // --- NIVEL 3: SOLO SUPER ADMIN ---
   { 
+    name: 'Gestión Documental (ODI)', 
+    href: '/dashboard/risk-management', 
+    icon: ShieldCheck, // Usamos el ícono de Escudo Checkeado 🛡️✅
+    allowedRoles: ['ADMIN_VITAM'] 
+  },
+  { 
     name: 'Gestión Usuarios', 
     href: '/dashboard/users', 
     icon: Shield, 

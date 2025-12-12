@@ -5,9 +5,11 @@ import { RoleGuard } from '@/components/auth/RoleGuard';
 
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import LoginPage from '@/pages/LoginPage';
-// 👇 IMPORTAMOS LAS NUEVAS PÁGINAS DE AUTH
 import ForgotPasswordPage from '@/pages/auth/ForgotPasswordPage';
 import ResetPasswordPage from '@/pages/auth/ResetPasswordPage';
+
+// 👇 1. IMPORTAMOS LA PÁGINA DE CONFIRMACIÓN PÚBLICA
+import OdiConfirmation from '@/pages/public/OdiConfirmation';
 
 import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage'; 
@@ -22,6 +24,7 @@ import MedicalSurveillancePage from '@/pages/admin/MedicalSurveillancePage';
 import ConfigPage from '@/pages/admin/ConfigPage';
 import BatteriesPage from '@/pages/admin/BatteriesPage';
 import GesRulesPage from '@/pages/admin/GesRulesPage';
+import RiskManagement from '@/pages/admin/RiskManagement';
 
 const AppLayout = () => (
   <AuthProvider>
@@ -40,13 +43,15 @@ export const router = createBrowserRouter([
   {
     element: <AppLayout />,
     children: [
-      // === RUTAS PÚBLICAS ===
+      // === RUTAS PÚBLICAS (ACCESO LIBRE) ===
       { path: '/login', element: <LoginPage /> },
-      // 👇 AGREGAMOS ESTAS DOS LÍNEAS AQUÍ
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/auth/reset-password', element: <ResetPasswordPage /> },
+      
+      // 👇 2. AQUÍ AGREGAMOS LA RUTA DE FIRMA (TIENE QUE SER PÚBLICA)
+      { path: '/confirmar-odi', element: <OdiConfirmation /> },
 
-      // === RUTAS PROTEGIDAS ===
+      // === RUTAS PROTEGIDAS (REQUIEREN LOGIN) ===
       {
         path: '/dashboard',
         element: <ProtectedRoute />, 
@@ -54,17 +59,13 @@ export const router = createBrowserRouter([
           {
             element: <DashboardLayout />,
             children: [
-              // ============================================================
-              // NIVEL 1: ACCESO GLOBAL (TODOS)
-              // ============================================================
+              // Nivel 1: Todos
               { index: true, element: <DashboardPage /> },
               { path: 'orders', element: <OrdersPage /> },
               { path: 'surveillance', element: <MedicalSurveillancePage /> },
               { path: 'workers', element: <WorkersPage /> }, 
 
-              // ============================================================
-              // NIVEL 2: GESTIÓN DE EMPRESA (ADMIN_VITAM + ADMIN_EMPRESA)
-              // ============================================================
+              // Nivel 2: Admin Empresa + Vitam
               {
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM', 'ADMIN_EMPRESA']} />,
                 children: [
@@ -73,9 +74,7 @@ export const router = createBrowserRouter([
                 ]
               },
 
-              // ============================================================
-              // NIVEL 3: EXCLUSIVO SUPER ADMIN (SOLO ADMIN_VITAM)
-              // ============================================================
+              // Nivel 3: Solo Admin Vitam
               {
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM']} />,
                 children: [
@@ -85,12 +84,14 @@ export const router = createBrowserRouter([
                   { path: 'config', element: <ConfigPage /> },
                   { path: 'batteries', element: <BatteriesPage /> },
                   { path: 'import', element: <ImportPage /> },
+                  { path: 'risk-management', element: <RiskManagement /> },
                 ]
               }
             ],
           },
         ],
       },
+      // Cualquier otra ruta redirige al dashboard (o login si no está autenticado)
       { path: '*', element: <Navigate to="/dashboard" replace /> },
     ],
   },
