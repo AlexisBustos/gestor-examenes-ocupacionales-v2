@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Save, Search, Stethoscope, AlertTriangle, ShieldAlert } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'; // 👈 IMPORTANTE
+import { Loader2, Save, Search, Stethoscope, AlertTriangle, ShieldAlert, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -14,19 +15,17 @@ export default function GesRulesPage() {
   const queryClient = useQueryClient();
   const [selectedGesId, setSelectedGesId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // ESTADOS DE SELECCIÓN
   const [checkedBatteries, setCheckedBatteries] = useState<string[]>([]);
+  const [checkedRisks, setCheckedRisks] = useState<string[]>([]); // 👈 NUEVO: Para documentos
 
-  // 1. Cargar GES (Ahora pedimos que incluya los riesgos si el backend lo soporta por defecto, 
-  // si no, asegúrate de que el endpoint /ges traiga riskExposures)
+  // 1. CARGA DE DATOS MAESTROS
   const { data: gesList, isLoading: loadingGes } = useQuery<any[]>({
     queryKey: ['ges'],
     queryFn: async () => (await axios.get('/ges')).data,
   });
 
-  // Encuentra el objeto GES completo seleccionado para ver sus detalles
-  const selectedGes = gesList?.find(g => g.id === selectedGesId);
-
-  // 2. Cargar Baterías
   const { data: allBatteries, isLoading: loadingBat } = useQuery<any[]>({
     queryKey: ['batteries-list'],
     queryFn: async () => {
@@ -35,56 +34,80 @@ export default function GesRulesPage() {
     },
   });
 
-  // 3. Cargar Selección
+  // 👇 CARGAMOS LA LISTA DE RIESGOS (DOCUMENTOS)
+  const { data: allRisks, isLoading: loadingRisks } = useQuery<any[]>({
+    queryKey: ['risks-list'],
+    queryFn: async () => (await axios.get('/risks')).data,
+  });
+
+  const selectedGes = gesList?.find(g => g.id === selectedGesId);
+
+  // 2. CARGAR CONFIGURACIÓN ACTUAL DEL GES SELECCIONADO
   const { isLoading: loadingSelection } = useQuery({
-    queryKey: ['ges-batteries', selectedGesId],
+    queryKey: ['ges-config', selectedGesId],
     queryFn: async () => {
-      if (!selectedGesId) return [];
-      const { data } = await axios.get(`/ges/${selectedGesId}/batteries`);
-      // Si data es un array de baterías, mapeamos IDs. Si es null, array vacío.
-      const batteryIds = Array.isArray(data) ? data.map((b: any) => b.id) : [];
-      setCheckedBatteries(batteryIds);
-      return data;
+      if (!selectedGesId) return null;
+      
+      // Carga paralela: Baterías y Riesgos
+      const [batteriesData, risksData] = await Promise.all([
+        axios.get(`/ges/${selectedGesId}/batteries`),
+        axios.get(`/ges/${selectedGesId}/risks`) // 👈 NUEVO ENDPOINT
+      ]);
+
+      // Mapeo Baterías
+      const bIds = Array.isArray(batteriesData.data) ? batteriesData.data.map((b: any) => b.id) : [];
+      setCheckedBatteries(bIds);
+
+      // Mapeo Riesgos
+      // El backend devuelve array de IDs directos: ["id1", "id2"]
+      setCheckedRisks(risksData.data || []);
+
+      return { batteries: bIds, risks: risksData.data };
     },
     enabled: !!selectedGesId,
   });
 
-  // 4. Guardar
+  // 3. GUARDAR CAMBIOS
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!selectedGesId) return;
-      await axios.put(`/ges/${selectedGesId}/batteries`, { batteryIds: checkedBatteries });
+      await Promise.all([
+        axios.put(`/ges/${selectedGesId}/batteries`, { batteryIds: checkedBatteries }),
+        axios.put(`/ges/${selectedGesId}/risks`, { riskIds: checkedRisks }) // 👈 GUARDAMOS RIESGOS
+      ]);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ges-batteries', selectedGesId] });
-      // También invalidamos la lista de GES para refrescar contadores si fuera necesario
+      queryClient.invalidateQueries({ queryKey: ['ges-config', selectedGesId] });
       queryClient.invalidateQueries({ queryKey: ['ges'] });
       toast.success("Reglas actualizadas correctamente");
     },
     onError: () => toast.error("Error al guardar reglas")
   });
 
-  const toggleBattery = (batteryId: string) => {
-    setCheckedBatteries(prev => 
-      prev.includes(batteryId) ? prev.filter(id => id !== batteryId) : [...prev, batteryId]
-    );
+  // HELPERS DE TOGGLE
+  const toggleBattery = (id: string) => {
+    setCheckedBatteries(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const toggleRisk = (id: string) => {
+    setCheckedRisks(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const filteredGes = gesList?.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  if (loadingGes || loadingBat) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600"/></div>;
+  if (loadingGes || loadingBat || loadingRisks) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600"/></div>;
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-4 animate-in fade-in">
       <div className="flex items-center justify-between pb-4 border-b">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Editor de Reglas Médicas</h1>
-          <p className="text-muted-foreground">Asigna manualmente las baterías requeridas por cada GES.</p>
+          <h1 className="text-2xl font-bold text-slate-900">Editor de Reglas Médicas y Legales</h1>
+          <p className="text-muted-foreground">Define qué exámenes y documentos aplican a cada puesto (GES).</p>
         </div>
         {selectedGesId && (
             <Button onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending} className="bg-blue-700 hover:bg-blue-800">
                 {saveMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Save className="mr-2 h-4 w-4"/>}
-                Guardar Cambios
+                Guardar Configuración
             </Button>
         )}
       </div>
@@ -103,9 +126,7 @@ export default function GesRulesPage() {
                 <ScrollArea className="h-full pr-2">
                     <div className="space-y-1">
                         {filteredGes?.map((ges: any) => {
-                            // Verificamos si tiene riesgos (asumiendo que el backend trae riskExposures)
                             const hasRisks = ges.riskExposures && ges.riskExposures.length > 0;
-                            
                             return (
                                 <button
                                     key={ges.id}
@@ -121,12 +142,12 @@ export default function GesRulesPage() {
                                             </span>
                                         )}
                                     </div>
-                                    
-                                    {/* Contador de baterías ya asignadas */}
-                                    {ges.examBatteries && ges.examBatteries.length > 0 && (
-                                        <Badge variant="secondary" className="text-[10px] h-5 px-1.5 bg-blue-200 text-blue-800">
-                                            {ges.examBatteries.length}
-                                        </Badge>
+                                    {/* Indicador visual de configuración */}
+                                    {(ges.examBatteries?.length > 0 || (ges.risks?.length > 0)) && (
+                                        <div className="flex gap-1">
+                                            {ges.examBatteries?.length > 0 && <Badge variant="secondary" className="text-[9px] h-4 px-1 bg-blue-200 text-blue-800">Exam</Badge>}
+                                            {/* Si tu backend envía 'risks' en la lista principal, podrías mostrar esto también */}
+                                        </div>
                                     )}
                                 </button>
                             );
@@ -136,62 +157,109 @@ export default function GesRulesPage() {
             </CardContent>
         </Card>
 
-        {/* LISTA DERECHA (Baterías) */}
+        {/* LISTA DERECHA (Pestañas de Configuración) */}
         <Card className="col-span-8 flex flex-col overflow-hidden border-slate-200 bg-white shadow-sm">
-            <CardHeader className="pb-3 border-b bg-slate-50/30">
-                <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-800">
-                    <Stethoscope className="h-4 w-4 text-blue-600"/> 
-                    {selectedGes ? `Editando: ${selectedGes.name}` : 'Baterías Asignadas'}
-                    {selectedGesId && <Badge variant="outline" className="ml-2 font-normal bg-white">{checkedBatteries.length} seleccionadas</Badge>}
-                </CardTitle>
-                <CardDescription>
-                    {selectedGesId ? "Marca las baterías obligatorias para este puesto." : "Selecciona un GES a la izquierda para editar."}
-                </CardDescription>
-            </CardHeader>
-            
             {selectedGesId ? (
-                <CardContent className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+                <Tabs defaultValue="EXAMS" className="flex-1 flex flex-col h-full">
+                    <CardHeader className="pb-0 border-b bg-slate-50/30 pt-4 px-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-800">
+                                <Stethoscope className="h-4 w-4 text-blue-600"/> 
+                                Editando: {selectedGes.name}
+                            </CardTitle>
+                        </div>
+                        <TabsList className="w-full justify-start h-10 p-0 bg-transparent border-b border-transparent">
+                            <TabsTrigger value="EXAMS" className="data-[state=active]:bg-white data-[state=active]:border-b-2 data-[state=active]:border-blue-600 data-[state=active]:shadow-none rounded-none px-6">
+                                🏥 Exámenes Médicos ({checkedBatteries.length})
+                            </TabsTrigger>
+                            <TabsTrigger value="DOCS" className="data-[state=active]:bg-white data-[state=active]:border-b-2 data-[state=active]:border-indigo-600 data-[state=active]:shadow-none rounded-none px-6">
+                                📜 Documentación ODI ({checkedRisks.length})
+                            </TabsTrigger>
+                        </TabsList>
+                    </CardHeader>
                     
-                    {/* --- NUEVO: PANEL DE RIESGOS DETECTADOS --- */}
-                    {selectedGes?.riskExposures && selectedGes.riskExposures.length > 0 && (
-                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg animate-in slide-in-from-top-2">
-                            <h4 className="text-xs font-bold text-amber-800 uppercase flex items-center mb-2">
-                                <AlertTriangle className="h-4 w-4 mr-2" />
-                                Riesgos detectados en la carga masiva
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                                {selectedGes.riskExposures.map((risk: any) => (
-                                    <Badge key={risk.id} variant="outline" className="bg-white border-amber-300 text-amber-900">
-                                        {risk.riskAgent?.name || "Riesgo s/n"} 
-                                        {risk.specificAgentDetails && <span className="ml-1 text-amber-700 opacity-75">({risk.specificAgentDetails})</span>}
-                                    </Badge>
-                                ))}
-                            </div>
-                            <p className="text-[11px] text-amber-700 mt-2">
-                                * Tip: Selecciona las baterías que cubran estos riesgos.
-                            </p>
-                        </div>
-                    )}
-                    {/* ------------------------------------------ */}
-
-                    {loadingSelection ? (
-                        <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-400 h-8 w-8"/></div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {allBatteries?.map((bat: any) => {
-                                const isChecked = checkedBatteries.includes(bat.id);
-                                return (
-                                    <div key={bat.id} className={`flex items-start space-x-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${isChecked ? 'bg-blue-50 border-blue-500 shadow-sm ring-1 ring-blue-500/20' : 'bg-white border-slate-200 hover:border-blue-300 hover:bg-slate-50'}`} onClick={() => toggleBattery(bat.id)}>
-                                        <Checkbox checked={isChecked} onCheckedChange={() => toggleBattery(bat.id)} className="mt-0.5" />
-                                        <div className="space-y-1 leading-none">
-                                            <label className="text-sm font-medium leading-none cursor-pointer text-slate-700">{bat.name}</label>
+                    <CardContent className="flex-1 overflow-hidden p-0 bg-slate-50/30">
+                        {loadingSelection ? (
+                            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-slate-400 h-8 w-8"/></div>
+                        ) : (
+                            <>
+                                {/* PESTAÑA 1: EXÁMENES */}
+                                <TabsContent value="EXAMS" className="h-full overflow-y-auto p-6 m-0">
+                                    
+                                    {/* 👇 AQUÍ ESTÁ EL CAMBIO: PANEL DE RIESGOS CON DETALLE ESPECÍFICO */}
+                                    {selectedGes?.riskExposures && selectedGes.riskExposures.length > 0 && (
+                                        <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                                            <h4 className="text-xs font-bold text-amber-800 uppercase flex items-center mb-2">
+                                                <AlertTriangle className="h-4 w-4 mr-2" /> Sugerencia basada en Matriz de Riesgos
+                                            </h4>
+                                            <div className="flex flex-wrap gap-2">
+                                                {selectedGes.riskExposures.map((risk: any) => (
+                                                    <Badge key={risk.id} variant="outline" className="bg-white border-amber-300 text-amber-900 flex items-center gap-1">
+                                                        {/* Nombre Principal */}
+                                                        <span className="font-semibold">{risk.riskAgent?.name || "Riesgo s/n"}</span>
+                                                        
+                                                        {/* Detalle Específico (Si existe) */}
+                                                        {risk.specificAgentDetails && (
+                                                            <span className="text-amber-700 opacity-80 font-normal border-l border-amber-200 pl-1 ml-1 text-[10px]">
+                                                                {risk.specificAgentDetails}
+                                                            </span>
+                                                        )}
+                                                    </Badge>
+                                                ))}
+                                            </div>
                                         </div>
+                                    )}
+                                    {/* 👆 FIN DEL CAMBIO */}
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {allBatteries?.map((bat: any) => {
+                                            const isChecked = checkedBatteries.includes(bat.id);
+                                            return (
+                                                <div key={bat.id} className={`flex items-start space-x-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${isChecked ? 'bg-blue-50 border-blue-500 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-300'}`} onClick={() => toggleBattery(bat.id)}>
+                                                    <Checkbox checked={isChecked} onCheckedChange={() => toggleBattery(bat.id)} className="mt-0.5" />
+                                                    <label className="text-sm font-medium leading-none cursor-pointer text-slate-700">{bat.name}</label>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </CardContent>
+                                </TabsContent>
+
+                                {/* PESTAÑA 2: DOCUMENTOS (ODI) */}
+                                <TabsContent value="DOCS" className="h-full overflow-y-auto p-6 m-0">
+                                    <div className="mb-4 bg-indigo-50 border border-indigo-200 p-4 rounded-lg">
+                                        <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                                            <FileText className="h-4 w-4" /> Automatización de Envíos
+                                        </h4>
+                                        <p className="text-xs text-indigo-700 mt-1">
+                                            Al marcar un riesgo aquí, el sistema enviará automáticamente el protocolo correspondiente (PDF activo) cuando un trabajador ingrese a este puesto.
+                                        </p>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                        {allRisks?.map((risk: any) => {
+                                            const isChecked = checkedRisks.includes(risk.id);
+                                            return (
+                                                <div key={risk.id} className={`flex items-start space-x-3 p-3 rounded-lg border transition-all cursor-pointer select-none ${isChecked ? 'bg-indigo-50 border-indigo-500 shadow-sm' : 'bg-white border-slate-200 hover:border-indigo-300'}`} onClick={() => toggleRisk(risk.id)}>
+                                                    <Checkbox checked={isChecked} onCheckedChange={() => toggleRisk(risk.id)} className="mt-0.5 border-indigo-400 data-[state=checked]:bg-indigo-600" />
+                                                    <div>
+                                                        <label className="text-sm font-medium leading-none cursor-pointer text-slate-700">{risk.name}</label>
+                                                        {risk.documents?.[0] ? (
+                                                            <p className="text-[10px] text-slate-400 mt-1 flex items-center gap-1">
+                                                                <FileText className="h-3 w-3" /> {risk.documents[0].title}
+                                                            </p>
+                                                        ) : (
+                                                            <p className="text-[10px] text-red-400 mt-1 italic">Sin documento PDF activo</p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </TabsContent>
+                            </>
+                        )}
+                    </CardContent>
+                </Tabs>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-400 bg-slate-50/50">
                     <div className="p-4 bg-white rounded-full shadow-sm mb-3">

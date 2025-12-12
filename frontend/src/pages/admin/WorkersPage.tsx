@@ -267,9 +267,17 @@ function WorkerEditDialog({ worker, open, onOpenChange }: { worker: any, open: b
 
     const updateMutation = useMutation({
         mutationFn: async () => {
-            await axios.patch(`/workers/${worker.id}`, {
-                name, email, phone, position, costCenterId
-            });
+            // 👇 AQUÍ ESTÁ LA CORRECCIÓN: Limpiamos costCenterId si es vacío o "ALL"
+            const payload = {
+                name, 
+                email, 
+                phone, 
+                position, 
+                // Si viene vacío o "ALL", enviamos null para que Prisma no se queje
+                costCenterId: (costCenterId === "" || costCenterId === "ALL") ? null : costCenterId
+            };
+
+            await axios.patch(`/workers/${worker.id}`, payload);
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['workers'] });
@@ -305,6 +313,8 @@ function WorkerEditDialog({ worker, open, onOpenChange }: { worker: any, open: b
                             <Select value={costCenterId} onValueChange={setCostCenterId}>
                                 <SelectTrigger><SelectValue placeholder="Seleccione..." /></SelectTrigger>
                                 <SelectContent>
+                                    {/* Opción para "Desasignar" */}
+                                    <SelectItem value="ALL">-- Sin Centro --</SelectItem> 
                                     {costCenters?.map(cc => (
                                         <SelectItem key={cc.id} value={cc.id}>{cc.code} - {cc.name}</SelectItem>
                                     ))}

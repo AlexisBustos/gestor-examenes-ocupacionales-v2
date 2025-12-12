@@ -332,3 +332,33 @@ export const removeQuantitativeReport = async (id: string) => {
 export const removeTmertReport = async (id: string) => {
     return await prisma.tmertReport.delete({ where: { id } });
 };
+
+// ... (al final del archivo ges.service.ts)
+
+// 1. OBTENER RIESGOS (Lógica de BD)
+export const getGesRisksDb = async (gesId: string) => {
+  const relations = await prisma.gesRisk.findMany({
+    where: { gesId },
+    select: { riskId: true }
+  });
+  return relations.map(r => r.riskId);
+};
+
+// 2. ACTUALIZAR RIESGOS (Lógica de BD)
+export const updateGesRisksDb = async (gesId: string, riskIds: string[]) => {
+  await prisma.$transaction(async (tx) => {
+    // Borrar viejos
+    await tx.gesRisk.deleteMany({ where: { gesId } });
+
+    // Crear nuevos
+    if (riskIds && riskIds.length > 0) {
+      await tx.gesRisk.createMany({
+        data: riskIds.map((riskId) => ({
+          gesId,
+          riskId
+        }))
+      });
+    }
+  });
+  return { success: true };
+};

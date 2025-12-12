@@ -52,6 +52,7 @@ interface OrderSuggestion {
 const formSchema = z.object({
   rut: z.string().min(8),
   name: z.string().min(2),
+  email: z.string().email().optional().or(z.literal('')), // 👈 NUEVO: EMAIL
   phone: z.string().optional(),
   position: z.string().min(2),
   evaluationType: z.string(),
@@ -82,6 +83,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       evaluationType: 'PRE_OCUPACIONAL',
       rut: '',
       name: '',
+      email: '', // 👈 NUEVO
       position: '',
       phone: '',
     },
@@ -96,13 +98,23 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
         if (data.exists) {
           setWorkerStatus('found');
           setWorkerId(data.worker.id);
+          
+          // PRE-LLENADO DE DATOS
           form.setValue('name', data.worker.name);
+          form.setValue('email', data.worker.email || ''); // 👈 NUEVO
           form.setValue('position', data.worker.position || '');
           form.setValue('phone', data.worker.phone || '');
+          
+          // Lógica de tipo de examen
           form.setValue('evaluationType', 'OCUPACIONAL');
         } else {
           setWorkerStatus('new');
           setWorkerId(undefined);
+          // Limpiamos campos si es nuevo
+          form.setValue('name', '');
+          form.setValue('email', '');
+          form.setValue('position', '');
+          form.setValue('phone', '');
           form.setValue('evaluationType', 'PRE_OCUPACIONAL');
         }
       } catch (e) {
@@ -158,21 +170,20 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
     useQuery<OrderSuggestion>({
       queryKey: ['order-suggestions', selectedGesId, workerId, searchMode, selectedAreaId],
       queryFn: async () => {
-        // Caso 1: Por Área → traemos todas las baterías del área
+        // Caso 1: Por Área
         if (searchMode === 'area' && selectedAreaId) {
           const batteries = (await axios.get(`/ges/area/${selectedAreaId}/batteries`))
             .data;
           return { required: batteries, covered: [], missing: batteries };
         }
 
-        // Caso 2: Por GES → traemos todas las baterías asociadas al GES
+        // Caso 2: Por GES
         if (searchMode === 'ges' && selectedGesId) {
           const batteries = (await axios.get(`/ges/${selectedGesId}/batteries`))
             .data;
           return { required: batteries, covered: [], missing: batteries };
         }
 
-        // Sin selección válida
         return { required: [], covered: [], missing: [] };
       },
       enabled: !!(
@@ -181,16 +192,13 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       ),
     });
 
-  // --- 🔥 FIX: LISTAS SEGURAS (Evita el error 'reading length of undefined') ---
   const safeMissingList = Array.isArray(suggestions?.missing) ? suggestions.missing : [];
   const safeCoveredList = Array.isArray(suggestions?.covered) ? suggestions.covered : [];
-  // -----------------------------------------------------------------------------
 
   const createOrderMutation = useMutation({
     mutationFn: async (values: FormValues) => {
       let finalGesId = values.gesId;
 
-      // Si está en modo Área, pero no hay gesId explícito, tomamos el primero de la lista
       if (searchMode === 'area' && !finalGesId && gesList && gesList.length > 0) {
         finalGesId = gesList[0].id;
       }
@@ -199,14 +207,13 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
         throw new Error('Debe seleccionar un GES o un Área válida');
       }
 
-      // Tomamos las baterías faltantes desde suggestions.missing
-      const batteryIds =
-        safeMissingList.map((b: any) => ({ id: b.id }));
+      const batteryIds = safeMissingList.map((b: any) => ({ id: b.id }));
 
       await axios.post('/orders', {
         worker: {
           rut: values.rut,
           name: values.name,
+          email: values.email, // 👈 ENVIAMOS EL EMAIL
           phone: values.phone,
           position: values.position,
         },
@@ -252,7 +259,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                     <FormItem>
                       <FormLabel>RUT</FormLabel>
                       <FormControl>
-                        <Input {...field} onBlur={handleRutBlur} />
+                        <Input {...field} onBlur={handleRutBlur} placeholder="12345678-9" />
                       </FormControl>
                     </FormItem>
                   )}
@@ -264,7 +271,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                     <FormItem>
                       <FormLabel>Nombre</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} placeholder="Juan Pérez" />
                       </FormControl>
                     </FormItem>
                   )}
@@ -285,15 +292,16 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                 </div>
               )}
 
+              {/* 👇 FILA DE CONTACTO (EMAIL Y TELÉFONO) */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
-                  name="position"
+                  name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Cargo</FormLabel>
+                      <FormLabel>Email (Para Robot ODI)</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} type="email" placeholder="correo@ejemplo.com" />
                       </FormControl>
                     </FormItem>
                   )}
@@ -305,40 +313,53 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                     <FormItem>
                       <FormLabel>Teléfono</FormLabel>
                       <FormControl>
-                        <Input {...field} />
+                        <Input {...field} placeholder="+569..." />
                       </FormControl>
                     </FormItem>
                   )}
                 />
               </div>
 
-              <FormField
-                control={form.control}
-                name="evaluationType"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Tipo</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={!!workerStatus}
-                    >
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="position"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Cargo</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccione..." />
-                        </SelectTrigger>
+                        <Input {...field} placeholder="Ej: Soldador" />
                       </FormControl>
-                      <SelectContent>
-                        <SelectItem value="PRE_OCUPACIONAL">
-                          Pre-Ocupacional
-                        </SelectItem>
-                        <SelectItem value="OCUPACIONAL">Ocupacional</SelectItem>
-                        <SelectItem value="EXAMEN_SALIDA">Salida</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormItem>
-                )}
-              />
+                    </FormItem>
+                  )}
+                />
+                
+                <FormField
+                    control={form.control}
+                    name="evaluationType"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Tipo Evaluación</FormLabel>
+                        <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={!!workerStatus}
+                        >
+                            <FormControl>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Seleccione..." />
+                            </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                            <SelectItem value="PRE_OCUPACIONAL">Pre-Ocupacional</SelectItem>
+                            <SelectItem value="OCUPACIONAL">Ocupacional</SelectItem>
+                            <SelectItem value="EXAMEN_SALIDA">Salida</SelectItem>
+                            </SelectContent>
+                        </Select>
+                        </FormItem>
+                    )}
+                />
+              </div>
             </div>
 
             <div className="h-px bg-border" />
@@ -503,7 +524,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
                   <>
-                    {/* 1. Baterías Faltantes (A Solicitar) - USANDO LISTA SEGURA */}
+                    {/* 1. Baterías Faltantes (A Solicitar) */}
                     <div>
                       <h4 className="font-bold text-amber-700 mb-2 flex items-center gap-2">
                         <div className="w-2 h-2 rounded-full bg-amber-500" />
@@ -522,13 +543,12 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
                       )}
                     </div>
 
-                    {/* 2. Baterías Cubiertas (Ya tiene) - USANDO LISTA SEGURA */}
+                    {/* 2. Baterías Cubiertas */}
                     {safeCoveredList.length > 0 && (
                       <div>
                         <h4 className="font-bold text-green-700 mb-2 flex items-center gap-2">
                           <div className="w-2 h-2 rounded-full bg-green-500" />
-                          Vigentes / Cubiertas (
-                          {safeCoveredList.length})
+                          Vigentes / Cubiertas ({safeCoveredList.length})
                         </h4>
                         <ul className="list-disc list-inside font-medium text-green-900 bg-green-50 p-2 rounded border border-green-100 opacity-80">
                           {safeCoveredList.map((b: any) => (

@@ -9,12 +9,16 @@ import type { Company } from '../../services/companies.service';
 
 import { 
   Shield, Upload, FileText, Trash2, Search, Send, CheckCircle2, 
-  X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle
+  X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle,
+  Megaphone, Info // 👈 Iconos nuevos importados
 } from 'lucide-react';
 
 export default function RiskManagement() {
-  // --- TABS (PESTAÑAS) ---
+  // --- TABS PRINCIPALES (BIBLIOTECA vs HISTORIAL) ---
   const [activeTab, setActiveTab] = useState<'LIBRARY' | 'HISTORY'>('LIBRARY');
+
+  // --- NUEVO: TABS DEL FORMULARIO (PROTOCOLO vs CAMPAÑA) ---
+  const [createMode, setCreateMode] = useState<'PROTOCOL' | 'CAMPAIGN'>('PROTOCOL');
 
   // --- ESTADOS BIBLIOTECA ---
   const [risks, setRisks] = useState<RiskAgent[]>([]);
@@ -51,7 +55,7 @@ export default function RiskManagement() {
     loadLibraryData();
   }, []);
 
-  // EFECTO: Cargar historial cuando cambias a la pestaña HISTORY
+  // EFECTO: Cargar historial
   useEffect(() => {
     if (activeTab === 'HISTORY') {
         loadHistoryData();
@@ -102,16 +106,27 @@ export default function RiskManagement() {
     }
   };
 
-  // --- LÓGICA DE BIBLIOTECA (CRUD) ---
+  // --- LÓGICA DE GUARDADO (CRUD) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name) return alert('El nombre es obligatorio');
     setLoading(true);
+    
     try {
-      await createRisk(name, description, file);
+      // 🧠 LÓGICA DEL PREFIJO INTELIGENTE:
+      // Si el usuario eligió "Campaña", agregamos el prefijo [CAMPAÑA] al nombre
+      // para diferenciarlo en la base de datos y en la lista.
+      let finalName = name;
+      if (createMode === 'CAMPAIGN' && !name.toUpperCase().startsWith('[CAMPAÑA]')) {
+          finalName = `[CAMPAÑA] ${name}`;
+      }
+
+      await createRisk(finalName, description, file);
+      
+      // Limpieza
       setName(''); setDescription(''); setFile(null);
-      await loadLibraryData(); // Recargar lista
-      alert('✅ Protocolo actualizado'); 
+      await loadLibraryData(); 
+      alert(createMode === 'PROTOCOL' ? '✅ Protocolo Legal guardado' : '✅ Campaña Informativa guardada'); 
     } catch (error) {
       alert('❌ Error al guardar');
     } finally {
@@ -120,7 +135,7 @@ export default function RiskManagement() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('¿Eliminar riesgo y documentos?')) return;
+    if (!confirm('¿Estás seguro de eliminar este registro y sus documentos?')) return;
     try {
       await deleteRisk(id);
       loadLibraryData();
@@ -129,8 +144,17 @@ export default function RiskManagement() {
 
   const handleBulkSend = (risk: RiskAgent) => {
     setSelectedRisk(risk);
-    setEmailSubject(`IMPORTANTE: Nuevo Protocolo para ${risk.name}`);
+    
+    // Detectamos si es campaña para cambiar el asunto del correo por defecto
+    const isCampaign = risk.name.startsWith('[CAMPAÑA]');
+    const defaultSubject = isCampaign 
+        ? `INFORMACIÓN IMPORTANTE: ${risk.name.replace('[CAMPAÑA]', '').trim()}`
+        : `DOCUMENTACIÓN LEGAL: Protocolo ${risk.name}`;
+
+    setEmailSubject(defaultSubject);
     if (risk.documents) setSelectedDocs(risk.documents.map(d => d.id));
+    
+    // Resetear formulario del modal
     setTargetMode('INDIVIDUAL'); setTargetEmail(''); setTargetCompanyId(''); setRecipientCount(1);
     setIsModalOpen(true);
   };
@@ -154,7 +178,7 @@ export default function RiskManagement() {
         );
         alert(`✅ Envío exitoso. Revisa la pestaña "Historial".`);
         setIsModalOpen(false);
-        if (activeTab === 'HISTORY') loadHistoryData(); // Refrescar si ya estamos ahí
+        if (activeTab === 'HISTORY') loadHistoryData();
     } catch (error) {
         alert('❌ Error al enviar.');
     } finally {
@@ -171,15 +195,13 @@ export default function RiskManagement() {
   return (
     <div className="min-h-screen bg-gray-50/50 p-6 lg:p-10 relative">
       
-      {/* HEADER + TABS */}
+      {/* HEADER + TABS PRINCIPALES */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             <div>
-                {/* TÍTULO ACTUALIZADO */}
                 <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">Gestión Documental (ODI)</h1>
                 <p className="text-sm text-gray-500 mt-1">Biblioteca legal, distribución masiva y trazabilidad de firmas.</p>
             </div>
-            {/* BOTONES DE PESTAÑAS */}
             <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
                 <button 
                     onClick={() => setActiveTab('LIBRARY')}
@@ -200,38 +222,82 @@ export default function RiskManagement() {
       {/* --- VISTA: BIBLIOTECA --- */}
       {activeTab === 'LIBRARY' && (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
-            {/* FORMULARIO IZQUIERDA */}
+            
+            {/* FORMULARIO IZQUIERDA (MEJORADO CON INTERRUPTOR) */}
             <div className="lg:col-span-4">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
-                <h2 className="text-sm font-semibold text-gray-900 mb-6 uppercase tracking-wider flex items-center gap-2">
-                <Upload className="h-4 w-4 text-gray-400" /> Nuevo Registro
-                </h2>
-                <form onSubmit={handleSubmit} className="space-y-5">
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600 ml-1">Nombre del Riesgo</label>
-                    <input type="text" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition-all" placeholder="Ej: Ruido" value={name} onChange={(e) => setName(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600 ml-1">Descripción</label>
-                    <textarea className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none h-24 resize-none" placeholder="Detalles..." value={description} onChange={(e) => setDescription(e.target.value)} />
-                </div>
-                <div className="space-y-1.5">
-                    <label className="text-xs font-medium text-gray-600 ml-1">Documento PDF</label>
-                    <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
-                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                        <div className={`p-2 rounded-full mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-white text-gray-400'}`}>
-                            {file ? <CheckCircle2 className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
-                        </div>
-                        <p className="text-xs text-gray-500">{file ? file.name : "Clic para subir PDF"}</p>
+                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
+                    
+                    <h2 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider flex items-center gap-2">
+                        <Upload className="h-4 w-4 text-gray-400" /> Nuevo Registro
+                    </h2>
+
+                    {/* INTERRUPTOR: PROTOCOLO vs CAMPAÑA */}
+                    <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-100 rounded-lg">
+                        <button
+                            onClick={() => setCreateMode('PROTOCOL')}
+                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${createMode === 'PROTOCOL' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Shield className="h-3 w-3" /> Protocolo
+                        </button>
+                        <button
+                            onClick={() => setCreateMode('CAMPAIGN')}
+                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${createMode === 'CAMPAIGN' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Megaphone className="h-3 w-3" /> Campaña
+                        </button>
                     </div>
-                    <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
-                    </label>
+
+                    <form onSubmit={handleSubmit} className="space-y-5">
+                        
+                        {/* ALERTAS VISUALES SEGÚN MODO */}
+                        <div className={`text-xs p-3 rounded-md border ${createMode === 'PROTOCOL' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-purple-50 border-purple-100 text-purple-700'}`}>
+                            {createMode === 'PROTOCOL' ? (
+                                <p className="flex items-start gap-2"><Info className="h-4 w-4 shrink-0" /> Documento Legal: Se vinculará a un Agente de Riesgo para el Robot.</p>
+                            ) : (
+                                <p className="flex items-start gap-2"><Info className="h-4 w-4 shrink-0" /> Documento Informativo: Para difusión masiva (No se asigna a GES).</p>
+                            )}
+                        </div>
+
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-600 ml-1">
+                                {createMode === 'PROTOCOL' ? 'Nombre del Riesgo (Agente)' : 'Título de la Campaña'}
+                            </label>
+                            <input 
+                                type="text" 
+                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition-all" 
+                                placeholder={createMode === 'PROTOCOL' ? "Ej: Ruido, Sílice, Altura" : "Ej: Campaña Verano Seguro"} 
+                                value={name} 
+                                onChange={(e) => setName(e.target.value)} 
+                            />
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-600 ml-1">Descripción</label>
+                            <textarea className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none h-24 resize-none" placeholder="Detalles..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                        </div>
+                        
+                        <div className="space-y-1.5">
+                            <label className="text-xs font-medium text-gray-600 ml-1">Documento PDF</label>
+                            <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                    <div className={`p-2 rounded-full mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-white text-gray-400'}`}>
+                                        {file ? <CheckCircle2 className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
+                                    </div>
+                                    <p className="text-xs text-gray-500">{file ? file.name : "Clic para subir PDF"}</p>
+                                </div>
+                                <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
+                            </label>
+                        </div>
+                        
+                        <button 
+                            type="submit" 
+                            disabled={loading} 
+                            className={`w-full py-2.5 text-white text-sm font-medium rounded-lg shadow-sm disabled:opacity-50 mt-2 ${createMode === 'PROTOCOL' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+                        >
+                            {loading ? 'Guardando...' : createMode === 'PROTOCOL' ? 'Guardar Protocolo' : 'Guardar Campaña'}
+                        </button>
+                    </form>
                 </div>
-                <button type="submit" disabled={loading} className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg shadow-sm disabled:opacity-50 mt-2">
-                    {loading ? 'Guardando...' : 'Guardar Protocolo'}
-                </button>
-                </form>
-            </div>
             </div>
 
             {/* TABLA DERECHA */}
@@ -248,38 +314,52 @@ export default function RiskManagement() {
                 <table className="w-full text-left border-collapse">
                     <thead>
                     <tr className="border-b border-gray-50 bg-gray-50/30">
-                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Agente</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Nombre / Agente</th>
                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Doc Activo</th>
                         <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Acciones</th>
                     </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-50">
-                    {filteredRisks.map((risk) => (
-                        <tr key={risk.id} className="group hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 align-top">
-                            <p className="text-sm font-medium text-gray-800">{risk.name}</p>
-                            <p className="text-xs text-gray-400 line-clamp-1">{risk.description}</p>
-                        </td>
-                        <td className="px-6 py-4 align-top">
-                            {risk.documents?.[0] ? (
-                                <div className="flex flex-col items-start gap-1">
-                                    <a href={risk.documents[0].publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:text-blue-600 shadow-sm">
-                                    <FileText className="h-3.5 w-3.5 text-red-400" /> {risk.documents[0].title}
-                                    </a>
-                                    {risk.documents.length > 1 && <span className="text-[10px] text-gray-400 ml-1">+ {risk.documents.length - 1} otros</span>}
-                                </div>
-                            ) : <span className="text-xs text-gray-300 italic">Sin archivo</span>}
-                        </td>
-                        <td className="px-6 py-4 align-top text-right">
-                            <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:hidden" title="Difundir">
-                                <Send className="h-4 w-4" />
-                            </button>
-                            <button onClick={() => handleDelete(risk.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
-                            </div>
-                        </td>
-                        </tr>
-                    ))}
+                    {filteredRisks.map((risk) => {
+                        // DETECTAMOS SI ES CAMPAÑA PARA DARLE UN LOOK DIFERENTE
+                        const isCampaign = risk.name.startsWith('[CAMPAÑA]');
+                        const displayName = risk.name.replace('[CAMPAÑA]', '').trim();
+
+                        return (
+                            <tr key={risk.id} className="group hover:bg-gray-50/50 transition-colors">
+                                <td className="px-6 py-4 align-top">
+                                    <div className="flex items-center gap-2">
+                                        {/* ICONO DINÁMICO */}
+                                        {isCampaign ? (
+                                            <span className="p-1 rounded bg-purple-100 text-purple-600" title="Campaña Informativa"><Megaphone className="h-3 w-3" /></span>
+                                        ) : (
+                                            <span className="p-1 rounded bg-blue-100 text-blue-600" title="Protocolo Legal"><Shield className="h-3 w-3" /></span>
+                                        )}
+                                        <p className="text-sm font-medium text-gray-800">{displayName}</p>
+                                    </div>
+                                    <p className="text-xs text-gray-400 line-clamp-1 mt-1 pl-7">{risk.description}</p>
+                                </td>
+                                <td className="px-6 py-4 align-top">
+                                    {risk.documents?.[0] ? (
+                                        <div className="flex flex-col items-start gap-1">
+                                            <a href={risk.documents[0].publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:text-blue-600 shadow-sm">
+                                            <FileText className="h-3.5 w-3.5 text-red-400" /> {risk.documents[0].title}
+                                            </a>
+                                            {risk.documents.length > 1 && <span className="text-[10px] text-gray-400 ml-1">+ {risk.documents.length - 1} otros</span>}
+                                        </div>
+                                    ) : <span className="text-xs text-gray-300 italic">Sin archivo</span>}
+                                </td>
+                                <td className="px-6 py-4 align-top text-right">
+                                    <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:hidden" title="Difundir">
+                                        <Send className="h-4 w-4" />
+                                    </button>
+                                    <button onClick={() => handleDelete(risk.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                                    </div>
+                                </td>
+                            </tr>
+                        );
+                    })}
                     </tbody>
                 </table>
                 </div>
@@ -288,7 +368,7 @@ export default function RiskManagement() {
         </div>
       )}
 
-      {/* --- VISTA: HISTORIAL (AQUÍ ESTÁ LO QUE FALTABA) --- */}
+      {/* --- VISTA: HISTORIAL --- */}
       {activeTab === 'HISTORY' && (
         <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[500px]">

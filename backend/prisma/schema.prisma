@@ -149,6 +149,7 @@ model Ges {
   examBatteries      ExamBattery[]
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
+  risks              GesRisk[]
 }
 
 model RiskAgent {
@@ -162,6 +163,7 @@ model RiskAgent {
   workerExposures WorkerExposure[] // Relación directa con trabajador
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  gesAssociated   GesRisk[]
 }
 
 model RiskProtocol {
@@ -408,4 +410,28 @@ model OdiDelivery {
 
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
+}
+
+model GesRisk {
+  id        String    @id @default(uuid())
+  
+  gesId     String
+  ges       Ges       @relation(fields: [gesId], references: [id])
+  
+  riskId    String
+  risk      RiskAgent @relation(fields: [riskId], references: [id])
+
+  createdAt DateTime  @default(now())
+
+  @@unique([gesId, riskId])
+}
+
+model GESDocument {
+  id        String   @id @default(uuid())
+  gesId     String
+  name      String
+  type      String   // Ej: "GENERICO", "TMERT"
+  url       String
+  s3Key     String
+  createdAt DateTime @default(now())
 }

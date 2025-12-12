@@ -41,7 +41,6 @@ export const getAreaSuggestions = async (req: Request, res: Response) => {
 export const updateRules = async (req: Request, res: Response) => {
     try {
         const { batteryIds } = req.body;
-        if (!Array.isArray(batteryIds)) return res.status(400).json({ error: 'Formato inválido' });
         const result = await GesService.updateGesBatteries(req.params.id, batteryIds);
         res.json(result);
     } catch (e) { res.status(500).json({ error: 'Error al guardar reglas' }); }
@@ -57,32 +56,24 @@ export const getDocuments = async (req: Request, res: Response) => {
 export const uploadDocument = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    
-    // Al usar multer-s3 (uploadS3), el archivo viene aquí. 
     const file = req.file as any; 
     
     if (!file) return res.status(400).json({ error: 'Falta archivo PDF' });
     
-    // El body debe traer { type: 'TMERT', reportName: '...', reportDate: '...' }
     const result = await GesService.uploadGesDocument(id, file, req.body);
     res.json(result);
   } catch (e: any) { 
       console.error(e);
-      if (e.message.includes("Evaluación Cualitativa")) {
-         return res.status(400).json({ error: e.message });
-      }
       res.status(500).json({ error: 'Error al subir documento' }); 
   }
 };
 
-// 👇 NUEVO: HISTORIAL COMPLETO
 export const getHistory = async (req: Request, res: Response) => {
   try {
     const data = await GesService.getGesFullHistory(req.params.id);
     if (!data) return res.status(404).json({ error: 'GES no encontrado' });
     res.json(data);
   } catch (e) {
-    console.error(e);
     res.status(500).json({ error: 'Error al obtener historia del GES' });
   }
 };
@@ -91,26 +82,39 @@ export const deleteQualitative = async (req: Request, res: Response) => {
     try {
         await GesService.removeTechnicalReport(req.params.docId);
         res.json({ message: 'Documento eliminado' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al eliminar documento' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Error eliminar' }); }
 };
 
 export const deleteQuantitative = async (req: Request, res: Response) => {
     try {
         await GesService.removeQuantitativeReport(req.params.docId);
         res.json({ message: 'Documento eliminado' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al eliminar documento' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Error eliminar' }); }
 };
 
-// 👇 NUEVO: Endpoint para eliminar TMERT
 export const deleteTmert = async (req: Request, res: Response) => {
     try {
         await GesService.removeTmertReport(req.params.docId);
         res.json({ message: 'Informe TMERT eliminado' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al eliminar TMERT' });
-    }
+    } catch (error) { res.status(500).json({ error: 'Error eliminar TMERT' }); }
+};
+
+// 👇 AQUÍ ESTÁ LO NUEVO (Ahora llama al servicio, limpio y seguro)
+export const getGesRisks = async (req: Request, res: Response) => {
+  try {
+    const riskIds = await GesService.getGesRisksDb(req.params.id);
+    res.json(riskIds);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener riesgos' });
+  }
+};
+
+export const updateGesRisks = async (req: Request, res: Response) => {
+  try {
+    const { riskIds } = req.body;
+    await GesService.updateGesRisksDb(req.params.id, riskIds);
+    res.json({ message: 'Riesgos actualizados' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al actualizar riesgos' });
+  }
 };

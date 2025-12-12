@@ -8,10 +8,14 @@ const router = Router();
 router.get('/', GesController.list);
 router.post('/', GesController.create);
 
-// Inteligencia
+// Inteligencia (Baterías Médicas)
 router.get('/area/:id/batteries', GesController.getAreaSuggestions);
 router.get('/:id/batteries', GesController.getSuggestions);
 router.put('/:id/batteries', GesController.updateRules);
+
+// 👇 NUEVAS RUTAS PARA VINCULAR RIESGOS (ODI) - AGREGA ESTAS
+router.get('/:id/risks', GesController.getGesRisks);
+router.put('/:id/risks', GesController.updateGesRisks);
 
 // Documentos
 router.get('/:id/documents', GesController.getDocuments);
@@ -22,7 +26,6 @@ router.post('/:id/documents', uploadS3.single('file'), GesController.uploadDocum
 // Rutas para borrar documentos
 router.delete('/:id/documents/qualitative/:docId', GesController.deleteQualitative);
 router.delete('/:id/documents/quantitative/:docId', GesController.deleteQuantitative);
-// 👇 NUEVA RUTA PARA BORRAR TMERT
 router.delete('/:id/documents/tmert/:docId', GesController.deleteTmert);
 
 // Historial
