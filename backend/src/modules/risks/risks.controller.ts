@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { PrismaClient } from '@prisma/client';
-import { randomUUID } from 'crypto'; // 👈 IMPORTANTE: Para generar Tokens únicos
+import { randomUUID } from 'crypto'; 
 import { uploadFileToS3, deleteFileFromS3 } from '../../utils/s3';
 import { sendODIEmail } from '../../utils/emailSender'; 
 
@@ -102,9 +102,7 @@ export const countRecipients = async (req: Request, res: Response) => {
   }
 };
 
-// =========================================================================
-// 5. ENVIAR CORREO AUDITABLE (CON REGISTRO EN BD) 👮‍♂️✅
-// =========================================================================
+// 5. ENVIAR CORREO AUDITABLE
 export const sendRiskEmail = async (req: Request, res: Response) => {
   try {
     const { riskId, targetMode, targetId, email, subject, message, documentIds } = req.body;
@@ -131,7 +129,7 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
       path: doc.publicUrl
     }));
 
-    // C. Definimos Destinatarios (Workers Reales)
+    // C. Definimos Destinatarios
     let recipients: { id?: string; email: string; name: string }[] = [];
 
     if (targetMode === 'COMPANY') {
@@ -145,14 +143,10 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
       recipients = workers.map(w => ({ id: w.id, email: w.email!, name: w.name }));
 
     } else {
-      // Modo INDIVIDUAL
       if (!email) return res.status(400).json({ error: 'Falta el email.' });
-      
-      // Intentamos buscar si el email pertenece a un trabajador real
       const workerFound = await prisma.worker.findFirst({ where: { email: email } });
-      
       recipients.push({ 
-        id: workerFound?.id, // Si existe, guardamos su ID para auditoría
+        id: workerFound?.id, 
         email, 
         name: workerFound?.name || 'Usuario Externo' 
       });
@@ -160,22 +154,20 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
 
     console.log(`🚀 Iniciando envío auditado a ${recipients.length} personas.`);
 
-    // D. BUCLE DE ENVÍO + REGISTRO EN BD
+    // D. BUCLE DE ENVÍO
     let successCount = 0;
     
     for (const recipient of recipients) {
         try {
-            // 1. Generamos Token Único para este envío
             const deliveryToken = randomUUID();
 
-            // 2. Registramos en la BD (Solo si es un trabajador real registrado)
             if (recipient.id) {
                 for (const doc of selectedDocs) {
                     await prisma.odiDelivery.create({
                         data: {
                             workerId: recipient.id,
                             documentId: doc.id,
-                            token: deliveryToken, // Mismo token para un grupo de docs
+                            token: deliveryToken,
                             status: 'PENDING',
                             sentAt: new Date()
                         }
@@ -183,14 +175,13 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
                 }
             }
 
-            // 3. Enviamos el Correo Real
             const sent = await sendODIEmail(
                 recipient.email, 
                 recipient.name, 
                 "Gestión Vitam", 
                 [risk.name], 
                 attachments, 
-                deliveryToken // 🔑 Token real para el botón
+                deliveryToken 
             );
 
             if (sent) successCount++;
@@ -207,70 +198,70 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Error crítico en el envío.' });
   }
 };
-// ... (Al final del archivo)
 
-// 6. CONFIRMAR RECEPCIÓN (EL CLIENTE HACE CLIC EN EL LINK)
-export const confirmDelivery = async (req: Request, res: Response) => {
-  try {
-    const { token } = req.body;
-    
-    // Capturamos la IP del cliente (para auditoría legal)
-    // En producción con proxies (como Render/AWS), la IP real suele estar en 'x-forwarded-for'
-    const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'Unknown IP';
-    const userAgent = req.headers['user-agent'] || 'Unknown Browser';
+// 6. CONFIRMAR RECEPCIÓN (EL CLIENTE HACE CLIC EN EL LINK) - VERSIÓN GET PÚBLICA
+// 👇 Esta es la función nueva que usa tu Frontend
+export const confirmOdiPublic = async (req: Request, res: Response) => {
+    const { token } = req.params; // Viene por URL: /api/odi/confirm/:token
 
-    if (!token) return res.status(400).json({ error: 'Token inválido' });
+    try {
+        const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'Unknown IP';
+        const userAgent = req.headers['user-agent'] || 'Unknown Browser';
 
-    // 1. Buscamos todas las entregas con ese token (pueden ser varias si se enviaron varios docs juntos)
-    const deliveries = await prisma.odiDelivery.findMany({
-      where: { token: token }
-    });
-
-    if (deliveries.length === 0) {
-      return res.status(404).json({ error: 'Documento no encontrado o token expirado.' });
-    }
-
-    // 2. Verificamos si ya estaba firmado
-    // Si ya está confirmado, solo devolvemos éxito para no dar error al usuario
-    if (deliveries[0].status === 'CONFIRMED') {
-        return res.json({ 
-            message: 'Ya habías confirmado este documento anteriormente.', 
-            alreadyConfirmed: true,
-            date: deliveries[0].confirmedAt 
+        // 1. Buscamos el token
+        const deliveries = await prisma.odiDelivery.findMany({
+            where: { token: token },
+            include: { 
+                worker: true // 👈 TRAEMOS AL TRABAJADOR
+            }
         });
+
+        if (deliveries.length === 0) {
+            return res.status(404).json({ error: "Token inválido o expirado" });
+        }
+
+        const delivery = deliveries[0]; // Tomamos el primero del grupo
+        const workerData = {
+            name: delivery.worker?.name || 'Usuario Externo',
+            rut: delivery.worker?.rut || 'N/A'
+        };
+
+        // 2. Verificamos si YA estaba confirmado
+        if (delivery.status === 'CONFIRMED') {
+            return res.json({ 
+                success: true, 
+                alreadySigned: true, 
+                signedAt: delivery.confirmedAt,
+                worker: workerData // Enviamos datos
+            });
+        }
+
+        // 3. Confirmamos TODAS las entregas con ese token
+        await prisma.odiDelivery.updateMany({
+            where: { token: token },
+            data: {
+                status: 'CONFIRMED',
+                confirmedAt: new Date(),
+                ipAddress: ip,
+                userAgent: userAgent
+            }
+        });
+
+        // 4. Devolvemos éxito
+        return res.json({ 
+            success: true, 
+            alreadySigned: false, 
+            signedAt: new Date(),
+            worker: workerData // Enviamos datos
+        });
+
+    } catch (error) {
+        console.error("Error confirmando ODI:", error);
+        return res.status(500).json({ error: "Error interno del servidor" });
     }
-
-    // 3. ACTUALIZAMOS EL ESTADO (LA FIRMA DIGITAL) ✍️✅
-    await prisma.odiDelivery.updateMany({
-      where: { token: token },
-      data: {
-        status: 'CONFIRMED',
-        confirmedAt: new Date(),
-        ipAddress: ip,
-        userAgent: userAgent
-      }
-    });
-
-    // 4. Obtenemos datos para mostrar en pantalla ("Gracias Juan...")
-    const worker = await prisma.worker.findUnique({
-        where: { id: deliveries[0].workerId },
-        select: { name: true, rut: true }
-    });
-
-    res.json({ 
-        success: true, 
-        workerName: worker?.name,
-        date: new Date()
-    });
-
-  } catch (error) {
-    console.error("Error confirmando ODI:", error);
-    res.status(500).json({ error: 'Error al procesar la firma.' });
-  }
 };
-// ... (al final del archivo)
 
-// 7. OBTENER HISTORIAL GLOBAL (Para la pantalla de Riesgos)
+// 7. HISTORIAL GLOBAL
 export const getGlobalHistory = async (req: Request, res: Response) => {
   try {
     const history = await prisma.odiDelivery.findMany({
@@ -281,7 +272,7 @@ export const getGlobalHistory = async (req: Request, res: Response) => {
         }
       },
       orderBy: { sentAt: 'desc' },
-      take: 100 // Límite de seguridad, puedes paginar después
+      take: 100 
     });
     res.json(history);
   } catch (error) {
@@ -290,7 +281,7 @@ export const getGlobalHistory = async (req: Request, res: Response) => {
   }
 };
 
-// 8. OBTENER HISTORIAL POR TRABAJADOR (Para el Timeline)
+// 8. HISTORIAL POR TRABAJADOR
 export const getWorkerHistory = async (req: Request, res: Response) => {
   try {
     const { workerId } = req.params;

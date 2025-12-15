@@ -15,6 +15,9 @@ import DashboardPage from '@/pages/DashboardPage';
 import OrdersPage from '@/pages/OrdersPage'; 
 import ImportPage from '@/pages/ImportPage'; 
 
+// 👇 2. IMPORTAMOS LA NUEVA PÁGINA DE REPORTES
+import ReportsPage from '@/pages/ReportsPage';
+
 import UsersPage from '@/pages/admin/UsersPage'; 
 import CompaniesPage from '@/pages/admin/CompaniesPage';
 import WorkersPage from '@/pages/admin/WorkersPage';
@@ -48,7 +51,7 @@ export const router = createBrowserRouter([
       { path: '/forgot-password', element: <ForgotPasswordPage /> },
       { path: '/auth/reset-password', element: <ResetPasswordPage /> },
       
-      // 👇 2. AQUÍ AGREGAMOS LA RUTA DE FIRMA (TIENE QUE SER PÚBLICA)
+      // RUTA DE FIRMA (PÚBLICA)
       { path: '/confirmar-odi', element: <OdiConfirmation /> },
 
       // === RUTAS PROTEGIDAS (REQUIEREN LOGIN) ===
@@ -59,11 +62,15 @@ export const router = createBrowserRouter([
           {
             element: <DashboardLayout />,
             children: [
-              // Nivel 1: Todos
+              // Nivel 1: Todos (Accesible para cualquier usuario logueado)
               { index: true, element: <DashboardPage /> },
               { path: 'orders', element: <OrdersPage /> },
               { path: 'surveillance', element: <MedicalSurveillancePage /> },
-              { path: 'workers', element: <WorkersPage /> }, 
+              { path: 'workers', element: <WorkersPage /> },
+              
+              // 👇 3. AQUÍ AGREGAMOS LA RUTA DE REPORTES
+              // La ponemos en Nivel 1 porque es una herramienta operativa básica
+              { path: 'reports', element: <ReportsPage /> },
 
               // Nivel 2: Admin Empresa + Vitam
               {

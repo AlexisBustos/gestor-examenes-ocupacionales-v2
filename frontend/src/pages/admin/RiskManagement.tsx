@@ -8,16 +8,16 @@ import type { RiskAgent, OdiDelivery } from '../../services/risk.service';
 import type { Company } from '../../services/companies.service'; 
 
 import { 
-  Shield, Upload, FileText, Trash2, Search, Send, CheckCircle2, 
-  X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle,
-  Megaphone, Info // 👈 Iconos nuevos importados
+    Shield, Upload, FileText, Trash2, Search, Send, CheckCircle2, 
+    X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle,
+    Megaphone, Info
 } from 'lucide-react';
 
 export default function RiskManagement() {
-  // --- TABS PRINCIPALES (BIBLIOTECA vs HISTORIAL) ---
+  // --- TABS PRINCIPALES ---
   const [activeTab, setActiveTab] = useState<'LIBRARY' | 'HISTORY'>('LIBRARY');
 
-  // --- NUEVO: TABS DEL FORMULARIO (PROTOCOLO vs CAMPAÑA) ---
+  // --- TABS DEL FORMULARIO ---
   const [createMode, setCreateMode] = useState<'PROTOCOL' | 'CAMPAIGN'>('PROTOCOL');
 
   // --- ESTADOS BIBLIOTECA ---
@@ -113,9 +113,6 @@ export default function RiskManagement() {
     setLoading(true);
     
     try {
-      // 🧠 LÓGICA DEL PREFIJO INTELIGENTE:
-      // Si el usuario eligió "Campaña", agregamos el prefijo [CAMPAÑA] al nombre
-      // para diferenciarlo en la base de datos y en la lista.
       let finalName = name;
       if (createMode === 'CAMPAIGN' && !name.toUpperCase().startsWith('[CAMPAÑA]')) {
           finalName = `[CAMPAÑA] ${name}`;
@@ -145,7 +142,6 @@ export default function RiskManagement() {
   const handleBulkSend = (risk: RiskAgent) => {
     setSelectedRisk(risk);
     
-    // Detectamos si es campaña para cambiar el asunto del correo por defecto
     const isCampaign = risk.name.startsWith('[CAMPAÑA]');
     const defaultSubject = isCampaign 
         ? `INFORMACIÓN IMPORTANTE: ${risk.name.replace('[CAMPAÑA]', '').trim()}`
@@ -193,25 +189,29 @@ export default function RiskManagement() {
   const filteredRisks = risks.filter(r => r.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
   return (
-    <div className="min-h-screen bg-gray-50/50 p-6 lg:p-10 relative">
+    <div className="min-h-screen bg-slate-50/50 p-6 lg:p-10 relative">
       
       {/* HEADER + TABS PRINCIPALES */}
       <div className="max-w-7xl mx-auto mb-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
             <div>
-                <h1 className="text-2xl font-semibold text-gray-800 tracking-tight">Gestión Documental (ODI)</h1>
-                <p className="text-sm text-gray-500 mt-1">Biblioteca legal, distribución masiva y trazabilidad de firmas.</p>
+                <h1 className="text-2xl font-semibold text-slate-800 tracking-tight">Gestión Documental (ODI)</h1>
+                <p className="text-sm text-slate-500 mt-1">Biblioteca legal, distribución masiva y trazabilidad de firmas.</p>
             </div>
-            <div className="flex bg-white p-1 rounded-lg border border-gray-200 shadow-sm">
+            <div className="flex bg-white p-1 rounded-lg border border-slate-200 shadow-sm">
                 <button 
                     onClick={() => setActiveTab('LIBRARY')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'LIBRARY' ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                        activeTab === 'LIBRARY' ? 'bg-primary/10 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
                 >
                     <LayoutGrid className="h-4 w-4" /> Biblioteca
                 </button>
                 <button 
                     onClick={() => setActiveTab('HISTORY')}
-                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${activeTab === 'HISTORY' ? 'bg-blue-50 text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-4 py-2 text-sm font-medium rounded-md transition-all flex items-center gap-2 ${
+                        activeTab === 'HISTORY' ? 'bg-primary/10 text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                    }`}
                 >
                     <History className="h-4 w-4" /> Historial de Envíos
                 </button>
@@ -223,25 +223,29 @@ export default function RiskManagement() {
       {activeTab === 'LIBRARY' && (
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in duration-300">
             
-            {/* FORMULARIO IZQUIERDA (MEJORADO CON INTERRUPTOR) */}
+            {/* FORMULARIO IZQUIERDA */}
             <div className="lg:col-span-4">
-                <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 sticky top-6">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-6 sticky top-6">
                     
-                    <h2 className="text-sm font-semibold text-gray-900 mb-4 uppercase tracking-wider flex items-center gap-2">
-                        <Upload className="h-4 w-4 text-gray-400" /> Nuevo Registro
+                    <h2 className="text-sm font-semibold text-slate-900 mb-4 uppercase tracking-wider flex items-center gap-2">
+                        <Upload className="h-4 w-4 text-slate-400" /> Nuevo Registro
                     </h2>
 
-                    {/* INTERRUPTOR: PROTOCOLO vs CAMPAÑA */}
-                    <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-100 rounded-lg">
+                    {/* INTERRUPTOR: PROTOCOLO (Primary) vs CAMPAÑA (Secondary) */}
+                    <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-slate-100 rounded-lg">
                         <button
                             onClick={() => setCreateMode('PROTOCOL')}
-                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${createMode === 'PROTOCOL' ? 'bg-white text-blue-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${
+                                createMode === 'PROTOCOL' ? 'bg-white text-primary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}
                         >
                             <Shield className="h-3 w-3" /> Protocolo
                         </button>
                         <button
                             onClick={() => setCreateMode('CAMPAIGN')}
-                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${createMode === 'CAMPAIGN' ? 'bg-white text-purple-700 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+                            className={`flex items-center justify-center gap-2 py-1.5 text-xs font-medium rounded-md transition-all ${
+                                createMode === 'CAMPAIGN' ? 'bg-white text-secondary shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                            }`}
                         >
                             <Megaphone className="h-3 w-3" /> Campaña
                         </button>
@@ -250,7 +254,9 @@ export default function RiskManagement() {
                     <form onSubmit={handleSubmit} className="space-y-5">
                         
                         {/* ALERTAS VISUALES SEGÚN MODO */}
-                        <div className={`text-xs p-3 rounded-md border ${createMode === 'PROTOCOL' ? 'bg-blue-50 border-blue-100 text-blue-700' : 'bg-purple-50 border-purple-100 text-purple-700'}`}>
+                        <div className={`text-xs p-3 rounded-md border ${
+                            createMode === 'PROTOCOL' ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-secondary/5 border-secondary/20 text-secondary'
+                        }`}>
                             {createMode === 'PROTOCOL' ? (
                                 <p className="flex items-start gap-2"><Info className="h-4 w-4 shrink-0" /> Documento Legal: Se vinculará a un Agente de Riesgo para el Robot.</p>
                             ) : (
@@ -259,12 +265,12 @@ export default function RiskManagement() {
                         </div>
 
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-600 ml-1">
+                            <label className="text-xs font-medium text-slate-600 ml-1">
                                 {createMode === 'PROTOCOL' ? 'Nombre del Riesgo (Agente)' : 'Título de la Campaña'}
                             </label>
                             <input 
                                 type="text" 
-                                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none focus:border-blue-500 transition-all" 
+                                className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none focus:border-primary transition-all" 
                                 placeholder={createMode === 'PROTOCOL' ? "Ej: Ruido, Sílice, Altura" : "Ej: Campaña Verano Seguro"} 
                                 value={name} 
                                 onChange={(e) => setName(e.target.value)} 
@@ -272,18 +278,18 @@ export default function RiskManagement() {
                         </div>
                         
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-600 ml-1">Descripción</label>
-                            <textarea className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-lg text-sm outline-none h-24 resize-none" placeholder="Detalles..." value={description} onChange={(e) => setDescription(e.target.value)} />
+                            <label className="text-xs font-medium text-slate-600 ml-1">Descripción</label>
+                            <textarea className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm outline-none h-24 resize-none focus:border-primary" placeholder="Detalles..." value={description} onChange={(e) => setDescription(e.target.value)} />
                         </div>
                         
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-gray-600 ml-1">Documento PDF</label>
-                            <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-gray-300 rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 transition-colors">
+                            <label className="text-xs font-medium text-slate-600 ml-1">Documento PDF</label>
+                            <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-slate-300 rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                    <div className={`p-2 rounded-full mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-white text-gray-400'}`}>
+                                    <div className={`p-2 rounded-full mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-white text-slate-400'}`}>
                                         {file ? <CheckCircle2 className="h-5 w-5" /> : <Upload className="h-5 w-5" />}
                                     </div>
-                                    <p className="text-xs text-gray-500">{file ? file.name : "Clic para subir PDF"}</p>
+                                    <p className="text-xs text-slate-500">{file ? file.name : "Clic para subir PDF"}</p>
                                 </div>
                                 <input type="file" accept="application/pdf" className="hidden" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} />
                             </label>
@@ -292,7 +298,9 @@ export default function RiskManagement() {
                         <button 
                             type="submit" 
                             disabled={loading} 
-                            className={`w-full py-2.5 text-white text-sm font-medium rounded-lg shadow-sm disabled:opacity-50 mt-2 ${createMode === 'PROTOCOL' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-purple-600 hover:bg-purple-700'}`}
+                            className={`w-full py-2.5 text-white text-sm font-medium rounded-lg shadow-sm disabled:opacity-50 mt-2 transition-all ${
+                                createMode === 'PROTOCOL' ? 'bg-primary hover:bg-primary/90' : 'bg-secondary hover:bg-secondary/90'
+                            }`}
                         >
                             {loading ? 'Guardando...' : createMode === 'PROTOCOL' ? 'Guardar Protocolo' : 'Guardar Campaña'}
                         </button>
@@ -302,59 +310,57 @@ export default function RiskManagement() {
 
             {/* TABLA DERECHA */}
             <div className="lg:col-span-8">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[500px]">
-                <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center gap-4">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
+                <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center gap-4">
                     <div className="relative flex-1 max-w-sm">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                        <input type="text" placeholder="Buscar..." className="w-full pl-9 pr-4 py-2 bg-transparent border border-gray-200 rounded-full text-sm outline-none focus:border-blue-400 transition-colors" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                        <input type="text" placeholder="Buscar..." className="w-full pl-9 pr-4 py-2 bg-transparent border border-slate-200 rounded-full text-sm outline-none focus:border-primary transition-colors" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                     </div>
-                    <div className="text-xs text-gray-400 font-medium">{filteredRisks.length} registros</div>
+                    <div className="text-xs text-slate-400 font-medium">{filteredRisks.length} registros</div>
                 </div>
                 <div className="flex-1 overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                     <thead>
-                    <tr className="border-b border-gray-50 bg-gray-50/30">
-                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Nombre / Agente</th>
-                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Doc Activo</th>
-                        <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase text-right">Acciones</th>
+                    <tr className="border-b border-slate-50 bg-slate-50/30">
+                        <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Nombre / Agente</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Doc Activo</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase text-right">Acciones</th>
                     </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-50">
+                    <tbody className="divide-y divide-slate-50">
                     {filteredRisks.map((risk) => {
-                        // DETECTAMOS SI ES CAMPAÑA PARA DARLE UN LOOK DIFERENTE
                         const isCampaign = risk.name.startsWith('[CAMPAÑA]');
                         const displayName = risk.name.replace('[CAMPAÑA]', '').trim();
 
                         return (
-                            <tr key={risk.id} className="group hover:bg-gray-50/50 transition-colors">
+                            <tr key={risk.id} className="group hover:bg-slate-50/50 transition-colors">
                                 <td className="px-6 py-4 align-top">
                                     <div className="flex items-center gap-2">
-                                        {/* ICONO DINÁMICO */}
                                         {isCampaign ? (
-                                            <span className="p-1 rounded bg-purple-100 text-purple-600" title="Campaña Informativa"><Megaphone className="h-3 w-3" /></span>
+                                            <span className="p-1 rounded bg-secondary/10 text-secondary" title="Campaña Informativa"><Megaphone className="h-3 w-3" /></span>
                                         ) : (
-                                            <span className="p-1 rounded bg-blue-100 text-blue-600" title="Protocolo Legal"><Shield className="h-3 w-3" /></span>
+                                            <span className="p-1 rounded bg-primary/10 text-primary" title="Protocolo Legal"><Shield className="h-3 w-3" /></span>
                                         )}
-                                        <p className="text-sm font-medium text-gray-800">{displayName}</p>
+                                        <p className="text-sm font-medium text-slate-800">{displayName}</p>
                                     </div>
-                                    <p className="text-xs text-gray-400 line-clamp-1 mt-1 pl-7">{risk.description}</p>
+                                    <p className="text-xs text-slate-400 line-clamp-1 mt-1 pl-7">{risk.description}</p>
                                 </td>
                                 <td className="px-6 py-4 align-top">
                                     {risk.documents?.[0] ? (
                                         <div className="flex flex-col items-start gap-1">
-                                            <a href={risk.documents[0].publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-gray-200 text-xs font-medium text-gray-600 hover:text-blue-600 shadow-sm">
+                                            <a href={risk.documents[0].publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:text-primary shadow-sm hover:shadow transition-all">
                                             <FileText className="h-3.5 w-3.5 text-red-400" /> {risk.documents[0].title}
                                             </a>
-                                            {risk.documents.length > 1 && <span className="text-[10px] text-gray-400 ml-1">+ {risk.documents.length - 1} otros</span>}
+                                            {risk.documents.length > 1 && <span className="text-[10px] text-slate-400 ml-1">+ {risk.documents.length - 1} otros</span>}
                                         </div>
-                                    ) : <span className="text-xs text-gray-300 italic">Sin archivo</span>}
+                                    ) : <span className="text-xs text-slate-300 italic">Sin archivo</span>}
                                 </td>
                                 <td className="px-6 py-4 align-top text-right">
                                     <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded disabled:hidden" title="Difundir">
+                                    <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded disabled:hidden" title="Difundir">
                                         <Send className="h-4 w-4" />
                                     </button>
-                                    <button onClick={() => handleDelete(risk.id)} className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDelete(risk.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
                                     </div>
                                 </td>
                             </tr>
@@ -371,44 +377,44 @@ export default function RiskManagement() {
       {/* --- VISTA: HISTORIAL --- */}
       {activeTab === 'HISTORY' && (
         <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col min-h-[500px]">
-                <div className="px-6 py-4 border-b border-gray-50 flex justify-between items-center">
-                    <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-                        <History className="h-4 w-4 text-blue-500" /> Registro de Envíos y Firmas
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
+                <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center">
+                    <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                        <History className="h-4 w-4 text-primary" /> Registro de Envíos y Firmas
                     </h3>
-                    <button onClick={loadHistoryData} className="text-xs text-blue-600 hover:underline">Actualizar</button>
+                    <button onClick={loadHistoryData} className="text-xs text-primary hover:underline">Actualizar</button>
                 </div>
 
                 <div className="flex-1 overflow-x-auto">
                     {loadingHistory ? (
-                        <div className="p-10 text-center text-gray-400 text-sm">Cargando trazabilidad...</div>
+                        <div className="p-10 text-center text-slate-400 text-sm">Cargando trazabilidad...</div>
                     ) : (
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="border-b border-gray-50 bg-gray-50/30">
-                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Fecha Envío</th>
-                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Colaborador</th>
-                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Documento / Riesgo</th>
-                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Estado</th>
-                                    <th className="px-6 py-3 text-xs font-semibold text-gray-500 uppercase">Confirmado El</th>
+                                <tr className="border-b border-slate-50 bg-slate-50/30">
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Fecha Envío</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Colaborador</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Documento / Riesgo</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Confirmado El</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-50">
+                            <tbody className="divide-y divide-slate-50">
                                 {history.map((item) => (
-                                    <tr key={item.id} className="hover:bg-gray-50/50">
-                                        <td className="px-6 py-4 text-xs text-gray-500">
+                                    <tr key={item.id} className="hover:bg-slate-50/50">
+                                        <td className="px-6 py-4 text-xs text-slate-500">
                                             {new Date(item.sentAt).toLocaleDateString()} <span className="text-[10px]">{new Date(item.sentAt).toLocaleTimeString()}</span>
                                         </td>
                                         <td className="px-6 py-4">
-                                            <p className="text-sm font-medium text-gray-900">{item.worker.name}</p>
-                                            <p className="text-xs text-gray-400">{item.worker.rut} • {item.worker.email}</p>
+                                            <p className="text-sm font-medium text-slate-900">{item.worker.name}</p>
+                                            <p className="text-xs text-slate-400">{item.worker.rut} • {item.worker.email}</p>
                                         </td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center gap-2">
-                                                <FileText className="h-3 w-3 text-gray-400" />
+                                                <FileText className="h-3 w-3 text-slate-400" />
                                                 <div>
-                                                    <p className="text-sm text-gray-700">{item.document.title}</p>
-                                                    <p className="text-[10px] text-gray-400 uppercase">{item.document.agent.name}</p>
+                                                    <p className="text-sm text-slate-700">{item.document.title}</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase">{item.document.agent.name}</p>
                                                 </div>
                                             </div>
                                         </td>
@@ -418,17 +424,17 @@ export default function RiskManagement() {
                                                     <CheckCircle2 className="h-3 w-3" /> Firmado
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-50 text-yellow-700 border border-yellow-100">
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
                                                     <AlertCircle className="h-3 w-3" /> Pendiente
                                                 </span>
                                             )}
                                         </td>
-                                        <td className="px-6 py-4 text-xs text-gray-500">
+                                        <td className="px-6 py-4 text-xs text-slate-500">
                                             {item.confirmedAt ? (
                                                 <>
                                                     {new Date(item.confirmedAt).toLocaleDateString()} 
-                                                    <br/><span className="text-[10px] text-gray-400">{new Date(item.confirmedAt).toLocaleTimeString()}</span>
-                                                    {item.ipAddress && <div className="text-[9px] text-gray-300 mt-0.5">IP: {item.ipAddress}</div>}
+                                                    <br/><span className="text-[10px] text-slate-400">{new Date(item.confirmedAt).toLocaleTimeString()}</span>
+                                                    {item.ipAddress && <div className="text-[9px] text-slate-300 mt-0.5">IP: {item.ipAddress}</div>}
                                                 </>
                                             ) : '-'}
                                         </td>
@@ -436,7 +442,7 @@ export default function RiskManagement() {
                                 ))}
                                 {history.length === 0 && (
                                     <tr>
-                                        <td colSpan={5} className="text-center py-10 text-gray-400 text-sm">
+                                        <td colSpan={5} className="text-center py-10 text-slate-400 text-sm">
                                             No hay registros de envíos aún.
                                         </td>
                                     </tr>
@@ -452,41 +458,41 @@ export default function RiskManagement() {
       {/* MODAL DE DIFUSIÓN (Compartido) */}
       {isModalOpen && selectedRisk && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm transition-opacity">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
-            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-              <h3 className="font-bold text-gray-800 flex items-center gap-2"><Send className="h-4 w-4 text-blue-600" /> Difundir Protocolo</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X className="h-5 w-5" /></button>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-100">
+            <div className="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+              <h3 className="font-bold text-slate-800 flex items-center gap-2"><Send className="h-4 w-4 text-primary" /> Difundir Protocolo</h3>
+              <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSendEmail} className="p-6 space-y-5">
               
-              <div className="bg-blue-50/50 p-3 rounded-lg border border-blue-100">
-                <p className="text-xs font-bold text-blue-800 uppercase mb-2">1. Selecciona adjuntos:</p>
+              <div className="bg-primary/5 p-3 rounded-lg border border-primary/20">
+                <p className="text-xs font-bold text-primary uppercase mb-2">1. Selecciona adjuntos:</p>
                 <div className="space-y-1 max-h-24 overflow-y-auto">
                     {selectedRisk.documents.map(doc => (
-                        <label key={doc.id} className="flex items-center gap-2 cursor-pointer hover:bg-blue-100/50 p-1 rounded">
-                            <div onClick={(e) => { e.preventDefault(); toggleDocument(doc.id); }} className={`h-4 w-4 rounded border flex items-center justify-center ${selectedDocs.includes(doc.id) ? 'bg-blue-600 border-blue-600' : 'bg-white border-gray-300'}`}>
+                        <label key={doc.id} className="flex items-center gap-2 cursor-pointer hover:bg-white p-1 rounded transition-colors">
+                            <div onClick={(e) => { e.preventDefault(); toggleDocument(doc.id); }} className={`h-4 w-4 rounded border flex items-center justify-center transition-all ${selectedDocs.includes(doc.id) ? 'bg-primary border-primary' : 'bg-white border-slate-300'}`}>
                                 {selectedDocs.includes(doc.id) && <CheckSquare className="h-3 w-3 text-white" />}
                             </div>
-                            <span className="text-xs text-gray-700 truncate">{doc.title}</span>
+                            <span className="text-xs text-slate-700 truncate">{doc.title}</span>
                         </label>
                     ))}
                 </div>
               </div>
 
               <div>
-                <p className="text-xs font-bold text-gray-500 uppercase mb-2">2. Destinatario:</p>
+                <p className="text-xs font-bold text-slate-500 uppercase mb-2">2. Destinatario:</p>
                 <div className="grid grid-cols-2 gap-3 mb-3">
-                    <button type="button" onClick={() => setTargetMode('INDIVIDUAL')} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${targetMode === 'INDIVIDUAL' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                    <button type="button" onClick={() => setTargetMode('INDIVIDUAL')} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${targetMode === 'INDIVIDUAL' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                         <User className="h-4 w-4" /> Individual
                     </button>
-                    <button type="button" onClick={() => setTargetMode('COMPANY')} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${targetMode === 'COMPANY' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'}`}>
+                    <button type="button" onClick={() => setTargetMode('COMPANY')} className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg border text-sm font-medium transition-all ${targetMode === 'COMPANY' ? 'bg-slate-800 text-white border-slate-800' : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'}`}>
                         <Building2 className="h-4 w-4" /> Empresa
                     </button>
                 </div>
                 {targetMode === 'INDIVIDUAL' ? (
-                    <input type="email" required placeholder="ejemplo@correo.com" className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" value={targetEmail} onChange={(e) => setTargetEmail(e.target.value)} />
+                    <input type="email" required placeholder="ejemplo@correo.com" className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none text-sm focus:border-primary transition-all" value={targetEmail} onChange={(e) => setTargetEmail(e.target.value)} />
                 ) : (
-                    <select required className="w-full p-2.5 bg-gray-50 border border-gray-300 rounded-lg outline-none text-sm focus:border-blue-500" value={targetCompanyId} onChange={(e) => setTargetCompanyId(e.target.value)}>
+                    <select required className="w-full p-2.5 bg-slate-50 border border-slate-300 rounded-lg outline-none text-sm focus:border-primary transition-all" value={targetCompanyId} onChange={(e) => setTargetCompanyId(e.target.value)}>
                         <option value="">-- Selecciona una Empresa --</option>
                         {companies.map(c => <option key={c.id} value={c.id}>{c.name} (RUT: {c.rut})</option>)}
                     </select>
@@ -494,14 +500,14 @@ export default function RiskManagement() {
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">3. Mensaje:</label>
-                <input type="text" className="w-full mb-2 p-2 border border-gray-300 rounded text-sm font-medium" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Asunto" />
-                <textarea className="w-full p-2 border border-gray-300 rounded text-sm h-16 resize-none" value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)} placeholder="Mensaje..." />
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">3. Mensaje:</label>
+                <input type="text" className="w-full mb-2 p-2 border border-slate-300 rounded text-sm font-medium focus:border-primary outline-none transition-all" value={emailSubject} onChange={(e) => setEmailSubject(e.target.value)} placeholder="Asunto" />
+                <textarea className="w-full p-2 border border-slate-300 rounded text-sm h-16 resize-none focus:border-primary outline-none transition-all" value={emailMessage} onChange={(e) => setEmailMessage(e.target.value)} placeholder="Mensaje..." />
               </div>
 
-              <div className="pt-2 flex gap-3 justify-end border-t border-gray-50">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded">Cancelar</button>
-                <button type="submit" disabled={sending || (targetMode === 'COMPANY' && !targetCompanyId)} className="px-4 py-2 bg-blue-600 text-white text-sm font-bold rounded hover:bg-blue-700 shadow-md flex items-center gap-2 disabled:opacity-50">
+              <div className="pt-2 flex gap-3 justify-end border-t border-slate-50">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded transition-colors">Cancelar</button>
+                <button type="submit" disabled={sending || (targetMode === 'COMPANY' && !targetCompanyId)} className="px-4 py-2 bg-primary text-white text-sm font-bold rounded hover:bg-primary/90 shadow-md flex items-center gap-2 disabled:opacity-50 transition-all">
                   {sending ? 'Enviando...' : targetMode === 'COMPANY' ? `DIFUNDIR A ${recipientCount !== null ? recipientCount : '...'} PERSONAS 📢` : 'Enviar Prueba ✈️'}
                 </button>
               </div>

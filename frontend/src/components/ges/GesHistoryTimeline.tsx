@@ -94,7 +94,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
     if (status === "VENCIDA")
       return <XCircle className="h-3 w-3 text-red-600" />;
     if (status === "EN_PROCESO")
-      return <Clock3 className="h-3 w-3 text-blue-600" />;
+      return <Clock3 className="h-3 w-3 text-primary" />;
     return <CircleDot className="h-3 w-3 text-amber-500" />;
   };
 
@@ -189,7 +189,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
             {tech ? (
               <div className="relative mb-6 pl-4">
                 <div className="absolute left-[-6px] top-1">
-                  <CircleDot className="h-3 w-3 text-blue-600 bg-slate-50 rounded-full" />
+                  <CircleDot className="h-3 w-3 text-primary bg-slate-50 rounded-full" />
                 </div>
 
                 <button
@@ -204,7 +204,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                     )}
                   </div>
 
-                  <Badge className="bg-blue-600 hover:bg-blue-700 shrink-0 mt-0.5">
+                  <Badge className="bg-primary hover:bg-primary/90 shrink-0 mt-0.5">
                     Cualitativa
                   </Badge>
 

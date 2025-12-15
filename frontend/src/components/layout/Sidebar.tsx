@@ -14,7 +14,8 @@ import {
   Settings,
   Stethoscope,
   ShieldCheck,
-  Shield
+  Shield,
+  FileText // 👇 1. IMPORTAMOS EL NUEVO ICONO
 } from 'lucide-react';
 
 type UserRole = 'ADMIN_VITAM' | 'USER_VITAM' | 'ADMIN_EMPRESA' | 'USER_EMPRESA';
@@ -27,12 +28,16 @@ interface NavItem {
   allowedRoles: UserRole[] | 'ALL';
 }
 
+// --- CONFIGURACIÓN DE NAVEGACIÓN ---
 const navigation: NavItem[] = [
   // --- NIVEL 1: GLOBAL ---
   { name: 'Inicio', href: '/dashboard', icon: LayoutDashboard, exact: true, allowedRoles: 'ALL' },
   { name: 'Órdenes', href: '/dashboard/orders', icon: FileSpreadsheet, allowedRoles: 'ALL' },
   { name: 'Vigilancia Médica', href: '/dashboard/surveillance', icon: Activity, allowedRoles: 'ALL' },
   { name: 'Nómina', href: '/dashboard/workers', icon: Users, allowedRoles: 'ALL' },
+  
+  // 👇 2. AQUÍ AGREGAMOS EL BOTÓN DE REPORTES
+  { name: 'Reportes', href: '/dashboard/reports', icon: FileText, allowedRoles: 'ALL' },
 
   // --- NIVEL 2: ADMIN EMPRESA + VITAM ---
   { 
@@ -42,7 +47,6 @@ const navigation: NavItem[] = [
     allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] 
   },
   { 
-    // 👇 CAMBIO AQUÍ: Agregamos ADMIN_EMPRESA
     name: 'Biblioteca Técnica', 
     href: '/dashboard/risks-library', 
     icon: BookOpen, 
@@ -53,7 +57,7 @@ const navigation: NavItem[] = [
   { 
     name: 'Gestión Documental (ODI)', 
     href: '/dashboard/risk-management', 
-    icon: ShieldCheck, // Usamos el ícono de Escudo Checkeado 🛡️✅
+    icon: ShieldCheck, 
     allowedRoles: ['ADMIN_VITAM'] 
   },
   { 
@@ -104,34 +108,26 @@ export function Sidebar() {
   });
 
   return (
-    <div className="hidden border-r bg-slate-900 text-slate-100 md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl">
+    <div className="hidden border-r border-purple-900/20 bg-secondary text-white md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl z-50">
       
-      {/* HEADER */}
-      <div className="flex h-20 items-center justify-center border-b border-slate-800 bg-white gap-3 px-2">
-        <img 
-          src="https://vitamhc.cl/wp-content/uploads/2025/09/10.png" 
-          alt="Vitam Healthcare" 
-          className="h-10 w-auto object-contain" 
-          onError={(e) => {
-            e.currentTarget.style.display = 'none';
-            const span = e.currentTarget.nextElementSibling;
-            if (span) span.classList.remove('hidden');
-          }}
-        />
-        <span className="font-bold text-lg text-blue-900 leading-tight hidden md:block">
-          GES <span className="text-xs block font-normal text-slate-500">Gestor Ocupacional</span>
-        </span>
+      {/* HEADER AJUSTADO: Menos altura (h-32) y casi sin padding (p-1) para maximizar logo */}
+      <div className="flex h-32 items-center justify-center border-b border-white/10 bg-black/10 backdrop-blur-sm p-1 overflow-hidden">
+         <img 
+           src="/logo.png" 
+           alt="GESTUM Logo" 
+           className="h-full w-auto max-w-full object-contain brightness-0 invert hover:scale-105 transition-transform duration-300" 
+         />
       </div>
 
       {/* USUARIO */}
-      <div className="p-4 border-b border-slate-800 bg-slate-900/50">
+      <div className="p-4 border-b border-white/10 bg-black/20">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-sm font-bold text-white ring-2 ring-slate-700">
+          <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-sm font-bold text-white shadow-md border border-white/20 shrink-0">
             {user?.name?.charAt(0) || 'U'}
           </div>
           <div className="overflow-hidden">
-            <div className="text-sm font-medium text-slate-100 truncate">{user?.name || 'Usuario'}</div>
-            <div className="text-xs text-slate-400 truncate">
+            <div className="text-sm font-medium text-white truncate">{user?.name || 'Usuario'}</div>
+            <div className="text-xs text-purple-200 truncate opacity-80">
               {user?.role === 'ADMIN_VITAM' ? 'Super Admin' : 
                user?.role === 'ADMIN_EMPRESA' ? 'Administrador' : 'Usuario'}
             </div>
@@ -140,7 +136,11 @@ export function Sidebar() {
       </div>
 
       {/* NAVEGACIÓN */}
-      <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto">
+      <nav className="flex-1 space-y-1 px-3 py-6 overflow-y-auto scrollbar-thin scrollbar-thumb-purple-800 scrollbar-track-transparent">
+        <div className="px-3 mb-2 text-xs font-semibold text-purple-300/50 uppercase tracking-wider">
+            Menú Principal
+        </div>
+        
         {filteredNavigation.map((item) => (
           <NavLink
             key={item.name}
@@ -148,10 +148,10 @@ export function Sidebar() {
             end={item.exact}
             className={({ isActive }) =>
               cn(
-                "group flex items-center px-3 py-2.5 text-sm font-medium rounded-md transition-all duration-200",
+                "group flex items-center px-3 py-2.5 text-sm font-medium rounded-lg transition-all duration-200 relative",
                 isActive
-                  ? "bg-blue-600 text-white shadow-lg translate-x-1"
-                  : "text-slate-400 hover:bg-slate-800 hover:text-white hover:translate-x-1"
+                  ? "bg-primary text-white shadow-md"
+                  : "text-purple-100/70 hover:bg-white/10 hover:text-white"
               )
             }
           >
@@ -165,12 +165,12 @@ export function Sidebar() {
       </nav>
 
       {/* LOGOUT */}
-      <div className="p-4 border-t border-slate-800 bg-slate-900">
+      <div className="p-4 border-t border-white/10 bg-black/20">
         <button
           onClick={logout}
-          className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-400 rounded-md hover:bg-red-950/30 hover:text-red-300 transition-colors duration-200"
+          className="flex w-full items-center px-3 py-2 text-sm font-medium text-red-300 rounded-md hover:bg-red-500 hover:text-white transition-colors duration-200 group"
         >
-          <LogOut className="mr-3 h-5 w-5" />
+          <LogOut className="mr-3 h-5 w-5 group-hover:animate-pulse" />
           Cerrar Sesión
         </button>
       </div>

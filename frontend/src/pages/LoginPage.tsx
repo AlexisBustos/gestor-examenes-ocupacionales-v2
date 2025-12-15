@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'react-router-dom'; // 👈 IMPORTANTE: Agregamos Link
+import { Link } from 'react-router-dom'; 
 import * as z from 'zod';
 import { Loader2, Eye, EyeOff, Lock, Mail, ShieldCheck, GitCommit } from 'lucide-react';
 import { toast } from 'sonner';
@@ -55,20 +55,18 @@ export default function LoginPage() {
         <div className="w-full min-h-screen grid lg:grid-cols-2">
             
             {/* ---------------------------------------------------------- */}
-            {/* SECCIÓN IZQUIERDA: IMAGEN INDUSTRIAL / INSTITUCIONAL       */}
+            {/* SECCIÓN IZQUIERDA: IMAGEN CON FILTRO GESTUM                */}
             {/* ---------------------------------------------------------- */}
             <div className="hidden lg:flex flex-col justify-between bg-slate-900 relative overflow-hidden text-white p-12">
-                {/* Imagen de fondo con filtro azul corporativo */}
-                <div className="absolute inset-0 bg-blue-950/50 mix-blend-multiply z-10" />
+                <div className="absolute inset-0 bg-secondary/80 mix-blend-multiply z-10" />
                 
                 <img 
                     src="https://images.unsplash.com/photo-1504917595217-d4dc5ebe6122?q=80&w=2070&auto=format&fit=crop" 
-                    alt="Seguridad Industrial y Salud Ocupacional" 
+                    alt="Seguridad Industrial" 
                     className="absolute inset-0 w-full h-full object-cover opacity-60 hover:scale-105 transition-transform"
                     style={{ transitionDuration: '20s' }}
                 />
                 
-                {/* Logo y texto sobre la imagen izquierda (Marca de agua) */}
                 <div className="relative z-20">
                     <div className="flex items-center gap-2 font-bold text-xl">
                         <div className="p-2 bg-white/10 rounded-lg backdrop-blur-sm border border-white/20">
@@ -78,7 +76,6 @@ export default function LoginPage() {
                     </div>
                 </div>
 
-                {/* Cita Corporativa */}
                 <div className="relative z-20 max-w-lg">
                     <blockquote className="space-y-4">
                         <p className="text-xl font-medium leading-relaxed text-slate-100 drop-shadow-md">
@@ -95,113 +92,114 @@ export default function LoginPage() {
             </div>
 
             {/* ---------------------------------------------------------- */}
-            {/* SECCIÓN DERECHA: FORMULARIO (AQUÍ ESTÁ TU LOGO)            */}
+            {/* SECCIÓN DERECHA: FORMULARIO REFINADO                       */}
             {/* ---------------------------------------------------------- */}
-            <div className="flex items-center justify-center p-8 bg-gray-50/50 dark:bg-gray-900 relative">
+            <div className="relative flex flex-col items-center justify-center p-8 bg-white dark:bg-slate-950">
                 
-                {/* Indicador de Versión discreto */}
-                <div className="absolute top-4 right-4 text-[10px] text-muted-foreground flex items-center gap-1 opacity-50 hover:opacity-100 transition-opacity cursor-default" title={`Build: ${BUILD_DATE}`}>
+                {/* Indicador de Versión */}
+                <div className="absolute top-6 right-6 text-[10px] text-slate-400 flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity cursor-default" title={`Build: ${BUILD_DATE}`}>
                     <GitCommit className="h-3 w-3" />
                     <span>v{APP_VERSION}</span>
                 </div>
 
-                <div className="mx-auto w-full max-w-[350px] space-y-8">
+                {/* Contenedor Principal */}
+                <div className="w-full max-w-[400px] space-y-8">
                     
-                    {/* Encabezado Mobile/Desktop */}
-                    <div className="flex flex-col space-y-2 text-center">
-                        
-                        <div className="flex justify-center mb-6">
+                    {/* Encabezado del Formulario */}
+                    <div className="flex flex-col items-center text-center">
+                        {/* LOGO AJUSTADO: Tamaño h-40 (Notorio pero equilibrado) */}
+                        <div className="mb-6">
                             <img 
                                 src="/logo.png" 
-                                alt="Logo Vitam" 
-                                className="h-40 w-auto object-contain" 
+                                alt="Logo GESTUM" 
+                                className="h-60 w-auto object-contain" 
                             />
                         </div>
 
-                        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-white">
-                            Iniciar Sesión
-                        </h1>
-                        <p className="text-sm text-muted-foreground">
-                            Plataforma de Gestión Vitam
-                        </p>
+                        <div className="space-y-1">
+                            <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-white">
+                                Bienvenido de nuevo
+                            </h1>
+                            <p className="text-sm text-slate-500">
+                                Ingresa tus credenciales para acceder al sistema
+                            </p>
+                        </div>
                     </div>
 
                     {/* Formulario */}
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
                         
                         <div className="space-y-2">
                             <Label htmlFor="email">Correo Corporativo</Label>
-                            <div className="relative">
-                                <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <div className="relative group">
+                                <Mail className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <Input
                                     id="email"
                                     type="email"
                                     placeholder="nombre@empresa.com"
-                                    className="pl-9 bg-white dark:bg-slate-950 transition-all focus:ring-2 focus:ring-blue-600"
+                                    className="pl-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all focus:ring-2 focus:ring-primary focus:border-transparent"
                                     {...form.register('email')}
                                     disabled={isLoading}
                                 />
                             </div>
                             {form.formState.errors.email && (
-                                <p className="text-xs text-red-500 font-medium">{form.formState.errors.email.message}</p>
+                                <p className="text-xs text-red-500 font-medium ml-1">{form.formState.errors.email.message}</p>
                             )}
                         </div>
 
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="password">Contraseña</Label>
+                                <Link 
+                                    to="/forgot-password" 
+                                    className="text-xs font-medium text-primary hover:text-primary/80 hover:underline transition-colors"
+                                >
+                                    ¿Olvidaste tu contraseña?
+                                </Link>
                             </div>
-                            <div className="relative">
-                                <Lock className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <div className="relative group">
+                                <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400 group-focus-within:text-primary transition-colors" />
                                 <Input
                                     id="password"
                                     type={showPassword ? "text" : "password"}
                                     placeholder="••••••••"
-                                    className="pl-9 pr-9 bg-white dark:bg-slate-950 transition-all focus:ring-2 focus:ring-blue-600"
+                                    className="pl-10 pr-10 h-11 bg-slate-50 border-slate-200 focus:bg-white transition-all focus:ring-2 focus:ring-primary focus:border-transparent"
                                     {...form.register('password')}
                                     disabled={isLoading}
                                 />
                                 <button
                                     type="button"
                                     onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-3 top-2.5 text-muted-foreground hover:text-slate-900 focus:outline-none transition-colors"
+                                    className="absolute right-3 top-3 text-slate-400 hover:text-slate-700 focus:outline-none transition-colors"
                                 >
                                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                 </button>
                             </div>
                             {form.formState.errors.password && (
-                                <p className="text-xs text-red-500 font-medium">{form.formState.errors.password.message}</p>
+                                <p className="text-xs text-red-500 font-medium ml-1">{form.formState.errors.password.message}</p>
                             )}
-                            
-                            {/* 👇 AQUÍ ESTÁ EL ENLACE DE RECUPERACIÓN (Insertado con cariño) 👇 */}
-                            <div className="flex justify-end pt-1">
-                                <Link 
-                                    to="/forgot-password" 
-                                    className="text-xs font-medium text-blue-600 hover:text-blue-500 hover:underline transition-colors"
-                                >
-                                    ¿Olvidaste tu contraseña?
-                                </Link>
-                            </div>
                         </div>
 
-                        <Button className="w-full bg-blue-600 hover:bg-blue-700 transition-all shadow-md hover:shadow-lg h-10 font-medium" type="submit" disabled={isLoading}>
+                        <Button className="w-full h-11 bg-primary hover:bg-primary/90 text-white shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 font-semibold text-base" type="submit" disabled={isLoading}>
                             {isLoading ? (
                                 <>
-                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Accediendo...
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando...
                                 </>
                             ) : (
                                 'Ingresar al Portal'
                             )}
                         </Button>
                     </form>
-
-                    {/* Footer */}
-                    <div className="text-center text-xs text-muted-foreground mt-4 flex justify-center gap-1">
-                        <span>Protected by</span>
-                        <span className="font-semibold text-slate-700 dark:text-slate-300">Vitam Security Protocol</span>
-                    </div>
-
                 </div>
+
+                {/* Footer */}
+                <div className="absolute bottom-6 w-full text-center">
+                    <div className="text-xs text-slate-400 flex justify-center items-center gap-1.5">
+                        <ShieldCheck className="h-3 w-3" />
+                        <span>Protected by <strong>Vitam Security Protocol</strong></span>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

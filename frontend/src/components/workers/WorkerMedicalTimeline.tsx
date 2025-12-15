@@ -76,7 +76,7 @@ export function WorkerMedicalTimeline({ worker }: WorkerMedicalTimelineProps) {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
-        <History className="h-5 w-5 text-blue-600" />
+        <History className="h-5 w-5 text-primary" />
         <h3 className="font-bold text-slate-800">Historia Integral del Colaborador</h3>
       </div>
 
@@ -98,7 +98,7 @@ export function WorkerMedicalTimeline({ worker }: WorkerMedicalTimelineProps) {
                 let Icon = Briefcase;
                 let colorClass = "bg-slate-200 text-slate-600";
                 
-                if (isCreation) { Icon = UserPlus; colorClass = "bg-blue-100 text-blue-600"; }
+                if (isCreation) { Icon = UserPlus; colorClass = "bg-blue-100 text-primary"; }
                 if (isPromo) { Icon = ShieldCheck; colorClass = "bg-green-100 text-green-600"; }
 
                 return (

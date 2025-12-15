@@ -110,7 +110,7 @@ export function JobTransferDialog({ worker, open, onOpenChange }: Props) {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-blue-600">Nuevo GES</Label>
+              <Label className="text-xs font-bold text-primary">Nuevo GES</Label>
               <Select value={gesId} onValueChange={(v) => { setGesId(v); resetAnalysis(); }}>
                 <SelectTrigger className="bg-white h-8 border-blue-200"><SelectValue placeholder="Seleccione..." /></SelectTrigger>
                 <SelectContent>{gesList?.map(g => <SelectItem key={g.id} value={g.id}>{g.name}</SelectItem>)}</SelectContent>

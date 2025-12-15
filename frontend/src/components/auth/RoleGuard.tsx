@@ -15,7 +15,7 @@ export const RoleGuard = ({ allowedRoles }: RoleGuardProps) => {
     if (isLoading) {
         return (
             <div className="h-screen w-full flex items-center justify-center bg-gray-50">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         );
     }

@@ -42,7 +42,7 @@ export default function BatteriesPage() {
 
   const filtered = batteries?.filter((b: any) => b.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
+  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in">

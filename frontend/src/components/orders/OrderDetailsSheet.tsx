@@ -84,7 +84,7 @@ export function OrderDetailsSheet({ order: initialOrder, open, onOpenChange }: P
                 <FileText className="h-5 w-5" />
               </div>
               <div>
-                <h4 className="text-xs font-bold text-blue-600 uppercase tracking-wider">Grupo de Exposición Similar (GES)</h4>
+                <h4 className="text-xs font-bold text-primary uppercase tracking-wider">Grupo de Exposición Similar (GES)</h4>
                 <p className="text-lg font-bold text-slate-900 leading-tight mt-1">
                   {order.ges?.name || 'GES No Asignado'}
                 </p>
@@ -100,7 +100,7 @@ export function OrderDetailsSheet({ order: initialOrder, open, onOpenChange }: P
          
          {/* 2. Detalle Específico usando el nombre REAL de tu base de datos */}
          {r.specificAgentDetails && (
-            <span className="ml-1 font-normal text-blue-600 opacity-90">
+            <span className="ml-1 font-normal text-primary opacity-90">
               — {r.specificAgentDetails}
             </span>
          )}

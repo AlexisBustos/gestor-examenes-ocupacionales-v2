@@ -77,7 +77,7 @@ export function CompanyDetailsSheet({
 
           {isLoading || !company ? (
             <div className="flex-1 flex items-center justify-center">
-              <Loader2 className="h-10 w-10 animate-spin text-blue-600" />
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
           ) : (
             <div className="flex-1 overflow-y-auto p-6 space-y-6">
@@ -86,7 +86,7 @@ export function CompanyDetailsSheet({
               <div className="flex flex-wrap items-center justify-between gap-4">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-5 w-5 text-blue-600" />
+                    <FileSpreadsheet className="h-5 w-5 text-primary" />
                     <span className="font-mono text-sm text-slate-500">{company.rut}</span>
                   </div>
                   <h2 className="text-xl font-bold text-slate-900">{company.name}</h2>
@@ -109,7 +109,7 @@ export function CompanyDetailsSheet({
                  </Card>
                  <Card>
                     <CardHeader className="p-4 pb-2"><CardTitle className="text-sm">GES Activos</CardTitle></CardHeader>
-                    <CardContent className="p-4 pt-0 text-2xl font-bold text-blue-600">{company.stats?.gesCount ?? 0}</CardContent>
+                    <CardContent className="p-4 pt-0 text-2xl font-bold text-primary">{company.stats?.gesCount ?? 0}</CardContent>
                  </Card>
                  <Card>
                     <CardHeader className="p-4 pb-2"><CardTitle className="text-sm">Riesgos</CardTitle></CardHeader>
@@ -124,7 +124,7 @@ export function CompanyDetailsSheet({
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 border-b bg-slate-50/50">
                     <CardTitle className="text-sm flex items-center gap-2">
-                      <FileText className="h-4 w-4 text-blue-600" /> Programas GES
+                      <FileText className="h-4 w-4 text-primary" /> Programas GES
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-4 space-y-6">

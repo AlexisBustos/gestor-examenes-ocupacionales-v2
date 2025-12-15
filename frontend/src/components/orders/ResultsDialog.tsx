@@ -161,7 +161,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
       <DialogContent className="sm:max-w-[900px] max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5 text-blue-600" />
+            <FileText className="h-5 w-5 text-primary" />
             Gestión de Resultados Clínicos
           </DialogTitle>
           <div className="text-sm text-muted-foreground space-y-1">
@@ -335,7 +335,7 @@ export function ResultsDialog({ order, open, onOpenChange }: ResultsDialogProps)
                           <Button
                             variant="ghost"
                             size="sm"
-                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-blue-600"
+                            className="h-8 w-8 p-0 hover:bg-blue-50 hover:text-primary"
                             onClick={() => handleEditClick(item)}
                             title="Editar Resultado"
                           >

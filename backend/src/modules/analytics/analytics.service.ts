@@ -2,7 +2,9 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// --- 1. LÓGICA ORIGINAL (Vigilancia y Documentos) ---
+// =================================================================
+// 1. VIGILANCIA Y DOCUMENTOS (Tu lógica original)
+// =================================================================
 export const getSurveillanceData = async () => {
   // 1. Vigilancia Médica (Trabajadores)
   const medicalResults = await prisma.orderBattery.findMany({
@@ -65,25 +67,23 @@ export const getSurveillanceData = async () => {
   };
 };
 
-// 👇👇👇 AGREGADO NUEVO: ANÁLISIS DE CENTROS DE COSTOS 👇👇👇
+// =================================================================
+// 2. ANÁLISIS DE CENTROS DE COSTOS (Tu lógica original)
+// =================================================================
 export const getCostCenterAnalytics = async () => {
-    // Buscamos todos los centros de costos y sus relaciones
     const centers = await prisma.costCenter.findMany({
         include: {
             workers: {
                 select: {
                     id: true,
-                    // Contamos las órdenes para saber la "actividad/gasto"
                     examOrders: { select: { id: true } } 
                 }
             }
         }
     });
 
-    // Procesamos la data
     const stats = centers.map(cc => {
         const workerCount = cc.workers.length;
-        // Sumamos el total de órdenes de todos los trabajadores de este centro
         const orderCount = cc.workers.reduce((acc, curr) => acc + curr.examOrders.length, 0);
         
         return {
@@ -94,7 +94,125 @@ export const getCostCenterAnalytics = async () => {
         };
     });
 
-    // Ordenamos: Los que tienen más actividad (órdenes) primero
-    // Devolvemos el Top 5 para el gráfico
     return stats.sort((a, b) => b.orders - a.orders).slice(0, 5);
+};
+
+// =================================================================
+// 3. 🦅 NUEVO: DASHBOARD KPI & RIESGOS (VISTA DE ÁGUILA)
+// =================================================================
+export const getDashboardStats = async (companyId?: string) => {
+    
+    // Filtro base: Si mandan companyId filtramos, si no, traemos todo (para superadmin)
+    const whereCompany = companyId ? { companyId } : {};
+
+    // A. DOTACIÓN TOTAL (Solo Nómina)
+    const totalWorkers = await prisma.worker.count({
+        where: { 
+            ...whereCompany,
+            employmentStatus: 'NOMINA',
+            active: true
+        }
+    });
+
+    // B. TRABAJADORES EN TRÁNSITO (Candidatos)
+    const transitWorkers = await prisma.worker.count({
+        where: {
+            ...whereCompany,
+            employmentStatus: 'TRANSITO',
+            active: true
+        }
+    });
+
+    // C. ALERTAS DE VENCIMIENTO (Próximos 45 días)
+    const next45Days = new Date();
+    next45Days.setDate(next45Days.getDate() + 45);
+
+    // Buscamos Baterías (Exámenes específicos) que vencen pronto y están APTAS
+    const expiringExams = await prisma.orderBattery.count({
+        where: {
+            order: { worker: { ...whereCompany, active: true } },
+            expirationDate: {
+                gte: new Date(), // Desde hoy
+                lte: next45Days  // Hasta 45 días más
+            },
+            status: 'APTO' // Solo nos preocupan los que estaban aptos y van a vencer
+        }
+    });
+
+    // D. MAPA DE RIESGOS (Top 5 Agentes más frecuentes)
+    // Usamos la nueva tabla 'ExposureHistory' para saber la realidad actual
+    const activeExposures = await prisma.exposureHistory.findMany({
+        where: {
+            worker: { ...whereCompany, active: true },
+            isActive: true
+        },
+        include: {
+            ges: {
+                include: {
+                    riskExposures: {
+                        include: { riskAgent: true }
+                    }
+                }
+            }
+        }
+    });
+
+    // Procesamiento manual para contar agentes
+    const riskCounts: Record<string, number> = {};
+    
+    activeExposures.forEach(exp => {
+        if (exp.ges && exp.ges.riskExposures) {
+            exp.ges.riskExposures.forEach(riskExp => {
+                const agentName = riskExp.riskAgent?.name || 'Agente Sin Nombre';
+                riskCounts[agentName] = (riskCounts[agentName] || 0) + 1;
+            });
+        }
+    });
+
+    // Convertir a array y ordenar top 5
+    const topRisks = Object.entries(riskCounts)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+    // E. CÁLCULO DE CUMPLIMIENTO GLOBAL
+    // Trabajadores activos que tienen al menos un examen APTO vigente
+    // (Simplificación para KPI visual)
+    const workersWithValidExams = await prisma.worker.count({
+        where: {
+            ...whereCompany,
+            employmentStatus: 'NOMINA',
+            active: true,
+            examOrders: {
+                some: {
+                    orderBatteries: {
+                        some: {
+                            status: 'APTO',
+                            expirationDate: { gte: new Date() }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    const complianceRate = totalWorkers > 0 
+        ? Math.round((workersWithValidExams / totalWorkers) * 100) 
+        : 0;
+
+    return {
+        population: {
+            total: totalWorkers,
+            transit: transitWorkers
+        },
+        alerts: {
+            expiringSoon: expiringExams
+        },
+        compliance: {
+            rate: complianceRate,
+            covered: workersWithValidExams,
+            pending: totalWorkers - workersWithValidExams
+        },
+        topRisks: topRisks
+    };
 };

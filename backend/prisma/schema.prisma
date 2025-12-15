@@ -22,6 +22,7 @@ model Company {
   costCenters      CostCenter[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
+  exposureHistory  ExposureHistory[]
 }
 
 model WorkCenter {
@@ -150,6 +151,7 @@ model Ges {
   createdAt          DateTime         @default(now())
   updatedAt          DateTime         @updatedAt
   risks              GesRisk[]
+  exposureHistory   ExposureHistory[]
 }
 
 model RiskAgent {
@@ -284,6 +286,7 @@ model Worker {
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
   odiDeliveries OdiDelivery[]
+  exposureHistory  ExposureHistory[]
 }
 
 enum OrderStatus {
@@ -343,6 +346,7 @@ model MedicalRule {
 enum EmploymentStatus {
   TRANSITO
   NOMINA
+  DESVINCULADO
 }
 
 model WorkerEvent {
@@ -434,4 +438,31 @@ model GESDocument {
   url       String
   s3Key     String
   createdAt DateTime @default(now())
+}
+
+// --- HISTORIAL DE EXPOSICIÓN (SMART TERMINATION) ---
+// Registra cada puesto (GES) por el que ha pasado el trabajador
+// para saber a qué estuvo expuesto en el pasado.
+model ExposureHistory {
+  id        String   @id @default(uuid())
+  
+  // Fechas del periodo
+  startDate DateTime // Fecha de inicio en el puesto
+  endDate   DateTime? // Fecha de fin (null si es su puesto actual)
+  isActive  Boolean  @default(true) // ¿Es su puesto actual?
+
+  // Relación 1: Trabajador
+  workerId  String
+  worker    Worker   @relation(fields: [workerId], references: [id])
+
+  // Relación 2: Empresa (Dónde ocurrió)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id])
+
+  // Relación 3: Puesto (GES) - Aquí están los riesgos asociados
+  gesId     String
+  ges       Ges      @relation(fields: [gesId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

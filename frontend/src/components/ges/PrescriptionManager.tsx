@@ -118,7 +118,7 @@ export function PrescriptionManager({
 
   const getStatusColor = (status: string) => {
     if (status === 'REALIZADA') return 'text-green-600 font-bold';
-    if (status === 'EN_PROCESO') return 'text-blue-600 font-bold';
+    if (status === 'EN_PROCESO') return 'text-primary font-bold';
     if (status === 'VENCIDA') return 'text-red-600 font-bold';
     return 'text-amber-600';
   };
@@ -222,7 +222,7 @@ export function PrescriptionManager({
 
             <Button
               size="sm"
-              className="w-full bg-blue-600 hover:bg-blue-700"
+              className="w-full bg-primary hover:bg-primary/90"
               disabled={!desc || !date || createMutation.isPending}
               onClick={() => createMutation.mutate()}
             >
@@ -261,7 +261,7 @@ export function PrescriptionManager({
                     p.status === 'REALIZADA'
                       ? 'bg-green-600 hover:bg-green-700'
                       : p.status === 'EN_PROCESO'
-                      ? 'bg-blue-600 hover:bg-blue-700'
+                      ? 'bg-primary hover:bg-primary/90'
                       : p.status === 'VENCIDA'
                       ? 'bg-red-600 hover:bg-red-700'
                       : p.isImmediate

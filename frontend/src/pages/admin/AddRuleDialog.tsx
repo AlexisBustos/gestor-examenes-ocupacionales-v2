@@ -100,7 +100,7 @@ export function AddRuleDialog({ open, onOpenChange }: Props) {
                                     <Button
                                         variant="link"
                                         size="sm"
-                                        className="text-xs h-auto p-0 text-blue-600"
+                                        className="text-xs h-auto p-0 text-primary"
                                         onClick={() => setIsCreatingBattery(true)}
                                     >
                                         ¿No encuentras la batería? Crear nueva

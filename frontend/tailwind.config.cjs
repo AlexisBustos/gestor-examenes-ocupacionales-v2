@@ -17,19 +17,26 @@ module.exports = {
     },
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        /* --- GESTUM COLORES (Configuración Directa) --- */
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#0099a3", /* Verde Azulado */
+          foreground: "#ffffff", /* Texto blanco */
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "#633188", /* Morado Corporativo */
+          foreground: "#ffffff", /* Texto blanco */
         },
+        accent: {
+          DEFAULT: "#e0f7fa", /* Fondo suave */
+          foreground: "#0099a3",
+        },
+        /* --------------------------------------------- */
+        
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "#0099a3", /* Anillo de foco Verde */
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         destructive: {
           DEFAULT: "hsl(var(--destructive))",
           foreground: "hsl(var(--destructive-foreground))",
@@ -37,10 +44,6 @@ module.exports = {
         muted: {
           DEFAULT: "hsl(var(--muted))",
           foreground: "hsl(var(--muted-foreground))",
-        },
-        accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
         },
         popover: {
           DEFAULT: "hsl(var(--popover))",

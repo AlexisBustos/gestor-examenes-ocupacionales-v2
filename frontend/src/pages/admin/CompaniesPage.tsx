@@ -86,7 +86,7 @@ export default function CompaniesPage() {
                   <TableCell>{company.contactEmail}</TableCell>
                   <TableCell className="text-right space-x-2">
                     <Button variant="ghost" size="icon" onClick={() => setViewId(company.id)} title="Ver Detalles">
-                      <Eye className="h-4 w-4 text-blue-600" />
+                      <Eye className="h-4 w-4 text-primary" />
                     </Button>
 
                     {/* Botón Lápiz */}

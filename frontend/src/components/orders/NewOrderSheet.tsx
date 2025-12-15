@@ -5,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
-import { Loader2, UserCheck, UserPlus } from 'lucide-react';
+import { Loader2, UserCheck, UserPlus, Mail } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -52,7 +52,7 @@ interface OrderSuggestion {
 const formSchema = z.object({
   rut: z.string().min(8),
   name: z.string().min(2),
-  email: z.string().email().optional().or(z.literal('')), // 👈 NUEVO: EMAIL
+  email: z.string().email("Email inválido").optional().or(z.literal('')), 
   phone: z.string().optional(),
   position: z.string().min(2),
   evaluationType: z.string(),
@@ -83,7 +83,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
       evaluationType: 'PRE_OCUPACIONAL',
       rut: '',
       name: '',
-      email: '', // 👈 NUEVO
+      email: '',
       position: '',
       phone: '',
     },
@@ -101,7 +101,7 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
           
           // PRE-LLENADO DE DATOS
           form.setValue('name', data.worker.name);
-          form.setValue('email', data.worker.email || ''); // 👈 NUEVO
+          form.setValue('email', data.worker.email || '');
           form.setValue('position', data.worker.position || '');
           form.setValue('phone', data.worker.phone || '');
           
@@ -279,27 +279,29 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
               </div>
 
               {workerStatus === 'found' && (
-                <div className="flex items-center gap-2 text-xs text-green-700 bg-green-100 p-2 rounded">
+                <div className="flex items-center gap-2 text-xs text-green-700 bg-green-100 p-2 rounded animate-in fade-in">
                   <UserCheck className="h-4 w-4" /> Trabajador en nómina.{' '}
                   <strong>OCUPACIONAL</strong>.
                 </div>
               )}
 
               {workerStatus === 'new' && (
-                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-100 p-2 rounded">
+                <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-100 p-2 rounded animate-in fade-in">
                   <UserPlus className="h-4 w-4" /> Trabajador nuevo.{' '}
                   <strong>PRE-OCUPACIONAL</strong>.
                 </div>
               )}
 
-              {/* 👇 FILA DE CONTACTO (EMAIL Y TELÉFONO) */}
+              {/* FILA DE CONTACTO (EMAIL Y TELÉFONO) */}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email (Para Robot ODI)</FormLabel>
+                      <FormLabel className="flex items-center gap-1">
+                          Email <Mail className="h-3 w-3 text-slate-400"/>
+                      </FormLabel>
                       <FormControl>
                         <Input {...field} type="email" placeholder="correo@ejemplo.com" />
                       </FormControl>
@@ -569,7 +571,8 @@ export function NewOrderSheet({ open, onOpenChange }: Props) {
 
             <Button
               type="submit"
-              className="w-full bg-blue-700 hover:bg-blue-800"
+              // 👇 AQUÍ ESTABA EL CAMBIO CLAVE: Usamos 'bg-primary' en lugar de 'bg-blue-700'
+              className="w-full bg-primary hover:bg-primary/90 text-white"
               disabled={createOrderMutation.isPending}
             >
               {createOrderMutation.isPending

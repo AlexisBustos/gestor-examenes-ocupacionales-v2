@@ -95,7 +95,7 @@ export default function GesRulesPage() {
 
   const filteredGes = gesList?.filter(g => g.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
-  if (loadingGes || loadingBat || loadingRisks) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600"/></div>;
+  if (loadingGes || loadingBat || loadingRisks) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary"/></div>;
 
   return (
     <div className="h-[calc(100vh-100px)] flex flex-col gap-4 animate-in fade-in">
@@ -164,7 +164,7 @@ export default function GesRulesPage() {
                     <CardHeader className="pb-0 border-b bg-slate-50/30 pt-4 px-6">
                         <div className="flex justify-between items-center mb-4">
                             <CardTitle className="text-sm font-semibold flex items-center gap-2 text-slate-800">
-                                <Stethoscope className="h-4 w-4 text-blue-600"/> 
+                                <Stethoscope className="h-4 w-4 text-primary"/> 
                                 Editando: {selectedGes.name}
                             </CardTitle>
                         </div>

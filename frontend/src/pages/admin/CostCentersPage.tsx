@@ -80,7 +80,7 @@ export default function CostCentersPage() {
     cc.code.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-blue-600" /></div>;
+  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin h-8 w-8 text-primary" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 container mx-auto py-6">
@@ -88,7 +88,7 @@ export default function CostCentersPage() {
       {/* HEADER */}
       <div className="flex justify-between items-center border-b pb-6">
         <div className="flex items-center gap-4">
-          <div className="p-3 bg-blue-100 rounded-lg text-blue-600"><Building className="h-8 w-8" /></div>
+          <div className="p-3 bg-blue-100 rounded-lg text-primary"><Building className="h-8 w-8" /></div>
           <div>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900">Centros de Costos</h1>
             <p className="text-muted-foreground">Gestión financiera y áreas organizacionales.</p>
@@ -114,7 +114,7 @@ export default function CostCentersPage() {
           <CardContent className="space-y-4">
             <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Código</label><Input placeholder="Ej: CC-001" value={newCode} onChange={(e) => setNewCode(e.target.value)} /></div>
             <div className="space-y-2"><label className="text-sm font-medium text-slate-700">Nombre</label><Input placeholder="Ej: Operaciones" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
-            <Button className="w-full bg-blue-600 hover:bg-blue-700" onClick={() => createMutation.mutate()} disabled={!newCode || !newName || createMutation.isPending}>
+            <Button className="w-full bg-primary hover:bg-primary/90" onClick={() => createMutation.mutate()} disabled={!newCode || !newName || createMutation.isPending}>
               {createMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Agregar Centro
             </Button>
           </CardContent>

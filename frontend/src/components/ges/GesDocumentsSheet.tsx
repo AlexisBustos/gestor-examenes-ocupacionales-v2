@@ -98,7 +98,7 @@ export function GesDocumentsSheet({
 
   const getDocColor = (type: string) => {
       switch(type) {
-          case 'CUALITATIVO': return 'bg-blue-50 text-blue-600';
+          case 'CUALITATIVO': return 'bg-blue-50 text-primary';
           case 'CUANTITATIVO': return 'bg-purple-50 text-purple-600';
           case 'TMERT': return 'bg-orange-50 text-orange-600'; // 👈 Color naranja para TMERT
           default: return 'bg-slate-50 text-slate-600';
@@ -131,7 +131,7 @@ export function GesDocumentsSheet({
             
             {isLoading ? (
                 <div className="py-10 flex justify-center">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
                 </div>
             ) : !data || data.length === 0 ? (
                 <div className="py-10 text-center border-2 border-dashed rounded-lg">
@@ -176,7 +176,7 @@ export function GesDocumentsSheet({
                         <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-slate-400 hover:text-blue-600 hover:bg-blue-50"
+                            className="h-8 w-8 text-slate-400 hover:text-primary hover:bg-blue-50"
                             title="Ver PDF"
                             asChild
                             disabled={!doc.url}

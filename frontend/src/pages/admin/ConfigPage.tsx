@@ -54,7 +54,7 @@ export default function ConfigPage() {
     finally { setIsImporting(false); e.target.value = ''; }
   };
 
-  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-blue-600" /></div>;
+  if (isLoading) return <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
   return (
     <div className="space-y-6 animate-in fade-in">

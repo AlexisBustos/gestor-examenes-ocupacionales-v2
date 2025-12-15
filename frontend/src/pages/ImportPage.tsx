@@ -100,7 +100,7 @@ export default function ImportPage() {
               <FileSpreadsheet className="h-10 w-10 text-gray-400 mb-2" />
               <p className="text-sm text-gray-500 mb-4 text-center">
                 {file ? (
-                  <span className="font-semibold text-blue-600">{file.name}</span>
+                  <span className="font-semibold text-primary">{file.name}</span>
                 ) : (
                   "Arrastra tu archivo aquí o haz clic para seleccionar"
                 )}

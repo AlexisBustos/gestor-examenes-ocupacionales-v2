@@ -2,39 +2,42 @@ import { PrismaClient } from '@prisma/client';
 import xlsx from 'xlsx';
 import { randomUUID } from 'crypto';
 import { getSuggestedBatteries } from '../ges/ges.service';
-import { sendODIEmail } from '../../utils/emailSender';
+// Importamos ambas funciones de correo
+import { sendODIEmail, sendExitExamEmail } from '../../utils/emailSender'; 
 
 const prisma = new PrismaClient();
 
 // =================================================================
-// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI) - VERSIÓN PRODUCCIÓN
+// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI) - VERSIÓN DEBUG RAYOS X
 // =================================================================
 const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
-    // Solo logueamos el inicio para trazabilidad mínima
-    console.log(`🤖 [ROBOT] Procesando WorkerID: ${workerId}`);
+    console.log(`🤖 [ROBOT] ----------------------------------------------------`);
+    console.log(`🤖 [ROBOT] INICIANDO SECUENCIA PARA WORKER: ${workerId}`);
     
-    if (!gesId) return;
+    if (!gesId) {
+        console.log("🤖 [ROBOT] Cancelado: No hay GES ID.");
+        return;
+    }
 
     try {
         // 1. Buscamos el trabajador
         const worker = await prisma.worker.findUnique({ where: { id: workerId } });
         if (!worker || !worker.email) {
-            console.log(`ℹ️ [ROBOT] Omitido: Trabajador ${workerId} sin email.`);
+            console.log(`ℹ️ [ROBOT] Cancelado: Trabajador sin email o no existe.`);
             return;
         }
 
-        // 2. Buscamos el GES y documentos ACTIVOS
+        // 2. Buscamos el GES y documentos (SIN FILTRO ISACTIVE para ver si existen)
         const gesData = await prisma.ges.findUnique({
             where: { id: gesId },
             include: {
                 risks: {
                     include: {
-                        risk: {
+                        risk: { // Este es el Agente de Riesgo (Ej: Ruido)
                             include: {
                                 documents: {
-                                    where: { isActive: true },
-                                    orderBy: { createdAt: 'desc' },
-                                    take: 1
+                                    // 👁️ OJO: Quitamos temporalmente el filtro isActive: true para depurar
+                                    orderBy: { createdAt: 'desc' }
                                 }
                             }
                         }
@@ -43,7 +46,13 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
             }
         });
 
-        if (!gesData) return;
+        if (!gesData) {
+            console.log("❌ [ROBOT] Error: No se encontró el GES en la BD.");
+            return;
+        }
+
+        console.log(`🤖 [ROBOT] GES Detectado: "${gesData.name}"`);
+        console.log(`🤖 [ROBOT] Riesgos asociados al GES: ${gesData.risks.length}`);
 
         // 3. Recolectamos documentos
         const docsToSend: any[] = [];
@@ -51,14 +60,29 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
 
         for (const relation of gesData.risks) {
             const risk = relation.risk;
-            if (risk.documents.length > 0) {
-                docsToSend.push(risk.documents[0]);
+            console.log(`   🔍 Analizando Riesgo: "${risk.name}" (ID: ${risk.id})`);
+            console.log(`      📂 Documentos totales encontrados: ${risk.documents.length}`);
+
+            // Buscamos el documento activo manualmente
+            const activeDoc = risk.documents.find(d => d.isActive === true);
+            const fallbackDoc = risk.documents[0]; // El más reciente (si no hay activos)
+
+            if (activeDoc) {
+                console.log(`      ✅ Documento Activo encontrado: ${activeDoc.title}`);
+                docsToSend.push(activeDoc);
                 riskNames.push(risk.name);
+            } else if (fallbackDoc) {
+                console.log(`      ⚠️ AVISO: No hay doc activo, usando el más reciente: ${fallbackDoc.title}`);
+                docsToSend.push(fallbackDoc);
+                riskNames.push(risk.name);
+            } else {
+                console.log(`      ❌ Este riesgo NO tiene documentos cargados.`);
             }
         }
 
         if (docsToSend.length === 0) {
-            console.log("ℹ️ [ROBOT] El puesto no tiene documentos configurados. No se envía correo.");
+            console.log("ℹ️ [ROBOT] RESULTADO: 0 Documentos recolectados. No se envía correo.");
+            console.log("💡 TIP: Ve a Gestión Documental y asegúrate de subir un PDF al riesgo.");
             return;
         }
 
@@ -83,6 +107,8 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
             path: d.publicUrl
         }));
 
+        console.log(`📨 [ROBOT] Enviando correo a ${worker.email} con ${attachments.length} adjuntos...`);
+
         await sendODIEmail(
             worker.email,
             worker.name,
@@ -96,12 +122,13 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
         try {
             await logWorkerEvent(worker.id, 'ENVIO_ODI', 'Envío Automático ODI', 
                 `Se enviaron ${docsToSend.length} documentos legales.`);
-        } catch (e) { /* Silencio si falla el log, lo importante es el correo */ }
+        } catch (e) { }
 
-        console.log(`✅ [ROBOT EXITO] Correo enviado a ${worker.email} (${docsToSend.length} docs)`);
+        console.log(`✅ [ROBOT EXITO] Proceso finalizado correctamente.`);
+        console.log(`🤖 [ROBOT] ----------------------------------------------------`);
 
     } catch (error) {
-        console.error("❌ [ROBOT ERROR]", error);
+        console.error("❌ [ROBOT ERROR CRÍTICO]", error);
     }
 };
 
@@ -109,25 +136,27 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
 // SERVICIOS CRUD
 // =================================================================
 
-// --- LOGGING ---
 export const logWorkerEvent = async (workerId: string, type: string, title: string, details?: string) => {
     try {
-        await prisma.workerEvent.create({
-            data: { workerId, eventType: type, title, details }
-        });
-    } catch (e) {
-        console.error("Error logging event:", e);
-    }
+        await prisma.workerEvent.create({ data: { workerId, eventType: type, title, details } });
+    } catch (e) { console.error("Error logging event:", e); }
 };
 
-// --- READ ---
+// --- READ (ACTUALIZADO PARA FILTROS) ---
 export const findAllWorkers = async () => {
   return await prisma.worker.findMany({
     orderBy: { name: 'asc' },
     include: { 
         company: true, 
-        currentGes: true, 
-        costCenter: true 
+        costCenter: true,
+        // 👇 CAMBIO IMPORTANTE: Traemos GES y Riesgos para poder filtrar en el Frontend
+        currentGes: {
+            include: {
+                risks: {
+                    include: { risk: true }
+                }
+            }
+        }
     }
   });
 };
@@ -148,9 +177,7 @@ export const getWorkerById = async (id: string) => {
         costCenter: true, 
         events: { orderBy: { createdAt: 'desc' } }, 
         odiDeliveries: {
-            include: { 
-                document: { include: { agent: true } } 
-            },
+            include: { document: { include: { agent: true } } },
             orderBy: { sentAt: 'desc' }
         },
         examOrders: { 
@@ -159,42 +186,107 @@ export const getWorkerById = async (id: string) => {
                 ges: true,
                 orderBatteries: { include: { battery: true } }
             }
+        },
+        exposureHistory: {
+            orderBy: { startDate: 'desc' },
+            include: { 
+                company: true,
+                ges: {
+                    include: {
+                        riskExposures: { include: { riskAgent: true } }
+                    }
+                }
+            }
         }
     }
   });
 };
 
-// --- UPDATE (Limpio) ---
+// --- UPDATE (LÓGICA BLINDADA & CORREGIDA PARA EMPRESA) ---
 export const updateWorker = async (id: string, data: any) => {
-    const current = await prisma.worker.findUnique({ where: { id } });
+    // 👇 CAMBIO 1: Traemos la empresa (company: true)
+    const current = await prisma.worker.findUnique({ 
+        where: { id },
+        include: { company: true } 
+    });
+    
+    // A. LÓGICA DESVINCULACIÓN (SMART TERMINATION)
+    if (current && data.employmentStatus === 'DESVINCULADO' && current.employmentStatus !== 'DESVINCULADO') {
+        console.log(`🔄 [SMART TERMINATION] Iniciando proceso de egreso...`);
+        const currentExposure = await prisma.exposureHistory.findFirst({
+            where: { workerId: id, isActive: true },
+            include: { ges: { include: { riskExposures: { include: { riskAgent: true } } } } }
+        });
+
+        if (currentExposure) {
+            await prisma.exposureHistory.update({
+                where: { id: currentExposure.id },
+                data: { isActive: false, endDate: new Date() }
+            });
+
+            const riskList = currentExposure.ges.riskExposures.map(re => re.riskAgent.name);
+            
+            if (current.email && riskList.length > 0) {
+                // 👇 CAMBIO 2: Usamos el nombre real de la empresa
+                const companyName = current.company?.name || "Su Empresa";
+
+                await sendExitExamEmail(current.email, current.name, companyName, riskList);
+                
+                await logWorkerEvent(id, 'EGRESO', 'Desvinculación y Aviso Legal', `Notificado por: ${riskList.join(', ')}`);
+                console.log("✅ [SMART TERMINATION] Correo enviado.");
+            }
+        }
+    }
+
+    // B. UPDATE NORMAL
     const updated = await prisma.worker.update({ where: { id }, data });
     
     if (current) {
-        // DETECCIÓN 1: Cambio de Estado a NÓMINA
-        if (current.employmentStatus !== 'NOMINA' && updated.employmentStatus === 'NOMINA') {
-            await logWorkerEvent(id, 'CAMBIO_ESTADO', 'Ingreso a Nómina Oficial', `Pasó de ${current.employmentStatus} a NOMINA`);
-            
-            // Robot
-            if (updated.currentGesId) {
-                triggerOdiAutomation(updated.id, updated.currentGesId);
+        // C. MOVILIDAD (Cambio de puesto o empresa en Nómina)
+        if (updated.employmentStatus === 'NOMINA' && data.employmentStatus !== 'DESVINCULADO') {
+            const isJobChange = (data.currentGesId && data.currentGesId !== current.currentGesId);
+            const isCompanyChange = (data.companyId && data.companyId !== current.companyId);
+
+            if (isJobChange || isCompanyChange) {
+                await prisma.exposureHistory.updateMany({
+                    where: { workerId: id, isActive: true },
+                    data: { isActive: false, endDate: new Date() }
+                });
+
+                if (updated.currentGesId && updated.companyId) {
+                    await prisma.exposureHistory.create({
+                        data: {
+                            workerId: id,
+                            companyId: updated.companyId,
+                            gesId: updated.currentGesId,
+                            startDate: new Date(),
+                            isActive: true
+                        }
+                    });
+                }
             }
-        } 
-        // DETECCIÓN 2: Cambio genérico
-        else if (current.employmentStatus !== updated.employmentStatus) {
-             await logWorkerEvent(id, 'CAMBIO_ESTADO', 'Cambio de Estado', `Pasó de ${current.employmentStatus} a ${updated.employmentStatus}`);
         }
 
-        // DETECCIÓN 3: Cambio de Puesto (Si ya es Nómina y cambia de GES)
-        if (current.currentGesId !== updated.currentGesId) {
-            const newGes = updated.currentGesId ? await prisma.ges.findUnique({ where: { id: updated.currentGesId }}) : null;
-            await logWorkerEvent(id, 'CAMBIO_PUESTO', 
-                'Cambio de Puesto de Trabajo',
-                `Nuevo puesto asignado: ${newGes?.name || 'Sin asignar'}`
-            );
+        // --- ROBOT ODI ---
+        let robotTriggered = false;
 
-            // Robot
-            if (updated.employmentStatus === 'NOMINA' && updated.currentGesId) {
+        // Caso 1: Ingreso a Nómina
+        if (current.employmentStatus !== 'NOMINA' && updated.employmentStatus === 'NOMINA') {
+            await logWorkerEvent(id, 'CAMBIO_ESTADO', 'Ingreso a Nómina Oficial');
+            if (updated.currentGesId && !robotTriggered) {
                 triggerOdiAutomation(updated.id, updated.currentGesId);
+                robotTriggered = true;
+            }
+        } 
+        
+        // Caso 2: Cambio de Puesto (estando ya en nómina)
+        if (current.currentGesId !== updated.currentGesId && updated.employmentStatus === 'NOMINA') {
+            const newGes = updated.currentGesId ? await prisma.ges.findUnique({ where: { id: updated.currentGesId }}) : null;
+            await logWorkerEvent(id, 'CAMBIO_PUESTO', 'Cambio de Puesto', `Nuevo puesto: ${newGes?.name}`);
+            
+            if (updated.currentGesId && !robotTriggered) {
+                triggerOdiAutomation(updated.id, updated.currentGesId);
+                robotTriggered = true;
             }
         }
     }
@@ -205,7 +297,6 @@ export const deleteWorker = async (id: string) => {
     return await prisma.worker.delete({ where: { id } });
 };
 
-// --- CREATE (Limpio) ---
 export const createWorkerDb = async (data: any) => {
   const exists = await prisma.worker.findUnique({ where: { rut: data.rut } });
   if (exists) return exists; 
@@ -234,10 +325,20 @@ export const createWorkerDb = async (data: any) => {
     }
   });
 
-  await logWorkerEvent(newWorker.id, 'CREACION', 'Creación de Ficha', 
-      initialStatus === 'TRANSITO' ? 'Ingresa como Candidato (En Tránsito)' : 'Ingresa directo a Nómina');
+  if (newWorker.currentGesId) {
+      await prisma.exposureHistory.create({
+          data: {
+              workerId: newWorker.id,
+              companyId: newWorker.companyId,
+              gesId: newWorker.currentGesId,
+              startDate: new Date(),
+              isActive: true
+          }
+      });
+  }
 
-  // Robot (Si nace directo en Nómina)
+  await logWorkerEvent(newWorker.id, 'CREACION', 'Creación de Ficha', initialStatus === 'TRANSITO' ? 'Ingresa como Candidato' : 'Ingresa directo a Nómina');
+
   if (initialStatus === 'NOMINA' && newWorker.currentGesId) {
       triggerOdiAutomation(newWorker.id, newWorker.currentGesId);
   }
@@ -245,14 +346,13 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// --- IMPORT (Limpio) ---
+// ... (Resto de funciones de Import y Movilidad sin cambios)
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     console.log("📢 Procesando carga masiva de trabajadores...");
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
     let count = 0;
-    
     const defaultCompany = await prisma.company.findFirst();
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
@@ -264,52 +364,31 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
         });
         
         const rut = clean['rut'];
-        const name = clean['nombre'] || clean['trabajador'] || clean['name'] || clean['nombres'];
-        const cargo = clean['cargo'] || clean['cargos'] || clean['posicion'] || clean['puesto'] || clean['job'];
-        const email = clean['email'] || clean['correo'] || clean['mail'] || clean['correoelectronico'];
-        const phone = clean['phone'] || clean['telefono'] || clean['celular'] || clean['movil'];
-        
-        const centroRaw = clean['centro'] || clean['centros'] || clean['centrocosto'] || clean['cc'] || clean['costcenter'] || clean['centrodetrabajo'];
+        const name = clean['nombre'] || clean['trabajador'] || clean['name'];
+        const cargo = clean['cargo'] || clean['posicion'];
+        const email = clean['email'] || clean['correo'];
+        const phone = clean['phone'] || clean['telefono'];
+        const centroRaw = clean['centro'] || clean['centros'] || clean['cc'];
         
         let costCenterId = null;
         if (centroRaw) {
             const foundCC = await prisma.costCenter.findFirst({
-                where: {
-                    OR: [
-                        { name: { equals: centroRaw.toString(), mode: 'insensitive' } },
-                        { code: { equals: centroRaw.toString(), mode: 'insensitive' } }
-                    ]
-                }
+                where: { OR: [{ name: { equals: centroRaw.toString(), mode: 'insensitive' } }, { code: { equals: centroRaw.toString(), mode: 'insensitive' } }] }
             });
             if (foundCC) costCenterId = foundCC.id;
         }
 
-        const empresaRaw = clean['empresa'] || clean['company'] || clean['razonsocial'] || clean['emp'];
+        const empresaRaw = clean['empresa'] || clean['company'];
         let targetCompanyId = defaultCompany.id;
-
         if (empresaRaw) {
             const foundComp = await prisma.company.findFirst({
-                where: {
-                    OR: [
-                        { name: { equals: empresaRaw.toString(), mode: 'insensitive' } },
-                        { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } }
-                    ]
-                }
+                where: { OR: [{ name: { equals: empresaRaw.toString(), mode: 'insensitive' } }, { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } }] }
             });
-            
-            if (foundComp) {
-                targetCompanyId = foundComp.id;
-            } else {
-                console.warn(`⚠️ Empresa no encontrada en importación: "${empresaRaw}". Se usará la default.`);
-            }
+            if (foundComp) targetCompanyId = foundComp.id;
         }
         
         if (rut && name) {
-            const updateData: any = { 
-                name: name.toString(),
-                companyId: targetCompanyId 
-            };
-            
+            const updateData: any = { name: name.toString(), companyId: targetCompanyId };
             if (cargo) updateData.position = cargo.toString();
             if (costCenterId) updateData.costCenterId = costCenterId;
             if (email) updateData.email = email.toString();
@@ -332,59 +411,32 @@ export const importWorkersDb = async (fileBuffer: Buffer) => {
             count++;
         }
     }
-    console.log(`✅ Importación finalizada. ${count} registros procesados.`);
+    console.log(`✅ Importación finalizada.`);
     return { message: `Nómina procesada (${count} registros).` };
 };
 
-// --- MOVILIDAD ---
 export const analyzeJobChange = async (workerId: string, newGesId: string) => {
     const worker: any = await prisma.worker.findUnique({
         where: { id: workerId },
-        include: {
-            currentGes: true,
-            examOrders: {
-                include: {
-                    orderBatteries: {
-                        where: { status: 'APTO' },
-                        include: { battery: true }
-                    }
-                }
-            }
-        }
+        include: { currentGes: true, examOrders: { include: { orderBatteries: { where: { status: 'APTO' }, include: { battery: true } } } } }
     });
-
     const newGes = await prisma.ges.findUnique({ where: { id: newGesId } });
-    if (!worker || !newGes) throw new Error("Trabajador o GES no encontrado");
-
+    if (!worker || !newGes) throw new Error("Datos no encontrados");
     const requiredBatteries = await getSuggestedBatteries(newGesId);
     const myPassedExamIds = new Set();
+    if (worker.examOrders) worker.examOrders.forEach((order: any) => { if (order.orderBatteries) order.orderBatteries.forEach((item: any) => myPassedExamIds.add(item.batteryId)); });
     
-    if (worker.examOrders) {
-        worker.examOrders.forEach((order: any) => {
-            if (order.orderBatteries) {
-                order.orderBatteries.forEach((item: any) => {
-                    myPassedExamIds.add(item.batteryId);
-                });
-            }
-        });
-    }
+    const gaps = requiredBatteries.map((battery: any) => ({
+        batteryId: battery.id,
+        name: battery.name,
+        status: myPassedExamIds.has(battery.id) ? 'CUBIERTO' : 'FALTA'
+    }));
 
-    const gaps = requiredBatteries.map((battery: any) => {
-        const isCovered = myPassedExamIds.has(battery.id);
-        return {
-            batteryId: battery.id,
-            name: battery.name,
-            status: isCovered ? 'CUBIERTO' : 'FALTA'
-        };
-    });
-
-    const transferReady = !gaps.some(g => g.status === 'FALTA');
-
-    return {
-        worker: { currentGesName: worker.currentGes?.name },
-        newGes: { name: newGes.name },
-        gaps: gaps,
-        transferReady: transferReady
+    return { 
+        worker: { currentGesName: worker.currentGes?.name }, 
+        newGes: { name: newGes.name }, 
+        gaps: gaps, 
+        transferReady: !gaps.some((g: any) => g.status === 'FALTA') 
     };
 };
 

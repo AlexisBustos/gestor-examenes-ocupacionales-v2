@@ -55,7 +55,7 @@ export function Header() {
                 <Avatar className="h-9 w-9 border border-slate-200">
                     {/* Si tuvieras foto de perfil en el backend, iría aquí en src */}
                     <AvatarImage src="" alt={user?.name} /> 
-                    <AvatarFallback className="bg-blue-600 text-white font-bold">
+                    <AvatarFallback className="bg-primary text-white font-bold">
                         {user?.name?.charAt(0).toUpperCase() || 'U'}
                     </AvatarFallback>
                 </Avatar>

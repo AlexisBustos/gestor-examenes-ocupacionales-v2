@@ -76,7 +76,7 @@ export default function ForgotPasswordPage() {
           </Button>
 
           <div className="text-center">
-            <Link to="/login" className="text-sm text-blue-600 hover:text-blue-500 flex items-center justify-center gap-2">
+            <Link to="/login" className="text-sm text-primary hover:text-blue-500 flex items-center justify-center gap-2">
               <ArrowLeft className="h-4 w-4" /> Volver al Login
             </Link>
           </div>

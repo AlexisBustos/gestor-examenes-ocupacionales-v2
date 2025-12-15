@@ -15,6 +15,7 @@ import workersRouter from './modules/workers/workers.routes';
 import analyticsRouter from './modules/analytics/analytics.routes';
 import configRouter from './modules/config/config.routes';
 import batteriesRouter from './modules/batteries/batteries.routes';
+import exportsRouter from './modules/exports/exports.routes';
 
 // 👇 1. IMPORTAMOS LA NUEVA RUTA DE USUARIOS
 import usersRouter from './modules/users/user.routes';
@@ -49,6 +50,7 @@ router.use('/workers', workersRouter);
 router.use('/analytics', analyticsRouter);
 router.use('/config', configRouter);
 router.use('/batteries', batteriesRouter);
+router.use('/exports', exportsRouter);
 
 // 👇 2. ACTIVAMOS LA RUTA DE USUARIOS
 router.use('/users', usersRouter);
