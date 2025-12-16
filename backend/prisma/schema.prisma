@@ -370,7 +370,7 @@ model OdiDocument {
 
   // Relación: Este documento pertenece a un Agente de Riesgo
   agentId     String
-  agent       RiskAgent @relation(fields: [agentId], references: [id])
+  agent       RiskAgent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -396,11 +396,11 @@ model OdiDelivery {
   
   // Relación con Trabajador
   workerId      String
-  worker        Worker       @relation(fields: [workerId], references: [id])
+  worker        Worker       @relation(fields: [workerId], references: [id], onDelete: Cascade)
   
   // Relación con Documento
   documentId    String
-  document      OdiDocument  @relation(fields: [documentId], references: [id])
+  document      OdiDocument  @relation(fields: [documentId], references: [id], onDelete: Cascade)
 
   // Datos del Envío
   sentAt        DateTime     @default(now())
