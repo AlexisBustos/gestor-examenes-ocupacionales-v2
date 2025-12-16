@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import axios from '@/lib/axios';
+import { toast } from 'sonner';
 import { CompaniesService } from '../../services/companies.service'; 
 import { 
     createRisk, getRisks, deleteRisk, sendRiskDistribution, getRecipientCount, getGlobalHistory 
@@ -10,7 +12,7 @@ import type { Company } from '../../services/companies.service';
 import { 
     Shield, Upload, FileText, Trash2, Search, Send, CheckCircle2, 
     X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle,
-    Megaphone, Info
+    Megaphone, Info, Plus, Loader2
 } from 'lucide-react';
 
 export default function RiskManagement() {
@@ -27,12 +29,13 @@ export default function RiskManagement() {
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   // --- ESTADOS HISTORIAL ---
   const [history, setHistory] = useState<OdiDelivery[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  // --- ESTADOS DEL MODAL ---
+  // --- ESTADOS DEL MODAL DE ENVÍO ---
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedRisk, setSelectedRisk] = useState<RiskAgent | null>(null);
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
@@ -83,11 +86,21 @@ export default function RiskManagement() {
 
   const loadLibraryData = async () => {
     try {
-      const [risksData, companiesData] = await Promise.all([
-        getRisks(),
-        CompaniesService.findAll()
-      ]);
-      setRisks(risksData);
+      // Usamos axios directo para asegurarnos de traer la data fresca
+      const risksData = (await axios.get('/risks')).data;
+      const companiesData = await CompaniesService.findAll();
+      
+      // Mapeamos para que coincida con la estructura esperada
+      const formattedRisks = risksData.map((r: any) => ({
+          ...r,
+          documents: r.protocols ? r.protocols.map((p: any) => ({
+              id: p.id,
+              title: p.name,
+              publicUrl: p.url
+          })) : []
+      }));
+
+      setRisks(formattedRisks);
       setCompanies(companiesData);
     } catch (error) {
       console.error("Error cargando biblioteca", error);
@@ -106,10 +119,10 @@ export default function RiskManagement() {
     }
   };
 
-  // --- LÓGICA DE GUARDADO (CRUD) ---
+  // --- LÓGICA DE GUARDADO (CREAR RIESGO) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name) return alert('El nombre es obligatorio');
+    if (!name) return toast.error('El nombre es obligatorio');
     setLoading(true);
     
     try {
@@ -118,25 +131,60 @@ export default function RiskManagement() {
           finalName = `[CAMPAÑA] ${name}`;
       }
 
+      // Si hay archivo, lo mandamos. Si no, solo creamos el riesgo.
       await createRisk(finalName, description, file);
       
       // Limpieza
       setName(''); setDescription(''); setFile(null);
       await loadLibraryData(); 
-      alert(createMode === 'PROTOCOL' ? '✅ Protocolo Legal guardado' : '✅ Campaña Informativa guardada'); 
+      toast.success(createMode === 'PROTOCOL' ? 'Protocolo Legal guardado' : 'Campaña Informativa guardada'); 
     } catch (error) {
-      alert('❌ Error al guardar');
+      toast.error('Error al guardar');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('¿Estás seguro de eliminar este registro y sus documentos?')) return;
+  // --- NUEVO: SUBIR PDF ADICIONAL ---
+  const handleAddProtocol = async (riskId: string, file: File) => {
+    setUploadingId(riskId);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        await axios.post(`/risks/${riskId}/protocols`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+        toast.success('Documento agregado exitosamente');
+        loadLibraryData();
+    } catch (error) {
+        console.error(error);
+        toast.error('Error al subir el archivo');
+    } finally {
+        setUploadingId(null);
+    }
+  };
+
+  // --- NUEVO: ELIMINAR PDF ESPECÍFICO ---
+  const handleDeleteProtocol = async (protocolId: string) => {
+      if (!confirm('¿Eliminar este documento específico?')) return;
+      try {
+          await axios.delete(`/risks/protocols/${protocolId}`);
+          toast.success('Documento eliminado');
+          loadLibraryData();
+      } catch (error) {
+          toast.error('Error al eliminar documento');
+      }
+  };
+
+  // --- ELIMINAR RIESGO COMPLETO ---
+  const handleDeleteRisk = async (id: string) => {
+    if (!confirm('⚠️ ¿Eliminar este Riesgo y TODOS sus documentos?')) return;
     try {
       await deleteRisk(id);
       loadLibraryData();
-    } catch (error) { alert('Error al eliminar'); }
+      toast.success("Riesgo eliminado");
+    } catch (error) { toast.error('Error al eliminar'); }
   };
 
   const handleBulkSend = (risk: RiskAgent) => {
@@ -158,9 +206,9 @@ export default function RiskManagement() {
   const handleSendEmail = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedRisk) return;
-    if (selectedDocs.length === 0) return alert('⚠️ Selecciona al menos un documento.');
-    if (targetMode === 'INDIVIDUAL' && !targetEmail) return alert('⚠️ Escribe un correo.');
-    if (targetMode === 'COMPANY' && !targetCompanyId) return alert('⚠️ Selecciona una empresa.');
+    if (selectedDocs.length === 0) return toast.error('⚠️ Selecciona al menos un documento.');
+    if (targetMode === 'INDIVIDUAL' && !targetEmail) return toast.error('⚠️ Escribe un correo.');
+    if (targetMode === 'COMPANY' && !targetCompanyId) return toast.error('⚠️ Selecciona una empresa.');
 
     if (targetMode === 'COMPANY') {
         const companyName = companies.find(c => c.id === targetCompanyId)?.name;
@@ -172,11 +220,11 @@ export default function RiskManagement() {
         await sendRiskDistribution(
             selectedRisk.id, targetMode, targetCompanyId, targetEmail, emailSubject, emailMessage, selectedDocs 
         );
-        alert(`✅ Envío exitoso. Revisa la pestaña "Historial".`);
+        toast.success(`Envío exitoso. Revisa la pestaña "Historial".`);
         setIsModalOpen(false);
         if (activeTab === 'HISTORY') loadHistoryData();
     } catch (error) {
-        alert('❌ Error al enviar.');
+        toast.error('Error al enviar.');
     } finally {
         setSending(false);
     }
@@ -283,7 +331,7 @@ export default function RiskManagement() {
                         </div>
                         
                         <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-slate-600 ml-1">Documento PDF</label>
+                            <label className="text-xs font-medium text-slate-600 ml-1">Documento PDF (Opcional)</label>
                             <label className="flex flex-col items-center justify-center w-full h-32 border border-dashed border-slate-300 rounded-lg cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors">
                                 <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                     <div className={`p-2 rounded-full mb-2 ${file ? 'bg-green-100 text-green-600' : 'bg-white text-slate-400'}`}>
@@ -323,7 +371,7 @@ export default function RiskManagement() {
                     <thead>
                     <tr className="border-b border-slate-50 bg-slate-50/30">
                         <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Nombre / Agente</th>
-                        <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Doc Activo</th>
+                        <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Documentos</th>
                         <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase text-right">Acciones</th>
                     </tr>
                     </thead>
@@ -334,7 +382,7 @@ export default function RiskManagement() {
 
                         return (
                             <tr key={risk.id} className="group hover:bg-slate-50/50 transition-colors">
-                                <td className="px-6 py-4 align-top">
+                                <td className="px-6 py-4 align-top w-1/3">
                                     <div className="flex items-center gap-2">
                                         {isCampaign ? (
                                             <span className="p-1 rounded bg-secondary/10 text-secondary" title="Campaña Informativa"><Megaphone className="h-3 w-3" /></span>
@@ -345,22 +393,65 @@ export default function RiskManagement() {
                                     </div>
                                     <p className="text-xs text-slate-400 line-clamp-1 mt-1 pl-7">{risk.description}</p>
                                 </td>
+                                
                                 <td className="px-6 py-4 align-top">
-                                    {risk.documents?.[0] ? (
-                                        <div className="flex flex-col items-start gap-1">
-                                            <a href={risk.documents[0].publicUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 px-2.5 py-1 rounded-md bg-white border border-slate-200 text-xs font-medium text-slate-600 hover:text-primary shadow-sm hover:shadow transition-all">
-                                            <FileText className="h-3.5 w-3.5 text-red-400" /> {risk.documents[0].title}
-                                            </a>
-                                            {risk.documents.length > 1 && <span className="text-[10px] text-slate-400 ml-1">+ {risk.documents.length - 1} otros</span>}
+                                    <div className="space-y-2">
+                                        {/* Lista de Documentos */}
+                                        {risk.documents && risk.documents.length > 0 ? (
+                                            risk.documents.map((doc: any) => (
+                                                <div key={doc.id} className="flex items-center gap-2 bg-slate-50 p-1.5 rounded border border-slate-200 group/doc">
+                                                    <FileText className="h-3.5 w-3.5 text-red-500 shrink-0" />
+                                                    <a href={doc.publicUrl} target="_blank" rel="noreferrer" className="text-xs text-slate-600 hover:text-primary truncate max-w-[150px]">
+                                                        {doc.title}
+                                                    </a>
+                                                    <button 
+                                                        onClick={() => handleDeleteProtocol(doc.id)}
+                                                        className="ml-auto text-slate-300 hover:text-red-500 opacity-0 group-hover/doc:opacity-100 transition-opacity"
+                                                        title="Borrar documento"
+                                                    >
+                                                        <X className="h-3 w-3" />
+                                                    </button>
+                                                </div>
+                                            ))
+                                        ) : (
+                                            <span className="text-xs text-slate-300 italic">Sin documentos</span>
+                                        )}
+                                        
+                                        {/* Botón Agregar Documento */}
+                                        <div className="relative mt-2">
+                                            <input
+                                                type="file"
+                                                id={`add-doc-${risk.id}`}
+                                                className="hidden"
+                                                accept=".pdf"
+                                                onChange={(e) => e.target.files?.[0] && handleAddProtocol(risk.id, e.target.files[0])}
+                                                disabled={uploadingId === risk.id}
+                                            />
+                                            <label htmlFor={`add-doc-${risk.id}`}>
+                                                <button 
+                                                    className="flex items-center gap-1 text-[10px] text-primary hover:text-primary/80 font-medium cursor-pointer disabled:opacity-50"
+                                                    onClick={(e) => {
+                                                        // Hack para que el label funcione dentro del botón
+                                                        document.getElementById(`add-doc-${risk.id}`)?.click();
+                                                    }}
+                                                    disabled={uploadingId === risk.id}
+                                                >
+                                                    {uploadingId === risk.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <Plus className="h-3 w-3" />}
+                                                    Agregar PDF
+                                                </button>
+                                            </label>
                                         </div>
-                                    ) : <span className="text-xs text-slate-300 italic">Sin archivo</span>}
+                                    </div>
                                 </td>
+
                                 <td className="px-6 py-4 align-top text-right">
                                     <div className="flex justify-end gap-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                    <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded disabled:hidden" title="Difundir">
+                                    <button onClick={() => handleBulkSend(risk)} disabled={!risk.documents?.length} className="p-1.5 text-slate-400 hover:text-primary hover:bg-primary/10 rounded disabled:hidden" title="Difundir por Correo">
                                         <Send className="h-4 w-4" />
                                     </button>
-                                    <button onClick={() => handleDelete(risk.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="h-4 w-4" /></button>
+                                    <button onClick={() => handleDeleteRisk(risk.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded" title="Eliminar Riesgo">
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
                                     </div>
                                 </td>
                             </tr>
