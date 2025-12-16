@@ -11,7 +11,7 @@ import {
     FileSignature, 
     AlertTriangle 
 } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+// ❌ BORRADO: import { Card } from '@/components/ui/card';  <-- Esto causaba el error
 
 export default function OdiConfirmation() {
   const [searchParams] = useSearchParams();
@@ -91,11 +91,7 @@ export default function OdiConfirmation() {
             
             <div className="relative z-10 flex flex-col items-center">
                 
-                {/* 👉 APP LOGO: Reemplaza '/assets/logo-white.svg' por la ruta real de tu logo blanco */}
-                {/* Si no tienes logo aún, comenta esta línea */}
-                {/* <img src="/assets/logo-white.svg" alt="Logo Empresa" className="h-10 mb-4 animate-fade-in" /> */}
-
-                {/* Icono de Escudo (Mantenemos este si no hay logo, o ambos) */}
+                {/* Icono de Escudo */}
                 <div className="h-12 w-12 bg-white/10 rounded-xl flex items-center justify-center mb-3 backdrop-blur-md border border-white/20 shadow-lg">
                     <ShieldCheck className="text-white h-7 w-7" />
                 </div>

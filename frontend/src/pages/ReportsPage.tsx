@@ -6,7 +6,6 @@ import {
     Download, 
     Users, 
     Activity, 
-    ShieldAlert,
     FileText,
     Loader2
 } from 'lucide-react';
