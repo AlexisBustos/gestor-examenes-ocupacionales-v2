@@ -52,14 +52,15 @@ const navigation: NavItem[] = [
     icon: BookOpen, 
     allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] 
   },
-
-  // --- NIVEL 3: SOLO SUPER ADMIN ---
+  // 👇 MODIFICADO: Ahora visible para Admin Empresa también
   { 
     name: 'Gestión Documental (ODI)', 
     href: '/dashboard/risk-management', 
     icon: ShieldCheck, 
-    allowedRoles: ['ADMIN_VITAM'] 
+    allowedRoles: ['ADMIN_VITAM', 'ADMIN_EMPRESA'] 
   },
+
+  // --- NIVEL 3: SOLO SUPER ADMIN ---
   { 
     name: 'Gestión Usuarios', 
     href: '/dashboard/users', 
@@ -110,7 +111,7 @@ export function Sidebar() {
   return (
     <div className="hidden border-r border-purple-900/20 bg-secondary text-white md:flex flex-col h-screen sticky top-0 md:w-64 shadow-xl z-50">
       
-      {/* HEADER AJUSTADO: Menos altura (h-32) y casi sin padding (p-1) para maximizar logo */}
+      {/* HEADER AJUSTADO */}
       <div className="flex h-32 items-center justify-center border-b border-white/10 bg-black/10 backdrop-blur-sm p-1 overflow-hidden">
          <img 
            src="/logo.png" 

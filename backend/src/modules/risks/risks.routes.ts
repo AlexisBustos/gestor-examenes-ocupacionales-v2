@@ -10,7 +10,8 @@ import {
     getGlobalHistory, 
     getWorkerHistory,
     uploadProtocol, // 👈 Nueva función importada
-    deleteProtocol  // 👈 Nueva función importada
+    deleteProtocol,
+    getRiskFilters  // 👈 Nueva función importada
 } from './risks.controller';
 
 const router = Router();
@@ -44,6 +45,9 @@ router.post('/:id/protocols', upload.single('file'), uploadProtocol);
 // 5. Eliminar un Protocolo Específico
 // DELETE /api/risks/protocols/:protocolId
 router.delete('/protocols/:protocolId', deleteProtocol);
+
+// 👇 RUTA NUEVA PARA LLENAR LOS COMBOS
+router.get('/filters', getRiskFilters);
 
 // ============================================================
 // RUTAS OPERATIVAS (ENVÍO Y CONFIRMACIÓN)

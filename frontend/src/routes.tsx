@@ -69,7 +69,6 @@ export const router = createBrowserRouter([
               { path: 'workers', element: <WorkersPage /> },
               
               // 👇 3. AQUÍ AGREGAMOS LA RUTA DE REPORTES
-              // La ponemos en Nivel 1 porque es una herramienta operativa básica
               { path: 'reports', element: <ReportsPage /> },
 
               // Nivel 2: Admin Empresa + Vitam
@@ -77,7 +76,9 @@ export const router = createBrowserRouter([
                 element: <RoleGuard allowedRoles={['ADMIN_VITAM', 'ADMIN_EMPRESA']} />,
                 children: [
                   { path: 'companies', element: <CompaniesPage /> },
-                  { path: 'risks-library', element: <RisksLibraryPage /> }, 
+                  { path: 'risks-library', element: <RisksLibraryPage /> },
+                  // 👇 MOVIMOS ESTO AQUÍ: Ahora Admin Empresa puede entrar
+                  { path: 'risk-management', element: <RiskManagement /> }, 
                 ]
               },
 
@@ -91,7 +92,7 @@ export const router = createBrowserRouter([
                   { path: 'config', element: <ConfigPage /> },
                   { path: 'batteries', element: <BatteriesPage /> },
                   { path: 'import', element: <ImportPage /> },
-                  { path: 'risk-management', element: <RiskManagement /> },
+                  // (risk-management ya no está aquí, subió al nivel 2)
                 ]
               }
             ],
