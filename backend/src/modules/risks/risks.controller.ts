@@ -6,68 +6,129 @@ import { sendODIEmail } from '../../utils/emailSender';
 
 const prisma = new PrismaClient();
 
-// 1. CREAR O ACTUALIZAR RIESGO
+// ============================================================
+// 1. CREAR O ACTUALIZAR RIESGO (SOLO DATOS)
+// ============================================================
 export const createRiskAgent = async (req: Request, res: Response) => {
   try {
     const { name, description } = req.body;
-    const file = req.file;
 
     if (!name) return res.status(400).json({ error: 'El nombre del riesgo es obligatorio' });
 
-    let documentData = null;
-    if (file) {
-      console.log('📂 Procesando archivo para S3:', file.originalname);
-      const cleanRiskName = name.replace(/\s+/g, '_');
-      const s3FileName = `${cleanRiskName}_${Date.now()}_${file.originalname}`;
-      documentData = await uploadFileToS3(file.buffer, s3FileName, file.mimetype);
-    }
-
-    const result = await prisma.$transaction(async (tx) => {
-      const agent = await tx.riskAgent.upsert({
+    // Solo creamos/actualizamos el agente, NO subimos archivo aquí para evitar duplicidad lógica.
+    // La subida se maneja en uploadProtocol.
+    const agent = await prisma.riskAgent.upsert({
         where: { name: name },
         update: { ...(description && { description }) },
         create: { name, description: description || '' },
-      });
-
-      if (documentData) {
-        await tx.odiDocument.create({
-          data: {
-            title: file!.originalname,
-            s3Key: documentData.key,
-            publicUrl: documentData.url,
-            agentId: agent.id,
-            version: 1, 
-            isActive: true
-          }
-        });
-      }
-      return agent;
     });
 
-    res.status(200).json({ message: 'Riesgo procesado exitosamente', agent: result, docUrl: documentData?.url });
+    res.status(200).json({ message: 'Riesgo procesado exitosamente', agent });
   } catch (error: any) {
     console.error('Error en createRiskAgent:', error);
     res.status(500).json({ error: 'Error interno al procesar riesgo' });
   }
 };
 
-// 2. LISTAR RIESGOS
+// ============================================================
+// 1.5 SUBIR PROTOCOLO (MULTI-ARCHIVOS)
+// ============================================================
+export const uploadProtocol = async (req: Request, res: Response) => {
+    try {
+        const { id } = req.params; // ID del Riesgo
+        const file = req.file;
+
+        if (!file) return res.status(400).json({ error: 'No se envió ningún archivo' });
+
+        // Verificamos que el riesgo exista
+        const risk = await prisma.riskAgent.findUnique({ where: { id } });
+        if (!risk) return res.status(404).json({ error: 'El riesgo no existe' });
+
+        console.log(`📂 Subiendo archivo extra para riesgo: ${risk.name}`);
+
+        const cleanRiskName = risk.name.replace(/\s+/g, '_');
+        const s3FileName = `${cleanRiskName}_${Date.now()}_${file.originalname}`;
+        
+        // Subimos a S3
+        const documentData = await uploadFileToS3(file.buffer, s3FileName, file.mimetype);
+
+        // Guardamos en BD sin borrar los anteriores (Acumulativo)
+        const newDoc = await prisma.odiDocument.create({
+            data: {
+                title: file.originalname,
+                s3Key: documentData.key,
+                publicUrl: documentData.url,
+                agentId: risk.id,
+                version: 1, 
+                isActive: true // Queda activo junto con los demás
+            }
+        });
+
+        res.status(200).json({ message: 'Documento agregado correctamente', document: newDoc });
+
+    } catch (error) {
+        console.error("Error subiendo protocolo extra:", error);
+        res.status(500).json({ error: "Error al subir documento" });
+    }
+};
+
+// ============================================================
+// 1.6 ELIMINAR PROTOCOLO ESPECÍFICO
+// ============================================================
+export const deleteProtocol = async (req: Request, res: Response) => {
+    try {
+        const { protocolId } = req.params;
+
+        const doc = await prisma.odiDocument.findUnique({ where: { id: protocolId } });
+        if (!doc) return res.status(404).json({ error: 'Documento no encontrado' });
+
+        // Borrar de S3
+        await deleteFileFromS3(doc.s3Key);
+
+        // Borrar de BD
+        await prisma.odiDocument.delete({ where: { id: protocolId } });
+
+        res.json({ message: 'Protocolo eliminado correctamente' });
+    } catch (error) {
+        console.error("Error eliminando protocolo:", error);
+        res.status(500).json({ error: "Error al eliminar protocolo" });
+    }
+};
+
+// ============================================================
+// 2. LISTAR RIESGOS (CON TODOS SUS DOCS)
+// ============================================================
 export const getRisks = async (req: Request, res: Response) => {
   try {
     const risks = await prisma.riskAgent.findMany({
       include: {
+        // Traemos TODOS los documentos activos, ordenados por fecha
         documents: { where: { isActive: true }, orderBy: { createdAt: 'desc' } } 
       },
       orderBy: { name: 'asc' }
     });
-    res.json(risks);
+    
+    // Mapeamos para que el frontend reciba "protocols" limpio
+    const formatted = risks.map(r => ({
+        ...r,
+        protocols: r.documents.map(d => ({
+            id: d.id,
+            name: d.title,
+            url: d.publicUrl,
+            createdAt: d.createdAt
+        }))
+    }));
+
+    res.json(formatted);
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Error al listar riesgos' });
   }
 };
 
-// 3. ELIMINAR RIESGO
+// ============================================================
+// 3. ELIMINAR RIESGO COMPLETO
+// ============================================================
 export const deleteRiskAgent = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -80,6 +141,10 @@ export const deleteRiskAgent = async (req: Request, res: Response) => {
         res.status(500).json({ error: 'Error al eliminar riesgo' });
     }
 };
+
+// ... (El resto de funciones: countRecipients, confirmOdiPublic, etc. se mantienen igual, si quieres te las incluyo completas) ...
+// Para ahorrar espacio, asumo que mantienes las funciones de abajo (countRecipients, confirmOdiPublic, history, etc) 
+// Si las necesitas, dímelo y te pego el archivo 100% completo, pero lo importante arriba son las funciones 1, 1.5, 1.6 y 2.
 
 // 4. CONTAR DESTINATARIOS
 export const countRecipients = async (req: Request, res: Response) => {
@@ -120,9 +185,11 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
     if (documentIds && Array.isArray(documentIds) && documentIds.length > 0) {
       selectedDocs = risk.documents.filter(doc => documentIds.includes(doc.id));
     } else {
-      selectedDocs = [risk.documents[0]];
+      // Si no especifica, enviamos TODOS los activos (Mejora Multi-doc por defecto)
+      selectedDocs = risk.documents;
     }
-    if (selectedDocs.length === 0) return res.status(400).json({ error: 'Debes seleccionar al menos un documento.' });
+    
+    if (selectedDocs.length === 0) return res.status(400).json({ error: 'No hay documentos válidos para enviar.' });
 
     const attachments = selectedDocs.map(doc => ({
       filename: doc.title,
@@ -130,25 +197,34 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
     }));
 
     // C. Definimos Destinatarios
-    let recipients: { id?: string; email: string; name: string }[] = [];
+    let recipients: { id?: string; email: string; name: string; companyName?: string }[] = [];
 
     if (targetMode === 'COMPANY') {
       if (!targetId) return res.status(400).json({ error: 'Falta seleccionar la empresa.' });
       
       const workers = await prisma.worker.findMany({
         where: { companyId: targetId, active: true, email: { not: null } },
-        select: { id: true, email: true, name: true }
+        include: { company: true }
       });
       
-      recipients = workers.map(w => ({ id: w.id, email: w.email!, name: w.name }));
+      recipients = workers.map(w => ({ 
+          id: w.id, 
+          email: w.email!, 
+          name: w.name,
+          companyName: w.company?.name
+      }));
 
     } else {
       if (!email) return res.status(400).json({ error: 'Falta el email.' });
-      const workerFound = await prisma.worker.findFirst({ where: { email: email } });
+      const workerFound = await prisma.worker.findFirst({ 
+          where: { email: email },
+          include: { company: true }
+      });
       recipients.push({ 
         id: workerFound?.id, 
         email, 
-        name: workerFound?.name || 'Usuario Externo' 
+        name: workerFound?.name || 'Usuario Externo',
+        companyName: workerFound?.company?.name || 'Empresa Externa'
       });
     }
 
@@ -169,7 +245,8 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
                             documentId: doc.id,
                             token: deliveryToken,
                             status: 'PENDING',
-                            sentAt: new Date()
+                            sentAt: new Date(),
+                            confirmedAt: null
                         }
                     });
                 }
@@ -178,7 +255,7 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
             const sent = await sendODIEmail(
                 recipient.email, 
                 recipient.name, 
-                "Gestión Vitam", 
+                recipient.companyName || "Empresa", 
                 [risk.name], 
                 attachments, 
                 deliveryToken 
@@ -199,10 +276,9 @@ export const sendRiskEmail = async (req: Request, res: Response) => {
   }
 };
 
-// 6. CONFIRMAR RECEPCIÓN (EL CLIENTE HACE CLIC EN EL LINK) - VERSIÓN GET PÚBLICA
-// 👇 Esta es la función nueva que usa tu Frontend
+// 6. CONFIRMAR RECEPCIÓN PUBLICO
 export const confirmOdiPublic = async (req: Request, res: Response) => {
-    const { token } = req.params; // Viene por URL: /api/odi/confirm/:token
+    const { token } = req.params; 
 
     try {
         const ip = (req.headers['x-forwarded-for'] as string) || req.socket.remoteAddress || 'Unknown IP';
@@ -211,16 +287,12 @@ export const confirmOdiPublic = async (req: Request, res: Response) => {
         // 1. Buscamos el token
         const deliveries = await prisma.odiDelivery.findMany({
             where: { token: token },
-            include: { 
-                worker: true // 👈 TRAEMOS AL TRABAJADOR
-            }
+            include: { worker: true }
         });
 
-        if (deliveries.length === 0) {
-            return res.status(404).json({ error: "Token inválido o expirado" });
-        }
+        if (deliveries.length === 0) return res.status(404).json({ error: "Token inválido o expirado" });
 
-        const delivery = deliveries[0]; // Tomamos el primero del grupo
+        const delivery = deliveries[0]; 
         const workerData = {
             name: delivery.worker?.name || 'Usuario Externo',
             rut: delivery.worker?.rut || 'N/A'
@@ -232,7 +304,7 @@ export const confirmOdiPublic = async (req: Request, res: Response) => {
                 success: true, 
                 alreadySigned: true, 
                 signedAt: delivery.confirmedAt,
-                worker: workerData // Enviamos datos
+                worker: workerData 
             });
         }
 
@@ -247,12 +319,11 @@ export const confirmOdiPublic = async (req: Request, res: Response) => {
             }
         });
 
-        // 4. Devolvemos éxito
         return res.json({ 
             success: true, 
             alreadySigned: false, 
             signedAt: new Date(),
-            worker: workerData // Enviamos datos
+            worker: workerData 
         });
 
     } catch (error) {
