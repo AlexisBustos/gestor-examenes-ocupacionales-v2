@@ -11,8 +11,8 @@ import type { Company } from '../../services/companies.service';
 
 import { 
     Shield, Upload, FileText, Trash2, Search, Send, CheckCircle2, 
-    X, CheckSquare, Building2, User, History, LayoutGrid, AlertCircle,
-    Megaphone, Info, Plus, Loader2
+    X, CheckSquare, Building2, User, History, LayoutGrid,
+    Megaphone, Info, Plus, Loader2, Clock
 } from 'lucide-react';
 
 export default function RiskManagement() {
@@ -86,11 +86,10 @@ export default function RiskManagement() {
 
   const loadLibraryData = async () => {
     try {
-      // Usamos axios directo para asegurarnos de traer la data fresca
+      // Usamos axios directo
       const risksData = (await axios.get('/risks')).data;
       const companiesData = await CompaniesService.findAll();
       
-      // Mapeamos para que coincida con la estructura esperada
       const formattedRisks = risksData.map((r: any) => ({
           ...r,
           documents: r.protocols ? r.protocols.map((p: any) => ({
@@ -131,10 +130,8 @@ export default function RiskManagement() {
           finalName = `[CAMPAÑA] ${name}`;
       }
 
-      // Si hay archivo, lo mandamos. Si no, solo creamos el riesgo.
       await createRisk(finalName, description, file);
       
-      // Limpieza
       setName(''); setDescription(''); setFile(null);
       await loadLibraryData(); 
       toast.success(createMode === 'PROTOCOL' ? 'Protocolo Legal guardado' : 'Campaña Informativa guardada'); 
@@ -198,7 +195,6 @@ export default function RiskManagement() {
     setEmailSubject(defaultSubject);
     if (risk.documents) setSelectedDocs(risk.documents.map(d => d.id));
     
-    // Resetear formulario del modal
     setTargetMode('INDIVIDUAL'); setTargetEmail(''); setTargetCompanyId(''); setRecipientCount(1);
     setIsModalOpen(true);
   };
@@ -300,8 +296,6 @@ export default function RiskManagement() {
                     </div>
 
                     <form onSubmit={handleSubmit} className="space-y-5">
-                        
-                        {/* ALERTAS VISUALES SEGÚN MODO */}
                         <div className={`text-xs p-3 rounded-md border ${
                             createMode === 'PROTOCOL' ? 'bg-primary/5 border-primary/20 text-primary' : 'bg-secondary/5 border-secondary/20 text-secondary'
                         }`}>
@@ -461,6 +455,87 @@ export default function RiskManagement() {
                 </table>
                 </div>
             </div>
+            </div>
+        </div>
+      )}
+
+      {/* --- VISTA: HISTORIAL (AQUÍ SE USA LA VARIABLE history) --- */}
+      {activeTab === 'HISTORY' && (
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100 flex flex-col min-h-[500px]">
+                <div className="px-6 py-4 border-b border-slate-50 flex justify-between items-center">
+                    <h3 className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                        <History className="h-4 w-4 text-primary" /> Registro de Envíos y Firmas
+                    </h3>
+                    <button onClick={loadHistoryData} className="text-xs text-primary hover:underline">Actualizar</button>
+                </div>
+
+                <div className="flex-1 overflow-x-auto">
+                    {loadingHistory ? (
+                        <div className="p-10 text-center text-slate-400 text-sm">Cargando trazabilidad...</div>
+                    ) : (
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className="border-b border-slate-50 bg-slate-50/30">
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Fecha Envío</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Colaborador</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Documento / Riesgo</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Estado</th>
+                                    <th className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase">Confirmado El</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {history.map((item) => (
+                                    <tr key={item.id} className="hover:bg-slate-50/50">
+                                        <td className="px-6 py-4 text-xs text-slate-500">
+                                            {new Date(item.sentAt).toLocaleDateString()} <span className="text-[10px]">{new Date(item.sentAt).toLocaleTimeString()}</span>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <p className="text-sm font-medium text-slate-900">{item.worker.name}</p>
+                                            <p className="text-xs text-slate-400">{item.worker.rut} • {item.worker.email}</p>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            <div className="flex items-center gap-2">
+                                                <FileText className="h-3 w-3 text-slate-400" />
+                                                <div>
+                                                    <p className="text-sm text-slate-700">{item.document.title}</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase">{item.document.agent.name}</p>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-4">
+                                            {item.status === 'CONFIRMED' ? (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-green-50 text-green-700 border border-green-100">
+                                                    <CheckCircle2 className="h-3 w-3" /> Firmado
+                                                </span>
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                                    <Clock className="h-3 w-3" /> Pendiente
+                                                </span>
+                                            )}
+                                        </td>
+                                        <td className="px-6 py-4 text-xs text-slate-500">
+                                            {item.confirmedAt ? (
+                                                <>
+                                                    {new Date(item.confirmedAt).toLocaleDateString()} 
+                                                    <br/><span className="text-[10px] text-slate-400">{new Date(item.confirmedAt).toLocaleTimeString()}</span>
+                                                    {item.ipAddress && <div className="text-[9px] text-slate-300 mt-0.5">IP: {item.ipAddress}</div>}
+                                                </>
+                                            ) : '-'}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {history.length === 0 && (
+                                    <tr>
+                                        <td colSpan={5} className="text-center py-10 text-slate-400 text-sm">
+                                            No hay registros de envíos aún.
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
         </div>
       )}
