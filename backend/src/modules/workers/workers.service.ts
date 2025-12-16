@@ -8,7 +8,7 @@ import { sendODIEmail, sendExitExamEmail } from '../../utils/emailSender';
 const prisma = new PrismaClient();
 
 // =================================================================
-// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI) - VERSIÓN DEBUG RAYOS X
+// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI) - VERSIÓN CORREGIDA
 // =================================================================
 const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
     console.log(`🤖 [ROBOT] ----------------------------------------------------`);
@@ -20,23 +20,26 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
     }
 
     try {
-        // 1. Buscamos el trabajador
-        const worker = await prisma.worker.findUnique({ where: { id: workerId } });
+        // 1. Buscamos el trabajador CON EMPRESA (Fix Nombre Email)
+        const worker = await prisma.worker.findUnique({ 
+            where: { id: workerId },
+            include: { company: true } // 👈 Agregado para tener el nombre real de la empresa
+        });
+        
         if (!worker || !worker.email) {
             console.log(`ℹ️ [ROBOT] Cancelado: Trabajador sin email o no existe.`);
             return;
         }
 
-        // 2. Buscamos el GES y documentos (SIN FILTRO ISACTIVE para ver si existen)
+        // 2. Buscamos el GES y documentos
         const gesData = await prisma.ges.findUnique({
             where: { id: gesId },
             include: {
                 risks: {
                     include: {
-                        risk: { // Este es el Agente de Riesgo (Ej: Ruido)
+                        risk: { 
                             include: {
                                 documents: {
-                                    // 👁️ OJO: Quitamos temporalmente el filtro isActive: true para depurar
                                     orderBy: { createdAt: 'desc' }
                                 }
                             }
@@ -52,7 +55,6 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
         }
 
         console.log(`🤖 [ROBOT] GES Detectado: "${gesData.name}"`);
-        console.log(`🤖 [ROBOT] Riesgos asociados al GES: ${gesData.risks.length}`);
 
         // 3. Recolectamos documentos
         const docsToSend: any[] = [];
@@ -60,33 +62,25 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
 
         for (const relation of gesData.risks) {
             const risk = relation.risk;
-            console.log(`   🔍 Analizando Riesgo: "${risk.name}" (ID: ${risk.id})`);
-            console.log(`      📂 Documentos totales encontrados: ${risk.documents.length}`);
-
             // Buscamos el documento activo manualmente
             const activeDoc = risk.documents.find(d => d.isActive === true);
-            const fallbackDoc = risk.documents[0]; // El más reciente (si no hay activos)
+            const fallbackDoc = risk.documents[0]; // El más reciente
 
             if (activeDoc) {
-                console.log(`      ✅ Documento Activo encontrado: ${activeDoc.title}`);
                 docsToSend.push(activeDoc);
                 riskNames.push(risk.name);
             } else if (fallbackDoc) {
-                console.log(`      ⚠️ AVISO: No hay doc activo, usando el más reciente: ${fallbackDoc.title}`);
                 docsToSend.push(fallbackDoc);
                 riskNames.push(risk.name);
-            } else {
-                console.log(`      ❌ Este riesgo NO tiene documentos cargados.`);
             }
         }
 
         if (docsToSend.length === 0) {
             console.log("ℹ️ [ROBOT] RESULTADO: 0 Documentos recolectados. No se envía correo.");
-            console.log("💡 TIP: Ve a Gestión Documental y asegúrate de subir un PDF al riesgo.");
             return;
         }
 
-        // 4. Generamos Tokens y Registramos
+        // 4. Generamos Tokens y Registramos (Fix Estado Inicial)
         const deliveryToken = randomUUID();
 
         for (const doc of docsToSend) {
@@ -95,24 +89,27 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
                     workerId: worker.id,
                     documentId: doc.id,
                     token: deliveryToken,
-                    status: 'PENDING',
-                    sentAt: new Date()
+                    status: 'PENDING', // 👈 Estado inicial explícito
+                    sentAt: new Date(),
+                    confirmedAt: null  // 👈 Aseguramos que NO nazca firmado
                 }
             });
         }
 
-        // 5. Enviamos Correo
+        // 5. Enviamos Correo (Fix Nombre Empresa)
         const attachments = docsToSend.map(d => ({
             filename: d.title,
             path: d.publicUrl
         }));
 
-        console.log(`📨 [ROBOT] Enviando correo a ${worker.email} con ${attachments.length} adjuntos...`);
+        const companyName = worker.company?.name || "Empresa No Asignada"; // 👈 Nombre real
+
+        console.log(`📨 [ROBOT] Enviando correo a ${worker.email} (${companyName})...`);
 
         await sendODIEmail(
             worker.email,
             worker.name,
-            worker.companyId ? "Empresa" : "Vitam", 
+            companyName, // 👈 Pasamos el nombre real
             riskNames,
             attachments,
             deliveryToken
@@ -149,7 +146,6 @@ export const findAllWorkers = async () => {
     include: { 
         company: true, 
         costCenter: true,
-        // 👇 CAMBIO IMPORTANTE: Traemos GES y Riesgos para poder filtrar en el Frontend
         currentGes: {
             include: {
                 risks: {
@@ -204,7 +200,6 @@ export const getWorkerById = async (id: string) => {
 
 // --- UPDATE (LÓGICA BLINDADA & CORREGIDA PARA EMPRESA) ---
 export const updateWorker = async (id: string, data: any) => {
-    // 👇 CAMBIO 1: Traemos la empresa (company: true)
     const current = await prisma.worker.findUnique({ 
         where: { id },
         include: { company: true } 
@@ -227,7 +222,6 @@ export const updateWorker = async (id: string, data: any) => {
             const riskList = currentExposure.ges.riskExposures.map(re => re.riskAgent.name);
             
             if (current.email && riskList.length > 0) {
-                // 👇 CAMBIO 2: Usamos el nombre real de la empresa
                 const companyName = current.company?.name || "Su Empresa";
 
                 await sendExitExamEmail(current.email, current.name, companyName, riskList);
