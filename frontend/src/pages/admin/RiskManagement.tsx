@@ -4,7 +4,8 @@ import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext'; 
 import { CompaniesService } from '../../services/companies.service'; 
 import { 
-    createRisk, deleteRisk, sendRiskDistribution, getRecipientCount, getGlobalHistory 
+    createRisk, deleteRisk, sendRiskDistribution, getRecipientCount, getGlobalHistory,
+    type TargetMode // Importamos el tipo desde el servicio
 } from '../../services/risk.service';
 
 import type { RiskAgent, OdiDelivery } from '../../services/risk.service';
@@ -43,15 +44,16 @@ export default function RiskManagement() {
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
   
   // FILTROS AVANZADOS
-  const [targetMode, setTargetMode] = useState<'INDIVIDUAL' | 'COMPANY' | 'COST_CENTER' | 'AREA' | 'GES' | 'RISK_AGENT'>('INDIVIDUAL');
+  // Usamos el tipo TargetMode del servicio para que coincida perfectamente
+  const [targetMode, setTargetMode] = useState<TargetMode>('INDIVIDUAL');
   const [targetValue, setTargetValue] = useState('');
   const [recipientCount, setRecipientCount] = useState<number | null>(null);
   const [workerSearchTerm, setWorkerSearchTerm] = useState(''); 
 
-  // DATOS PARA COMBOS (Todos iniciados como arrays vacíos)
+  // DATOS PARA COMBOS
   const [companies, setCompanies] = useState<Company[]>([]);
   const [costCentersList, setCostCentersList] = useState<any[]>([]);
-  const [areasList, setAreasList] = useState<any[]>([]); // Corrección: any[] porque son objetos
+  const [areasList, setAreasList] = useState<any[]>([]);
   const [gesList, setGesList] = useState<any[]>([]);
   const [riskAgentsList, setRiskAgentsList] = useState<any[]>([]);
   const [workersList, setWorkersList] = useState<any[]>([]);
@@ -65,8 +67,11 @@ export default function RiskManagement() {
     loadFiltersData();
   }, []);
 
+  // Cargar historial solo cuando la tab está activa
   useEffect(() => {
-    if (activeTab === 'HISTORY') loadHistoryData();
+    if (activeTab === 'HISTORY') {
+        loadHistoryData();
+    }
   }, [activeTab]);
 
   useEffect(() => {
@@ -103,7 +108,7 @@ export default function RiskManagement() {
 
           const filters = (await axios.get('/risks/filters')).data;
           setCostCentersList(filters.costCenters || []);
-          setAreasList(filters.areas || []); // Ahora recibimos objetos {id, name}
+          setAreasList(filters.areas || []);
           setGesList(filters.gesGroups || []);
           setRiskAgentsList(filters.riskAgents || []);
 
@@ -236,6 +241,7 @@ export default function RiskManagement() {
                                 <li className="flex gap-2 text-xs text-slate-600"><div className="bg-white p-1 rounded border text-red-500"><FileText className="h-3 w-3" /></div> <span className="mt-0.5"><strong>Descarga</strong> PDFs vigentes.</span></li>
                                 <li className="flex gap-2 text-xs text-slate-600"><div className="bg-white p-1 rounded border text-primary"><Send className="h-3 w-3" /></div> <span className="mt-0.5"><strong>Difusión Masiva</strong> a trabajadores.</span></li>
                             </ul>
+                            <div className="mt-5 pt-4 border-t border-slate-200 text-[10px] text-slate-400 italic flex gap-1"><Info className="h-3 w-3" /> Revisa el estado de firmas en la pestaña "Historial".</div>
                         </div>
                     </div>
                 )}
@@ -274,6 +280,34 @@ export default function RiskManagement() {
                             </tbody>
                         </table>
                     </div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {activeTab === 'HISTORY' && (
+        <div className="max-w-7xl mx-auto animate-in fade-in duration-300">
+            <div className="bg-white rounded-xl shadow-sm border border-slate-100">
+                <div className="px-6 py-4 border-b flex justify-between"><h3 className="text-sm font-semibold flex gap-2"><History className="h-4 w-4" /> Registro</h3><button onClick={loadHistoryData} className="text-xs text-primary">Actualizar</button></div>
+                <div className="overflow-x-auto">
+                    {loadingHistory ? (
+                        <div className="p-10 text-center text-slate-400 text-sm">Cargando...</div>
+                    ) : (
+                        <table className="w-full text-left">
+                            <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="px-6 py-3">Fecha</th><th className="px-6 py-3">Usuario</th><th className="px-6 py-3">Doc</th><th className="px-6 py-3">Estado</th></tr></thead>
+                            <tbody className="divide-y">
+                                {history.map(h => (
+                                    <tr key={h.id} className="hover:bg-slate-50">
+                                        <td className="px-6 py-4 text-xs">{new Date(h.sentAt).toLocaleDateString()}</td>
+                                        <td className="px-6 py-4 text-sm">{h.worker.name}<br/><span className="text-xs text-slate-400">{h.worker.email}</span></td>
+                                        <td className="px-6 py-4 text-sm">{h.document.title}</td>
+                                        <td className="px-6 py-4">{h.status === 'CONFIRMED' ? <span className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded-full flex w-fit gap-1"><CheckCircle2 className="h-3 w-3" /> Firmado</span> : <span className="text-xs bg-amber-50 text-amber-700 px-2 py-1 rounded-full flex w-fit gap-1"><Clock className="h-3 w-3" /> Pendiente</span>}</td>
+                                    </tr>
+                                ))}
+                                {history.length === 0 && <tr><td colSpan={4} className="p-8 text-center text-slate-400 text-sm">Sin registros</td></tr>}
+                            </tbody>
+                        </table>
+                    )}
                 </div>
             </div>
         </div>
@@ -332,8 +366,7 @@ export default function RiskManagement() {
                         <option value="">-- Seleccionar --</option>
                         {targetMode === 'COMPANY' && companies.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                         {targetMode === 'COST_CENTER' && costCentersList.map(cc => <option key={cc.id} value={cc.id}>{cc.code} - {cc.name} ({cc.company?.name})</option>)}
-                        {/* 🌟 AQUÍ ESTÁ EL FIX: USAR a.id y a.name (porque son objetos) */}
-                        {targetMode === 'AREA' && areasList.map((a: any) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                        {targetMode === 'AREA' && areasList.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                         {targetMode === 'GES' && gesList.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                         {targetMode === 'RISK_AGENT' && riskAgentsList.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>

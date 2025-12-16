@@ -1,5 +1,8 @@
 import axios from '../lib/axios';
 
+// 👇 1. NUEVO TIPO: Definimos todos los modos de envío soportados
+export type TargetMode = 'INDIVIDUAL' | 'COMPANY' | 'COST_CENTER' | 'AREA' | 'GES' | 'RISK_AGENT';
+
 // --- INTERFACES (Tipos de datos) ---
 
 export interface RiskAgent {
@@ -14,7 +17,7 @@ export interface RiskAgent {
   }[];
 }
 
-// 👇 NUEVA INTERFAZ: Para manejar el historial de envíos
+// Para manejar el historial de envíos
 export interface OdiDelivery {
   id: string;
   status: 'PENDING' | 'CONFIRMED' | 'VIEWED';
@@ -68,10 +71,10 @@ export const deleteRisk = async (id: string) => {
 
 // --- FUNCIONES DE DISTRIBUCIÓN Y CORREO ---
 
-// 4. ENVIAR CORREO DE DIFUSIÓN
+// 4. ENVIAR CORREO DE DIFUSIÓN (ACTUALIZADO CON TargetMode)
 export const sendRiskDistribution = async (
   riskId: string, 
-  targetMode: 'INDIVIDUAL' | 'COMPANY', 
+  targetMode: TargetMode, // 👈 Usamos el nuevo tipo aquí
   targetId: string | null,              
   email: string, 
   subject: string, 
@@ -89,8 +92,8 @@ export const sendRiskDistribution = async (
   });
 };
 
-// 5. OBTENER CONTEO PREVIO
-export const getRecipientCount = async (targetMode: string, targetId: string | null) => {
+// 5. OBTENER CONTEO PREVIO (ACTUALIZADO CON TargetMode)
+export const getRecipientCount = async (targetMode: TargetMode, targetId: string | null) => {
   const response = await axios.post('/risks/count-targets', {
     targetMode,
     targetId
@@ -104,15 +107,15 @@ export const confirmOdiToken = async (token: string) => {
   return response.data;
 };
 
-// 👇 --- FUNCIONES DE HISTORIAL (NUEVAS) --- 👇
+// --- FUNCIONES DE HISTORIAL ---
 
-// 7. OBTENER HISTORIAL GLOBAL (Para la pestaña "Historial" del Admin)
+// 7. OBTENER HISTORIAL GLOBAL
 export const getGlobalHistory = async (): Promise<OdiDelivery[]> => {
   const response = await axios.get('/risks/history');
   return response.data;
 };
 
-// 8. OBTENER HISTORIAL DE UN TRABAJADOR (Para su perfil personal/Timeline)
+// 8. OBTENER HISTORIAL DE UN TRABAJADOR
 export const getWorkerOdiHistory = async (workerId: string): Promise<OdiDelivery[]> => {
   const response = await axios.get(`/risks/history/${workerId}`);
   return response.data;
