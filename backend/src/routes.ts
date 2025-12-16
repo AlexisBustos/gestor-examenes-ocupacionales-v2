@@ -1,4 +1,7 @@
 import { Router } from 'express';
+// Importamos el middleware de seguridad (EL GUARDIA)
+import { authenticate } from './middlewares/auth.middleware';
+
 // Importamos los routers de cada módulo
 import healthRouter from './modules/health/health.routes';
 import authRouter from './modules/auth/auth.routes';
@@ -16,43 +19,41 @@ import analyticsRouter from './modules/analytics/analytics.routes';
 import configRouter from './modules/config/config.routes';
 import batteriesRouter from './modules/batteries/batteries.routes';
 import exportsRouter from './modules/exports/exports.routes';
-
-// 👇 1. IMPORTAMOS LA NUEVA RUTA DE USUARIOS
 import usersRouter from './modules/users/user.routes';
 
 const router = Router();
 
-// 🕵️‍♂️ LOG DE DEPURACIÓN GLOBAL (Para ver si entra al archivo)
+// LOG DE DEPURACIÓN GLOBAL
 router.use((req, res, next) => {
-    console.log(`📍 [ROUTES.TS] Petición recibida en router principal: ${req.url}`);
+    console.log(`📍 [ROUTES.TS] Petición: ${req.method} ${req.url}`);
     next();
 });
 
-// Definición de rutas base (sin /api, eso ya lo pone server.ts)
+// --- RUTAS PÚBLICAS (Cualquiera puede entrar) ---
 router.use('/health', healthRouter);
-
-// 👇 AQUÍ PONEMOS EL LOG ESPECÍFICO PARA AUTH
 router.use('/auth', (req, res, next) => {
-    console.log('📍 [ROUTES.TS] Entrando a rutas de /auth...');
+    console.log('📍 [ROUTES.TS] Entrando a auth...');
     next();
 }, authRouter);
 
-router.use('/companies', companiesRouter);
-router.use('/work-centers', workCentersRouter);
-router.use('/areas', areasRouter);
-router.use('/ges', gesRouter);
-router.use('/orders', ordersRouter);
-router.use('/import', importRouter);
-router.use('/cost-centers', costCentersRouter);
-router.use('/reports', reportsRouter);
-router.use('/risks', risksRouter);
-router.use('/workers', workersRouter);
-router.use('/analytics', analyticsRouter);
-router.use('/config', configRouter);
-router.use('/batteries', batteriesRouter);
-router.use('/exports', exportsRouter);
+// --- RUTAS PROTEGIDAS (Solo con Token válido) ---
+// Aplicamos 'authenticate' antes de dejar pasar a estas rutas.
+// Esto soluciona que TestSprite pueda ver el Dashboard sin sesión.
 
-// 👇 2. ACTIVAMOS LA RUTA DE USUARIOS
-router.use('/users', usersRouter);
+router.use('/companies', authenticate, companiesRouter);
+router.use('/work-centers', authenticate, workCentersRouter);
+router.use('/areas', authenticate, areasRouter);
+router.use('/ges', authenticate, gesRouter);
+router.use('/orders', authenticate, ordersRouter); // Dashboard y Ordenes
+router.use('/import', authenticate, importRouter);
+router.use('/cost-centers', authenticate, costCentersRouter);
+router.use('/reports', authenticate, reportsRouter);
+router.use('/risks', authenticate, risksRouter);
+router.use('/workers', authenticate, workersRouter);
+router.use('/analytics', authenticate, analyticsRouter); // Métricas del Dashboard
+router.use('/config', authenticate, configRouter);
+router.use('/batteries', authenticate, batteriesRouter);
+router.use('/exports', authenticate, exportsRouter);
+router.use('/users', authenticate, usersRouter);
 
 export default router;
