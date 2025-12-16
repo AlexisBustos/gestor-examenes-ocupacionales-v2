@@ -39,6 +39,7 @@ export default function RisksLibraryPage() {
         }
     };
 
+    
     // 3. Eliminar PDF Específico
     const handleDeleteProtocol = async (protocolId: string) => {
         if (!confirm('¿Estás seguro de eliminar este documento específico?')) return;
