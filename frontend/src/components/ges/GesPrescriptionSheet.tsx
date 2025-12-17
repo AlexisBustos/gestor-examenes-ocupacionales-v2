@@ -13,7 +13,7 @@ import { PrescriptionManager } from './PrescriptionManager';
 interface GesPrescriptionSheetProps {
   gesId: string | null;
   documentId: string | null;
-  documentType: 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT' | null; // 👈 AGREGADO TMERT
+  documentType: 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT' | null;
   documentName?: string | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -40,7 +40,7 @@ export function GesPrescriptionSheet({
   });
 
   // Determinar a qué informe están asociadas las prescripciones
-  let parentType: 'qualitative' | 'quantitative' | 'tmert' | null = null; // 👈 AGREGADO tmert
+  let parentType: 'qualitative' | 'quantitative' | 'tmert' | null = null;
   let parentId: string | null = null;
   let prescriptions: any[] = [];
 
@@ -64,7 +64,7 @@ export function GesPrescriptionSheet({
         prescriptions = q.prescriptions || [];
       }
     
-    // CASO 3: TMERT (NUEVO) 👇
+    // CASO 3: TMERT
     } else if (documentType === 'TMERT' && data.tmertReports) {
         const t = data.tmertReports.find((tr: any) => tr.id === documentId);
         if (t) {
@@ -125,8 +125,9 @@ export function GesPrescriptionSheet({
             <div className="mt-4 pb-10">
                 <PrescriptionManager
                 parentId={parentId!}
-                parentType={parentType!} // Se pasa 'tmert' aquí si corresponde
+                parentType={parentType!} 
                 prescriptions={prescriptions as any}
+                gesId={gesId} // 👈 AQUÍ ESTÁ LA CLAVE QUE FALTABA
                 />
             </div>
             )}
