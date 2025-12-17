@@ -13,7 +13,7 @@ router.post('/quantitative/:quantitativeReportId/prescriptions', ReportsControll
 router.post('/tmert/:tmertReportId/prescriptions', ReportsController.addTmertPrescription);
 
 // 4. Actualizar Prescripción (Cualquier tipo)
-router.put('/prescriptions/:id', ReportsController.updatePrescriptionItem);
+router.patch('/prescriptions/:id', ReportsController.updatePrescriptionItem);
 
 // 5. Eliminar Prescripción
 router.delete('/prescriptions/:id', ReportsController.removePrescription);
