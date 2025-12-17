@@ -1,4 +1,3 @@
-// frontend/src/components/ges/GesPrescriptionSheet.tsx
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import {
@@ -28,6 +27,8 @@ export function GesPrescriptionSheet({
   open,
   onOpenChange,
 }: GesPrescriptionSheetProps) {
+  
+  // Consulta al historial
   const { data, isLoading, isError } = useQuery<any>({
     queryKey: ['ges-history', gesId],
     queryFn: async () => {

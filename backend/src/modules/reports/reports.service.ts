@@ -3,11 +3,12 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 // --- CREAR PRESCRIPCIÓN ---
-// Esta función es polimórfica: sirve para Technical, Quantitative O TMERT
+// Esta función es polimórfica: sirve para Technical, Quantitative, TMERT y ahora AGENTES
 export const createPrescription = async (data: {
   technicalReportId?: string;    // Opcional
   quantitativeReportId?: string; // Opcional
-  tmertReportId?: string;        // 👇 NUEVO: Opcional (si es TMERT)
+  tmertReportId?: string;        // Opcional (si es TMERT)
+  riskAgentId?: string;          // 👈 NUEVO: Opcional (Asociar a Agente)
   folio?: string;
   description: string;
   measureType?: string;
@@ -17,8 +18,8 @@ export const createPrescription = async (data: {
   status?: 'PENDIENTE' | 'EN_PROCESO' | 'REALIZADA' | 'VENCIDA';
 }) => {
   
-  // Validar que al menos uno de los IDs venga
-  // 👇 ACTUALIZADO: Ahora validamos los 3 tipos
+  // Validar que al menos uno de los IDs de informe venga
+  // (La asociación a reporte es obligatoria, el agente es un extra)
   if (!data.technicalReportId && !data.quantitativeReportId && !data.tmertReportId) {
     throw new Error("Debe asociar la prescripción a un informe Técnico, Cuantitativo o TMERT.");
   }
@@ -36,7 +37,10 @@ export const createPrescription = async (data: {
       // Conexiones (Prisma ignorará los que sean undefined)
       technicalReportId: data.technicalReportId,
       quantitativeReportId: data.quantitativeReportId,
-      tmertReportId: data.tmertReportId // 👇 NUEVO
+      tmertReportId: data.tmertReportId,
+      
+      // 👇 NUEVO: Guardamos la relación con el Agente
+      riskAgentId: data.riskAgentId 
     }
   });
 };
@@ -47,6 +51,7 @@ export const updatePrescription = async (id: string, data: {
   implementationDate?: string;
   observation?: string;
   description?: string;
+  // Opcional: Si quisieras editar el agente después, podrías agregarlo aquí también
 }) => {
   return await prisma.prescription.update({
     where: { id },
@@ -63,5 +68,3 @@ export const updatePrescription = async (id: string, data: {
 export const deletePrescription = async (id: string) => {
   return await prisma.prescription.delete({ where: { id } });
 };
-
-// (Mantén aquí tus otras funciones de reports si existen)

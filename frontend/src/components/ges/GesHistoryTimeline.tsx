@@ -14,6 +14,7 @@ import {
   XCircle,
   ChevronDown,
   ChevronRight,
+  ShieldAlert, // 👈 Nuevo icono para el Agente
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -36,9 +37,13 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
   });
 
   const [expandedQuali, setExpandedQuali] = useState(true);
-  const [expandedQuant, setExpandedQuant] = useState<Record<string, boolean>>(
-    {}
-  );
+  
+  // Estado para expandir Cuantitativos
+  const [expandedQuant, setExpandedQuant] = useState<Record<string, boolean>>({});
+  
+  // 👇 Estado para expandir TMERT (Nuevo)
+  const [expandedTmert, setExpandedTmert] = useState<Record<string, boolean>>({});
+  
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
 
   if (!gesId) return null;
@@ -63,24 +68,21 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
 
   const tech = data.technicalReport;
   const quantList = tech?.quantitativeReports || [];
+  const tmertList = data.tmertReports || []; // 👈 Obtenemos los TMERT
 
+  // Consolidamos TODAS las prescripciones para los contadores
   const allPrescriptions = [
     ...(tech?.prescriptions || []),
     ...quantList.flatMap((q: any) => q.prescriptions || []),
+    ...tmertList.flatMap((t: any) => t.prescriptions || []), // 👈 Incluimos TMERT
   ];
 
   const countByStatus: Record<FilterStatus, number> = {
     ALL: allPrescriptions.length,
-    PENDIENTE: allPrescriptions.filter((p: any) => p.status === "PENDIENTE")
-      .length,
-    EN_PROCESO: allPrescriptions.filter(
-      (p: any) => p.status === "EN_PROCESO"
-    ).length,
-    REALIZADA: allPrescriptions.filter(
-      (p: any) => p.status === "REALIZADA"
-    ).length,
-    VENCIDA: allPrescriptions.filter((p: any) => p.status === "VENCIDA")
-      .length,
+    PENDIENTE: allPrescriptions.filter((p: any) => p.status === "PENDIENTE").length,
+    EN_PROCESO: allPrescriptions.filter((p: any) => p.status === "EN_PROCESO").length,
+    REALIZADA: allPrescriptions.filter((p: any) => p.status === "REALIZADA").length,
+    VENCIDA: allPrescriptions.filter((p: any) => p.status === "VENCIDA").length,
   };
 
   const filterPrescriptions = (list: any[]) => {
@@ -114,6 +116,51 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
     "REALIZADA",
     "VENCIDA",
   ];
+
+  // --- COMPONENTE AUXILIAR PARA RENDERIZAR LA LISTA DE MEDIDAS ---
+  // Esto evita repetir código en cada sección
+  const renderPrescriptionsList = (list: any[]) => {
+    const filtered = filterPrescriptions(list || []);
+    
+    if (filtered.length === 0) {
+        return (
+            <p className="text-[11px] text-slate-400 italic ml-1">
+                Sin medidas para este filtro.
+            </p>
+        );
+    }
+
+    return (
+        <ul className="space-y-2 ml-1 pr-2">
+          {filtered.map((p: any) => (
+            <li key={p.id} className="flex items-start gap-2 text-[11px] text-slate-700">
+              <div className="mt-0.5 shrink-0">
+                {getStatusIcon(p.status)}
+              </div>
+              
+              <div className="flex-1 min-w-0 break-words">
+                {/* 🌟 AQUÍ ESTÁ EL CAMBIO: MOSTRAR AGENTE */}
+                <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    {p.riskAgent && (
+                        <Badge variant="secondary" className="h-4 px-1 text-[9px] bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200 gap-1">
+                            <ShieldAlert className="h-2 w-2" />
+                            {p.riskAgent.name}
+                        </Badge>
+                    )}
+                    <span className="font-semibold text-slate-800">
+                        {p.folio || "Medida"}:
+                    </span>
+                </div>
+                
+                <p className="text-slate-600 leading-snug">
+                    {p.description}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+    );
+  };
 
   return (
     <div className="mt-10 animate-in fade-in slide-in-from-bottom-2 duration-500 pb-10">
@@ -185,7 +232,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
             {/* Línea vertical animada */}
             <div className="absolute left-2 top-0 bottom-0 w-px bg-gradient-to-b from-slate-300 via-slate-400 to-slate-300 animate-pulse" />
 
-            {/* === CUALITATIVO === */}
+            {/* === 1. CUALITATIVO === */}
             {tech ? (
               <div className="relative mb-6 pl-4">
                 <div className="absolute left-[-6px] top-1">
@@ -243,45 +290,20 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                       )}
                     </div>
 
-                    {/* Prescripciones filtradas */}
-                    {filterPrescriptions(tech.prescriptions || []).length ? (
-                      <ul className="space-y-1 ml-1 pr-2">
-                        {filterPrescriptions(tech.prescriptions || []).map(
-                          (p: any) => (
-                            <li
-                              key={p.id}
-                              className="flex items-start gap-2 text-[11px] text-slate-700"
-                            >
-                              <div className="mt-0.5 shrink-0">
-                                {getStatusIcon(p.status)}
-                              </div>
-                              {/* 🔥 ARREGLO VISUAL: Cambiamos span por div con flex-1 y min-w-0 */}
-                              <div className="flex-1 min-w-0 break-words">
-                                <strong>{p.folio || "Medida"}:</strong>{" "}
-                                {p.description}
-                              </div>
-                            </li>
-                          )
-                        )}
-                      </ul>
-                    ) : (
-                      <p className="text-[11px] text-slate-400 italic ml-1">
-                        Sin medidas para este filtro.
-                      </p>
-                    )}
+                    {/* Lista Renderizada con Agentes */}
+                    {renderPrescriptionsList(tech.prescriptions)}
                   </div>
                 )}
               </div>
             ) : (
-              <p className="text-[11px] text-slate-400 italic pl-4">
-                Aún no se ha cargado una evaluación cualitativa para este GES.
+              <p className="text-[11px] text-slate-400 italic pl-4 mb-4">
+                Aún no se ha cargado una evaluación cualitativa.
               </p>
             )}
 
-            {/* === CUANTITATIVOS === */}
+            {/* === 2. CUANTITATIVOS === */}
             {quantList.map((q: any, idx: number) => {
               const isOpen = expandedQuant[q.id] ?? false;
-              const filteredQPresc = filterPrescriptions(q.prescriptions || []);
 
               return (
                 <div key={q.id} className="relative mb-6 pl-4 last:mb-0">
@@ -325,7 +347,7 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                     <div className="mt-2 pl-6 animate-in fade-in duration-300 space-y-2">
                       <div className="flex items-center gap-2 text-xs text-slate-600">
                         <FileText className="h-3 w-3 shrink-0" />
-                        <span>Medición específica asociada al GES.</span>
+                        <span>Medición específica.</span>
                         {q.pdfUrl && (
                           <Button
                             asChild
@@ -344,34 +366,87 @@ export function GesHistoryTimeline({ gesId }: GesHistoryTimelineProps) {
                         )}
                       </div>
 
-                      {filteredQPresc.length ? (
-                        <ul className="space-y-1 ml-1 pr-2">
-                          {filteredQPresc.map((p: any) => (
-                            <li
-                              key={p.id}
-                              className="flex items-start gap-2 text-[11px] text-slate-700"
-                            >
-                              <div className="mt-0.5 shrink-0">
-                                {getStatusIcon(p.status)}
-                              </div>
-                              {/* 🔥 ARREGLO VISUAL AQUÍ TAMBIÉN */}
-                              <div className="flex-1 min-w-0 break-words">
-                                <strong>{p.folio || "Medida"}:</strong>{" "}
-                                {p.description}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <p className="text-[11px] text-slate-400 italic ml-1">
-                          Sin medidas para este filtro.
-                        </p>
-                      )}
+                      {/* Lista Renderizada con Agentes */}
+                      {renderPrescriptionsList(q.prescriptions)}
                     </div>
                   )}
                 </div>
               );
             })}
+
+            {/* === 3. TMERT (NUEVA SECCIÓN) === */}
+            {tmertList.map((t: any, idx: number) => {
+                const isOpen = expandedTmert[t.id] ?? false;
+
+                return (
+                  <div key={t.id} className="relative mb-6 pl-4 last:mb-0">
+                    <div className="absolute left-[-6px] top-1">
+                      <CircleDot className="h-3 w-3 text-orange-500 bg-slate-50 rounded-full" />
+                    </div>
+  
+                    <button
+                      onClick={() =>
+                        setExpandedTmert({
+                          ...expandedTmert,
+                          [t.id]: !isOpen,
+                        })
+                      }
+                      className="flex items-start gap-2 w-full text-left"
+                    >
+                      <div className="mt-0.5 shrink-0">
+                        {isOpen ? (
+                          <ChevronDown className="h-4 w-4 text-slate-600" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4 text-slate-600" />
+                        )}
+                      </div>
+  
+                      <Badge className="bg-orange-500 hover:bg-orange-600 shrink-0 mt-0.5">
+                        TMERT
+                      </Badge>
+  
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-slate-500 break-words leading-tight">
+                          {new Date(t.reportDate).toLocaleDateString()} · {t.name}
+                        </p>
+                      </div>
+  
+                      <span className="ml-2 text-[11px] text-slate-500 shrink-0 whitespace-nowrap mt-0.5">
+                        Medidas: <strong>{t.prescriptions?.length || 0}</strong>
+                      </span>
+                    </button>
+  
+                    {isOpen && (
+                      <div className="mt-2 pl-6 animate-in fade-in duration-300 space-y-2">
+                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                          <FileText className="h-3 w-3 shrink-0" />
+                          <span>Informe TMERT.</span>
+                          {t.pdfUrl && (
+                            <Button
+                              asChild
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] ml-1"
+                            >
+                              <a
+                                href={t.pdfUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                Ver PDF
+                              </a>
+                            </Button>
+                          )}
+                        </div>
+  
+                        {/* Lista Renderizada con Agentes */}
+                        {renderPrescriptionsList(t.prescriptions)}
+                      </div>
+                    )}
+                  </div>
+                );
+            })}
+
           </div>
         </CardContent>
       </Card>

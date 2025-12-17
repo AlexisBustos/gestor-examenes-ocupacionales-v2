@@ -78,7 +78,7 @@ export const getGesById = async (id: string) => {
       examBatteries: true, 
       area: { include: { workCenter: true } },
       technicalReport: { include: { prescriptions: true } },
-      tmertReports: { include: { prescriptions: true } } // 👇 Incluimos TMERT aquí también
+      tmertReports: { include: { prescriptions: true } }
     },
   });
 };
@@ -130,7 +130,7 @@ export const getGesDocuments = async (gesId: string) => {
         where: { id: gesId },
         include: { 
             technicalReport: true,
-            tmertReports: { orderBy: { reportDate: 'desc' } } // 👇 Traemos los TMERT
+            tmertReports: { orderBy: { reportDate: 'desc' } }
         }
     });
 
@@ -165,12 +165,12 @@ export const getGesDocuments = async (gesId: string) => {
         })));
     }
 
-    // 3. TMERT (Independientes, específicos del GES) 👇
+    // 3. TMERT (Independientes, específicos del GES)
     if (ges.tmertReports && ges.tmertReports.length > 0) {
         documents.push(...ges.tmertReports.map(t => ({
             id: t.id,
             name: t.name || 'Informe TMERT',
-            type: 'TMERT', // Etiqueta para el frontend
+            type: 'TMERT', 
             reportDate: t.reportDate,
             url: t.pdfUrl,
             valid: true
@@ -235,14 +235,14 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
         });
         return quant;
 
-    // OPCIÓN C: TMERT (NUEVO) 👇
+    // OPCIÓN C: TMERT (NUEVO)
     } else if (meta.type === 'TMERT') {
         const tmert = await prisma.tmertReport.create({
             data: {
                 name: meta.reportName || 'Informe TMERT',
                 reportDate: reportDate,
                 pdfUrl: fileUrl,
-                gesId: gesId // Conexión directa al GES
+                gesId: gesId
             }
         });
         return tmert;
@@ -251,7 +251,7 @@ export const uploadGesDocument = async (gesId: string, file: any, meta: any) => 
     throw new Error("Tipo de documento no válido");
 };
 
-// --- HISTORIAL COMPLETO (Incluye TMERT) ---
+// --- HISTORIAL COMPLETO (Corregido para traer RiskAgent) ---
 export const getGesFullHistory = async (gesId: string) => {
     const ges = await prisma.ges.findUnique({
         where: { id: gesId },
@@ -263,16 +263,20 @@ export const getGesFullHistory = async (gesId: string) => {
                     }
                 }
             },
-            // Incluimos historial TMERT 👇
+            // Incluimos historial TMERT con Prescripciones y Agentes
             tmertReports: {
                 orderBy: { reportDate: 'desc' },
-                include: { prescriptions: true }
+                include: { 
+                    prescriptions: { include: { riskAgent: true } } // 👈 CORREGIDO: Traemos el agente
+                }
             },
             technicalReport: {
                 include: {
-                    prescriptions: true,
+                    prescriptions: { include: { riskAgent: true } }, // 👈 CORREGIDO: Traemos el agente
                     quantitativeReports: {
-                        include: { prescriptions: true }
+                        include: { 
+                            prescriptions: { include: { riskAgent: true } } // 👈 CORREGIDO: Traemos el agente
+                        }
                     }
                 }
             }
@@ -309,7 +313,7 @@ export const getGesFullHistory = async (gesId: string) => {
             quantitativeReports: ges.technicalReport.quantitativeReports
         } : null,
 
-        // Estructura nueva para frontend 👇
+        // Estructura nueva para frontend
         tmertReports: ges.tmertReports.map(t => ({
             id: t.id,
             name: t.name,
@@ -328,12 +332,10 @@ export const removeQuantitativeReport = async (id: string) => {
     return await prisma.quantitativeReport.delete({ where: { id } });
 };
 
-// 👇 Helper para eliminar TMERT
+// Helper para eliminar TMERT
 export const removeTmertReport = async (id: string) => {
     return await prisma.tmertReport.delete({ where: { id } });
 };
-
-// ... (al final del archivo ges.service.ts)
 
 // 1. OBTENER RIESGOS (Lógica de BD)
 export const getGesRisksDb = async (gesId: string) => {

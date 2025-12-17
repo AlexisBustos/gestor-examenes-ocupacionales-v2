@@ -120,6 +120,8 @@ model Prescription {
   quantitativeReport   QuantitativeReport? @relation(fields: [quantitativeReportId], references: [id], onDelete: Cascade)
   tmertReportId        String?
   tmertReport          TmertReport? @relation(fields: [tmertReportId], references: [id])
+  riskAgentId          String?
+  riskAgent            RiskAgent?          @relation(fields: [riskAgentId], references: [id])
   createdAt            DateTime            @default(now())
   updatedAt            DateTime            @updatedAt
 }
@@ -163,6 +165,7 @@ model RiskAgent {
   riskExposures RiskExposure[]
   documents       OdiDocument[]    // Historial de PDFs
   workerExposures WorkerExposure[] // Relación directa con trabajador
+  prescriptions  Prescription[]
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   gesAssociated   GesRisk[]
