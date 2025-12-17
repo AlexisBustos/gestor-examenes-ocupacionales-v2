@@ -21,6 +21,9 @@ import batteriesRouter from './modules/batteries/batteries.routes';
 import exportsRouter from './modules/exports/exports.routes';
 import usersRouter from './modules/users/user.routes';
 
+// 👇 1. IMPORTAMOS EL CONTROLADOR ESPECÍFICO
+import { confirmOdiPublic } from './modules/risks/risks.controller'; 
+
 const router = Router();
 
 // LOG DE DEPURACIÓN GLOBAL
@@ -36,21 +39,25 @@ router.use('/auth', (req, res, next) => {
     next();
 }, authRouter);
 
+// 👇 2. AGREGAMOS ESTA RUTA AQUÍ (PÚBLICA)
+// Esto permite que el link del correo funcione sin estar logueado
+router.get('/public/odi/confirm/:token', confirmOdiPublic);
+
+
 // --- RUTAS PROTEGIDAS (Solo con Token válido) ---
 // Aplicamos 'authenticate' antes de dejar pasar a estas rutas.
-// Esto soluciona que TestSprite pueda ver el Dashboard sin sesión.
 
 router.use('/companies', authenticate, companiesRouter);
 router.use('/work-centers', authenticate, workCentersRouter);
 router.use('/areas', authenticate, areasRouter);
 router.use('/ges', authenticate, gesRouter);
-router.use('/orders', authenticate, ordersRouter); // Dashboard y Ordenes
+router.use('/orders', authenticate, ordersRouter); 
 router.use('/import', authenticate, importRouter);
 router.use('/cost-centers', authenticate, costCentersRouter);
 router.use('/reports', authenticate, reportsRouter);
-router.use('/risks', authenticate, risksRouter);
+router.use('/risks', authenticate, risksRouter); // Las demás de riesgos siguen protegidas
 router.use('/workers', authenticate, workersRouter);
-router.use('/analytics', authenticate, analyticsRouter); // Métricas del Dashboard
+router.use('/analytics', authenticate, analyticsRouter); 
 router.use('/config', authenticate, configRouter);
 router.use('/batteries', authenticate, batteriesRouter);
 router.use('/exports', authenticate, exportsRouter);

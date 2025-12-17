@@ -8,19 +8,17 @@ const resendApiKey = process.env.RESEND_API_KEY || 're_dummy_key_prevent_crash';
 const resend = new Resend(resendApiKey);
 
 // Configuración de Remitentes
-// 📝 MEJORA: Nombres más técnicos y corporativos
 const SENDER_SECURITY = 'GESTUM Seguridad <security@vitam.tech>';
-const SENDER_LEGAL = 'GESTUM Prevención <legal@vitam.tech>'; // Antes "Gestum Legal"
+const SENDER_LEGAL = 'GESTUM Prevención <legal@vitam.tech>'; 
 const SENDER_HEALTH = 'GESTUM Salud Ocupacional <salud@vitam.tech>';
 
 // 🎨 CONFIGURACIÓN DE MARCA
 const APP_NAME = "GESTUM Ocupacional";
-// 👉 TIP: Si subes tu logo a imgur o AWS S3, pega la URL aquí:
 const BRAND_LOGO_URL = ''; 
 
 const COLOR_PRIMARY = '#633188'; // Morado GESTUM
 const COLOR_ACCENT = '#0099a3';  // Turquesa
-const COLOR_DANGER = '#be123c';  // Rojo Profundo (Más elegante que el rojo brillante)
+const COLOR_DANGER = '#be123c';  // Rojo Profundo
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // ============================================================
@@ -118,7 +116,7 @@ interface OdiAttachment {
 }
 
 // ============================================================
-// FUNCIÓN 2: ENVIAR ODI (Ingreso a Nómina / Robot / Difusión)
+// FUNCIÓN 2: ENVIAR ODI (MODO LINKS DE DESCARGA - SOLUCIÓN 40MB)
 // ============================================================
 export const sendODIEmail = async (
   workerEmail: string,
@@ -131,11 +129,23 @@ export const sendODIEmail = async (
   if (!risks || risks.length === 0) return;
   if (!canSendEmail('Enviar ODI')) return false;
 
+  // 1. Generamos la lista visual de riesgos
   const riskListHtml = risks.map(r => 
     `<li style="margin-bottom: 8px; color: #475569;">
         <span style="color: ${COLOR_PRIMARY}; margin-right: 6px;">●</span> ${r}
      </li>`
   ).join('');
+
+  // 2. 🔥 SOLUCIÓN 40MB: Generamos la lista de LINKS en lugar de adjuntar
+  const documentsHtml = attachments.map(doc => `
+    <li style="margin-bottom: 10px; background-color: #ffffff; padding: 8px; border-radius: 6px; border: 1px solid #e2e8f0;">
+        <a href="${doc.path}" target="_blank" style="text-decoration: none; color: ${COLOR_ACCENT}; font-weight: 600; font-size: 14px; display: flex; align-items: center;">
+            <span style="font-size: 18px; margin-right: 8px;">📄</span>
+            ${doc.filename} 
+            <span style="font-size: 11px; color: #94a3b8; margin-left: auto;">(Clic para abrir)</span>
+        </a>
+    </li>
+  `).join('');
 
   const confirmationLink = `${FRONTEND_URL}/confirmar-odi?token=${confirmationToken}`;
 
@@ -160,11 +170,22 @@ export const sendODIEmail = async (
       </ul>
     </div>
 
-    <p style="color: #475569; font-size: 15px; line-height: 1.6;">
-      Hemos adjuntado los documentos detallados en formato PDF. Le solicitamos leerlos atentamente y confirmar su recepción digitalmente.
-    </p>
+    <div style="margin-bottom: 30px;">
+        <p style="color: #334155; font-weight: 600; font-size: 14px; margin-bottom: 10px;">
+            ⬇️ Documentación Digital Disponible:
+        </p>
+        <ul style="list-style-type: none; padding-left: 0; margin: 0;">
+            ${documentsHtml}
+        </ul>
+        <p style="font-size: 12px; color: #64748b; margin-top: 8px; font-style: italic;">
+            * Haga clic en los nombres para visualizar o descargar los documentos PDF directamente desde nuestra nube segura.
+        </p>
+    </div>
 
-    <div style="text-align: center; margin: 40px 0;">
+    <div style="text-align: center; margin: 40px 0; border-top: 1px dashed #cbd5e1; padding-top: 30px;">
+      <p style="color: #475569; font-size: 14px; margin-bottom: 20px;">
+        Una vez revisados los documentos, confirme su recepción:
+      </p>
       <a href="${confirmationLink}" style="background-color: ${COLOR_ACCENT}; color: #ffffff; padding: 16px 36px; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px; display: inline-block; box-shadow: 0 4px 12px rgba(0, 153, 163, 0.25);">
         📝 ACUSAR RECIBO Y FIRMAR
       </a>
@@ -175,17 +196,24 @@ export const sendODIEmail = async (
   `;
 
   try {
-    console.log(`📨 [EMAIL] Enviando ODI a: ${workerEmail}`);
+    console.log(`📨 [EMAIL] Enviando ODI (Con Links) a: ${workerEmail}`);
     
-    await resend.emails.send({
+    // 👇 CAMBIO CLAVE: Quitamos 'attachments' para que el correo pese KB en lugar de MB
+    // También capturamos { data, error } para saber si Resend falla
+    const { data, error } = await resend.emails.send({
       from: SENDER_LEGAL,
       to: [workerEmail],
-      // 📝 MEJORA: Asunto más claro y directo
       subject: `Documentación Obligatoria (ODI) - ${companyName}`,
-      attachments: attachments, 
+      // attachments: attachments, <--- ❌ ELIMINADO para evitar error 40MB
       html: wrapHtmlTemplate('Obligación de Informar (DAS)', htmlContent)
     });
 
+    if (error) {
+        console.error("❌ [EMAIL ERROR API] Resend rechazó el correo:", error);
+        return false;
+    }
+
+    console.log("✅ [EMAIL SUCCESS] ID de envío:", data?.id);
     return true;
 
   } catch (error) {

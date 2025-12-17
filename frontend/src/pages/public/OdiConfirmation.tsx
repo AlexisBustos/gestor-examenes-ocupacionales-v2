@@ -11,7 +11,6 @@ import {
     FileSignature, 
     AlertTriangle 
 } from 'lucide-react';
-// ❌ BORRADO: import { Card } from '@/components/ui/card';  <-- Esto causaba el error
 
 export default function OdiConfirmation() {
   const [searchParams] = useSearchParams();
@@ -33,8 +32,9 @@ export default function OdiConfirmation() {
 
     const confirmDocument = async () => {
         try {
-            // Usa la ruta GET correcta
-            const response = await axios.get(`/risks/confirm/${token}`);
+            // ✅ CAMBIO REALIZADO: Apuntamos a la ruta pública '/public/odi/confirm/'
+            // Esta ruta NO debe requerir autenticación en el backend.
+            const response = await axios.get(`/public/odi/confirm/${token}`);
             setData(response.data);
             setStatus('SUCCESS');
         } catch (error: any) {

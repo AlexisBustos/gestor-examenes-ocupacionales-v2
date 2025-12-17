@@ -410,7 +410,7 @@ model OdiDelivery {
   status        String       @default("PENDING") // PENDING | CONFIRMED | VIEWED
 
   // Datos de Seguridad (Firma Digital Simple)
-  token         String       @unique // Token único para el link del correo
+  token         String
   confirmedAt   DateTime?    // Cuándo dio clic
   ipAddress     String?      // Desde qué IP (Prueba legal)
   userAgent     String?      // Qué navegador usó (Chrome, Safari...)
