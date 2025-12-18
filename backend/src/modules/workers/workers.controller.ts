@@ -30,7 +30,7 @@ export const getOne = async (req: Request, res: Response) => {
     } catch (e) { res.status(500).json({ error: 'Error obtener' }); }
 };
 
-// 👇 ROBOT DE INGRESO (Versión Definitiva: Envío Agrupado)
+// 👇 ROBOT DE INGRESO (Versión Definitiva + Anti-Spam)
 export const update = async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
@@ -47,6 +47,24 @@ export const update = async (req: Request, res: Response) => {
 
         // 3. NUEVO ROBOT: Solo actúa si detecta ingreso a NÓMINA
         if (previousWorker?.employmentStatus !== 'NOMINA' && employmentStatus === 'NOMINA') {
+            
+            // 🛡️ --- INICIO PROTECCIÓN ANTI-DUPLICADOS ---
+            // Verificamos si ya se generó un envío para este trabajador en los últimos 60 segundos.
+            const duplicateCheck = await prisma.odiDelivery.findFirst({
+                where: {
+                    workerId: id,
+                    createdAt: {
+                        gt: new Date(Date.now() - 60000) // Hace menos de 1 minuto
+                    }
+                }
+            });
+
+            if (duplicateCheck) {
+                console.warn(`🛑 [ROBOT ODI] Envío duplicado detectado y prevenido para: ${updatedWorker.name}`);
+                // Si ya se envió hace poco, devolvemos éxito pero NO enviamos otro correo
+                return res.json(updatedWorker);
+            }
+            // 🛡️ --- FIN PROTECCIÓN ANTI-DUPLICADOS ---
             
             console.log(`🤖 [ROBOT ODI] Iniciando proceso de agrupación para: ${updatedWorker.name}`);
 
@@ -103,7 +121,7 @@ export const update = async (req: Request, res: Response) => {
 
                     console.log(`📎 [ROBOT ODI] Se encontraron ${attachments.length} documentos de ${riskNames.length} agentes.`);
 
-                    // 1. Registrar cada documento en la BD (Iteramos solo para guardar)
+                    // 1. Registrar cada documento en la BD
                     for (const docId of documentIds) {
                         await prisma.odiDelivery.create({
                             data: {
@@ -114,15 +132,14 @@ export const update = async (req: Request, res: Response) => {
                             }
                         });
                     }
-                    // 🛑 AQUÍ TERMINA EL BUCLE DE GUARDADO
 
-                    // 2. Enviar Correo ÚNICO (Con todos los adjuntos acumulados)
+                    // 2. Enviar Correo ÚNICO
                     await sendODIEmail(
                         workerFull.email,
                         workerFull.name,
                         workerFull.company.name,
                         riskNames,     
-                        attachments,   // <--- Aquí van todos los PDFs juntos
+                        attachments,
                         token
                     );
                     
