@@ -8,7 +8,7 @@ import { sendODIEmail, sendExitExamEmail } from '../../utils/emailSender';
 const prisma = new PrismaClient();
 
 // =================================================================
-// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI) - VERSIÓN CORREGIDA
+// 🤖 EL ROBOT DE AUTOMATIZACIÓN (ODI)
 // =================================================================
 const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
     console.log(`🤖 [ROBOT] ----------------------------------------------------`);
@@ -20,10 +20,9 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
     }
 
     try {
-        // 1. Buscamos el trabajador CON EMPRESA (Fix Nombre Email)
         const worker = await prisma.worker.findUnique({ 
             where: { id: workerId },
-            include: { company: true } // 👈 Agregado para tener el nombre real de la empresa
+            include: { company: true } 
         });
         
         if (!worker || !worker.email) {
@@ -31,7 +30,6 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
             return;
         }
 
-        // 2. Buscamos el GES y documentos
         const gesData = await prisma.ges.findUnique({
             where: { id: gesId },
             include: {
@@ -56,15 +54,13 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
 
         console.log(`🤖 [ROBOT] GES Detectado: "${gesData.name}"`);
 
-        // 3. Recolectamos documentos
         const docsToSend: any[] = [];
         const riskNames: string[] = [];
 
         for (const relation of gesData.risks) {
             const risk = relation.risk;
-            // Buscamos el documento activo manualmente
             const activeDoc = risk.documents.find(d => d.isActive === true);
-            const fallbackDoc = risk.documents[0]; // El más reciente
+            const fallbackDoc = risk.documents[0];
 
             if (activeDoc) {
                 docsToSend.push(activeDoc);
@@ -80,7 +76,6 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
             return;
         }
 
-        // 4. Generamos Tokens y Registramos (Fix Estado Inicial)
         const deliveryToken = randomUUID();
 
         for (const doc of docsToSend) {
@@ -89,33 +84,31 @@ const triggerOdiAutomation = async (workerId: string, gesId: string | null) => {
                     workerId: worker.id,
                     documentId: doc.id,
                     token: deliveryToken,
-                    status: 'PENDING', // 👈 Estado inicial explícito
+                    status: 'PENDING',
                     sentAt: new Date(),
-                    confirmedAt: null  // 👈 Aseguramos que NO nazca firmado
+                    confirmedAt: null
                 }
             });
         }
 
-        // 5. Enviamos Correo (Fix Nombre Empresa)
         const attachments = docsToSend.map(d => ({
             filename: d.title,
             path: d.publicUrl
         }));
 
-        const companyName = worker.company?.name || "Empresa No Asignada"; // 👈 Nombre real
+        const companyName = worker.company?.name || "Empresa No Asignada";
 
         console.log(`📨 [ROBOT] Enviando correo a ${worker.email} (${companyName})...`);
 
         await sendODIEmail(
             worker.email,
             worker.name,
-            companyName, // 👈 Pasamos el nombre real
+            companyName,
             riskNames,
             attachments,
             deliveryToken
         );
 
-        // 6. Huella en el historial
         try {
             await logWorkerEvent(worker.id, 'ENVIO_ODI', 'Envío Automático ODI', 
                 `Se enviaron ${docsToSend.length} documentos legales.`);
@@ -139,13 +132,13 @@ export const logWorkerEvent = async (workerId: string, type: string, title: stri
     } catch (e) { console.error("Error logging event:", e); }
 };
 
-// --- READ (ACTUALIZADO PARA FILTROS) ---
+// --- READ (Incluye CostCenter para la tabla) ---
 export const findAllWorkers = async () => {
   return await prisma.worker.findMany({
     orderBy: { name: 'asc' },
     include: { 
         company: true, 
-        costCenter: true,
+        costCenter: true, 
         currentGes: {
             include: {
                 risks: {
@@ -198,14 +191,14 @@ export const getWorkerById = async (id: string) => {
   });
 };
 
-// --- UPDATE (LÓGICA BLINDADA & CORREGIDA PARA EMPRESA) ---
+// --- UPDATE ---
 export const updateWorker = async (id: string, data: any) => {
     const current = await prisma.worker.findUnique({ 
         where: { id },
         include: { company: true } 
     });
     
-    // A. LÓGICA DESVINCULACIÓN (SMART TERMINATION)
+    // A. DESVINCULACIÓN
     if (current && data.employmentStatus === 'DESVINCULADO' && current.employmentStatus !== 'DESVINCULADO') {
         console.log(`🔄 [SMART TERMINATION] Iniciando proceso de egreso...`);
         const currentExposure = await prisma.exposureHistory.findFirst({
@@ -223,11 +216,8 @@ export const updateWorker = async (id: string, data: any) => {
             
             if (current.email && riskList.length > 0) {
                 const companyName = current.company?.name || "Su Empresa";
-
                 await sendExitExamEmail(current.email, current.name, companyName, riskList);
-                
                 await logWorkerEvent(id, 'EGRESO', 'Desvinculación y Aviso Legal', `Notificado por: ${riskList.join(', ')}`);
-                console.log("✅ [SMART TERMINATION] Correo enviado.");
             }
         }
     }
@@ -236,7 +226,7 @@ export const updateWorker = async (id: string, data: any) => {
     const updated = await prisma.worker.update({ where: { id }, data });
     
     if (current) {
-        // C. MOVILIDAD (Cambio de puesto o empresa en Nómina)
+        // C. MOVILIDAD
         if (updated.employmentStatus === 'NOMINA' && data.employmentStatus !== 'DESVINCULADO') {
             const isJobChange = (data.currentGesId && data.currentGesId !== current.currentGesId);
             const isCompanyChange = (data.companyId && data.companyId !== current.companyId);
@@ -263,8 +253,6 @@ export const updateWorker = async (id: string, data: any) => {
 
         // --- ROBOT ODI ---
         let robotTriggered = false;
-
-        // Caso 1: Ingreso a Nómina
         if (current.employmentStatus !== 'NOMINA' && updated.employmentStatus === 'NOMINA') {
             await logWorkerEvent(id, 'CAMBIO_ESTADO', 'Ingreso a Nómina Oficial');
             if (updated.currentGesId && !robotTriggered) {
@@ -272,12 +260,9 @@ export const updateWorker = async (id: string, data: any) => {
                 robotTriggered = true;
             }
         } 
-        
-        // Caso 2: Cambio de Puesto (estando ya en nómina)
         if (current.currentGesId !== updated.currentGesId && updated.employmentStatus === 'NOMINA') {
             const newGes = updated.currentGesId ? await prisma.ges.findUnique({ where: { id: updated.currentGesId }}) : null;
             await logWorkerEvent(id, 'CAMBIO_PUESTO', 'Cambio de Puesto', `Nuevo puesto: ${newGes?.name}`);
-            
             if (updated.currentGesId && !robotTriggered) {
                 triggerOdiAutomation(updated.id, updated.currentGesId);
                 robotTriggered = true;
@@ -330,7 +315,7 @@ export const createWorkerDb = async (data: any) => {
           }
       });
   }
-
+  
   await logWorkerEvent(newWorker.id, 'CREACION', 'Creación de Ficha', initialStatus === 'TRANSITO' ? 'Ingresa como Candidato' : 'Ingresa directo a Nómina');
 
   if (initialStatus === 'NOMINA' && newWorker.currentGesId) {
@@ -340,50 +325,67 @@ export const createWorkerDb = async (data: any) => {
   return newWorker;
 };
 
-// ... (Resto de funciones de Import y Movilidad sin cambios)
+// =================================================================
+// 🚀 IMPORTACIÓN MASIVA MEJORADA (LEE "Centro de costos")
+// =================================================================
 export const importWorkersDb = async (fileBuffer: Buffer) => {
     console.log("📢 Procesando carga masiva de trabajadores...");
     const workbook = xlsx.read(fileBuffer, { type: 'buffer' });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows: any[] = xlsx.utils.sheet_to_json(sheet);
     let count = 0;
+    
     const defaultCompany = await prisma.company.findFirst();
     if (!defaultCompany) throw new Error("No hay empresas creadas");
 
     for (const row of rows) {
+        // Limpiamos las keys (normalización)
         const clean: any = {};
         Object.keys(row).forEach(k => {
+            // "Centro de costos" -> "centrodecostos"
             const cleanKey = k.toLowerCase().trim().replace(/\s+/g, '');
             clean[cleanKey] = row[k];
         });
         
-        const rut = clean['rut'];
-        const name = clean['nombre'] || clean['trabajador'] || clean['name'];
-        const cargo = clean['cargo'] || clean['posicion'];
-        const email = clean['email'] || clean['correo'];
-        const phone = clean['phone'] || clean['telefono'];
-        const centroRaw = clean['centro'] || clean['centros'] || clean['cc'];
-        
-        let costCenterId = null;
-        if (centroRaw) {
-            const foundCC = await prisma.costCenter.findFirst({
-                where: { OR: [{ name: { equals: centroRaw.toString(), mode: 'insensitive' } }, { code: { equals: centroRaw.toString(), mode: 'insensitive' } }] }
-            });
-            if (foundCC) costCenterId = foundCC.id;
-        }
-
-        const empresaRaw = clean['empresa'] || clean['company'];
+        // 1. Detectar Empresa
+        const empresaRaw = clean['empresa'] || clean['company'] || clean['razonsocial'];
         let targetCompanyId = defaultCompany.id;
+        
         if (empresaRaw) {
             const foundComp = await prisma.company.findFirst({
                 where: { OR: [{ name: { equals: empresaRaw.toString(), mode: 'insensitive' } }, { rut: { equals: empresaRaw.toString(), mode: 'insensitive' } }] }
             });
             if (foundComp) targetCompanyId = foundComp.id;
         }
+
+        // 2. Detectar Centro de Costos
+        // Aquí agregamos explícitamente 'centrodecostos' que es como queda tu columna
+        const centroRaw = clean['centro'] || clean['centros'] || clean['cc'] || clean['centrodecosto'] || clean['centrodecostos'];
+        let costCenterId = null;
+
+        if (centroRaw) {
+            const foundCC = await prisma.costCenter.findFirst({
+                where: {
+                    AND: [
+                        { OR: [{ companyId: targetCompanyId }, { companyId: null }] },
+                        { OR: [{ name: { equals: centroRaw.toString(), mode: 'insensitive' } }, { code: { equals: centroRaw.toString(), mode: 'insensitive' } }] }
+                    ]
+                }
+            });
+            if (foundCC) costCenterId = foundCC.id;
+        }
+
+        // 3. Guardar
+        const rut = clean['rut'];
+        const name = clean['nombre'] || clean['trabajador'] || clean['name'];
+        const cargo = clean['cargo'] || clean['posicion'];
+        const email = clean['email'] || clean['correo'];
+        const phone = clean['phone'] || clean['telefono'];
         
         if (rut && name) {
             const updateData: any = { name: name.toString(), companyId: targetCompanyId };
             if (cargo) updateData.position = cargo.toString();
+            // IMPORTANTE: Si encontramos CC, lo actualizamos
             if (costCenterId) updateData.costCenterId = costCenterId;
             if (email) updateData.email = email.toString();
             if (phone) updateData.phone = phone.toString();
@@ -417,6 +419,7 @@ export const analyzeJobChange = async (workerId: string, newGesId: string) => {
     const newGes = await prisma.ges.findUnique({ where: { id: newGesId } });
     if (!worker || !newGes) throw new Error("Datos no encontrados");
     const requiredBatteries = await getSuggestedBatteries(newGesId);
+    
     const myPassedExamIds = new Set();
     if (worker.examOrders) worker.examOrders.forEach((order: any) => { if (order.orderBatteries) order.orderBatteries.forEach((item: any) => myPassedExamIds.add(item.batteryId)); });
     
