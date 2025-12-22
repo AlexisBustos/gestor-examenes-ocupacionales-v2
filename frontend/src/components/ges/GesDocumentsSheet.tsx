@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
@@ -19,7 +19,7 @@ import {
   Trash2,
   Download,
   FileText,
-  Activity // Icono nuevo para TMERT
+  Activity 
 } from 'lucide-react';
 
 import { GesUploadSheet } from './GesUploadSheet';
@@ -28,21 +28,23 @@ import { GesHistoryTimeline } from './GesHistoryTimeline';
 
 interface GesDocumentsSheetProps {
   gesId: string | null;
+  // 👇 NUEVA PROP: Recibe la orden de abrir medidas
+  initialAction?: string | null; 
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
-type GesDocumentType = 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT'; // 👈 AGREGADO
+type GesDocumentType = 'CUALITATIVO' | 'CUANTITATIVO' | 'TMERT';
 
 export function GesDocumentsSheet({
   gesId,
+  initialAction, // 👈 RECIBIMOS LA ORDEN
   open,
   onOpenChange,
 }: GesDocumentsSheetProps) {
   const queryClient = useQueryClient();
   const [isUploadOpen, setIsUploadOpen] = useState(false);
 
-  // Estado para prescripciones
   const [isPrescriptionsOpen, setIsPrescriptionsOpen] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState<{
     id: string;
@@ -60,13 +62,27 @@ export function GesDocumentsSheet({
     enabled: !!gesId && open,
   });
 
-  // 👇 MUTACIONES PARA ELIMINAR DOCUMENTOS (Actualizada con TMERT)
+  // 👇 EFECTO AUTOMÁTICO: Abrir Medidas si se solicita
+  useEffect(() => {
+    if (open && initialAction === 'OPEN_MEASURES' && data && data.length > 0 && !isPrescriptionsOpen) {
+        console.log("🚀 Ejecutando Auto-Apertura de Medidas...");
+        
+        // Estrategia: Abrimos el primer documento de la lista (o podrías buscar uno específico si pasaras el ID)
+        // Idealmente el backend ordenaría por fecha desc, así que el primero es el más reciente.
+        const targetDoc = data[0];
+        
+        if (targetDoc) {
+            handleOpenPrescriptions(targetDoc);
+        }
+    }
+  }, [open, initialAction, data]); // Se ejecuta cuando cargan los datos
+
   const deleteMutation = useMutation({
     mutationFn: async ({ id, type }: { id: string; type: string }) => {
         let endpoint = '';
         if (type === 'CUALITATIVO') endpoint = 'qualitative';
         else if (type === 'CUANTITATIVO') endpoint = 'quantitative';
-        else if (type === 'TMERT') endpoint = 'tmert'; // 👈 NUEVO endpoint
+        else if (type === 'TMERT') endpoint = 'tmert'; 
         
         await axios.delete(`/ges/${gesId}/documents/${endpoint}/${id}`);
     },
@@ -86,7 +102,6 @@ export function GesDocumentsSheet({
     setIsPrescriptionsOpen(true);
   };
 
-  // Helper para icono y color según tipo
   const getDocIcon = (type: string) => {
       switch(type) {
           case 'CUALITATIVO': return <FileText className="h-4 w-4" />;
@@ -100,7 +115,7 @@ export function GesDocumentsSheet({
       switch(type) {
           case 'CUALITATIVO': return 'bg-blue-50 text-primary';
           case 'CUANTITATIVO': return 'bg-purple-50 text-purple-600';
-          case 'TMERT': return 'bg-orange-50 text-orange-600'; // 👈 Color naranja para TMERT
+          case 'TMERT': return 'bg-orange-50 text-orange-600'; 
           default: return 'bg-slate-50 text-slate-600';
       }
   }
@@ -110,7 +125,6 @@ export function GesDocumentsSheet({
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="sm:max-w-[600px] flex flex-col h-full p-0">
           
-          {/* HEADER FIJO */}
           <div className="px-6 py-6 border-b">
             <SheetHeader className="flex flex-row justify-between items-start space-y-0">
                 <div className="space-y-1">
@@ -126,7 +140,6 @@ export function GesDocumentsSheet({
             </SheetHeader>
           </div>
 
-          {/* CUERPO CON SCROLL */}
           <div className="flex-1 overflow-y-auto px-6 py-6">
             
             {isLoading ? (
@@ -150,7 +163,6 @@ export function GesDocumentsSheet({
                     key={doc.id}
                     className="flex items-center justify-between border rounded-md p-3 text-sm bg-white shadow-sm hover:border-blue-200 transition-colors group"
                     >
-                    {/* LADO IZQUIERDO: INFO */}
                     <div className="flex items-center gap-3 overflow-hidden flex-1 mr-4">
                         <div className={`p-2 rounded-full shrink-0 ${getDocColor(doc.type)}`}>
                             {getDocIcon(doc.type)}
@@ -169,10 +181,8 @@ export function GesDocumentsSheet({
                         </div>
                     </div>
 
-                    {/* LADO DERECHO: ACCIONES */}
                     <div className="flex items-center gap-1 shrink-0">
                         
-                        {/* VER */}
                         <Button
                             variant="ghost"
                             size="icon"
@@ -190,7 +200,6 @@ export function GesDocumentsSheet({
                             )}
                         </Button>
 
-                        {/* MEDIDAS */}
                         <Button
                         variant="ghost"
                         size="sm"
@@ -202,7 +211,6 @@ export function GesDocumentsSheet({
                         <span className="hidden sm:inline">Medidas</span>
                         </Button>
 
-                        {/* ELIMINAR */}
                         <Button
                             variant="ghost"
                             size="icon"
@@ -224,7 +232,6 @@ export function GesDocumentsSheet({
                 </div>
             )}
 
-            {/* TIMELINE DEL GES */}
             {gesId && (
                 <div className="pt-6 border-t mt-4">
                     <h4 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">

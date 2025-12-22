@@ -20,6 +20,7 @@ import configRouter from './modules/config/config.routes';
 import batteriesRouter from './modules/batteries/batteries.routes';
 import exportsRouter from './modules/exports/exports.routes';
 import usersRouter from './modules/users/user.routes';
+import alertsRoutes from './modules/alerts/alerts.routes';
 
 // 👇 1. IMPORTAMOS EL CONTROLADOR ESPECÍFICO
 import { confirmOdiPublic } from './modules/risks/risks.controller'; 
@@ -62,5 +63,6 @@ router.use('/config', authenticate, configRouter);
 router.use('/batteries', authenticate, batteriesRouter);
 router.use('/exports', authenticate, exportsRouter);
 router.use('/users', authenticate, usersRouter);
+router.use('/alerts', alertsRoutes);
 
 export default router;

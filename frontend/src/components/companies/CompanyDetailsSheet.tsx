@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from '@/lib/axios';
 
@@ -23,19 +23,25 @@ import {
   FileSpreadsheet,
   Wallet,
   FileText,
-  Layers // Icono para las áreas
+  Layers 
 } from 'lucide-react';
 
 import { GesDocumentsSheet } from '@/components/ges/GesDocumentsSheet';
 
 interface CompanyDetailsSheetProps {
   companyId: string | null;
+  initialReportId?: string | null; 
+  initialGesId?: string | null; 
+  initialSubAction?: string | null; 
   open: boolean;
   onOpenChange: (open: boolean) => void;
 }
 
 export function CompanyDetailsSheet({
   companyId,
+  initialReportId,
+  initialGesId,
+  initialSubAction, // 👈 Coma agregada, error corregido
   open,
   onOpenChange,
 }: CompanyDetailsSheetProps) {
@@ -50,9 +56,45 @@ export function CompanyDetailsSheet({
     enabled: !!companyId && open,
   });
 
+  // 👇 LÓGICA DE APERTURA AUTOMÁTICA
+  useEffect(() => {
+    if (company && open && !selectedGesId) {
+        
+        // OPCIÓN A: El Backend envió el dato preciso (Ideal)
+        if (initialGesId) {
+            console.log("✅ Backend envió el GES ID. Abriendo modal...", initialGesId);
+            setSelectedGesId(initialGesId);
+            return;
+        }
+
+        // OPCIÓN B: Búsqueda manual (Fallback)
+        if (initialReportId) {
+            console.log("⚠️ Buscando GES para reporte:", initialReportId);
+            
+            const targetGes = company.gesList?.find((ges: any) => {
+                // 1. Verificar si el reporte está asociado directamente
+                if (ges.technicalReport?.id === initialReportId) return true;
+
+                // 2. Verificar si está dentro de algún riesgo
+                return ges.risks?.some((riskRel: any) => {
+                    const r = riskRel.risk;
+                    const docs = r?.documents || []; 
+                    return docs.some((doc: any) => doc.id === initialReportId);
+                });
+            });
+
+            if (targetGes) {
+                console.log("✅ Encontrado GES padre (Frontend):", targetGes.name);
+                setSelectedGesId(targetGes.id);
+            } else {
+                console.warn("❌ No se encontró el GES asociado a este reporte.");
+            }
+        }
+    }
+  }, [company, open, initialGesId, initialReportId]);
+
   // --- LÓGICA DE AGRUPACIÓN POR ÁREA ---
   const groupedGes = company?.gesList?.reduce((acc: any, ges: any) => {
-    // Si tiene área usa el nombre, si no, lo pone en 'General'
     const areaName = ges.area?.name || 'General';
     if (!acc[areaName]) {
       acc[areaName] = [];
@@ -61,7 +103,6 @@ export function CompanyDetailsSheet({
     return acc;
   }, {}) || {};
 
-  // Ordenamos las llaves (nombres de áreas) alfabéticamente
   const sortedAreaNames = Object.keys(groupedGes).sort();
 
   return (
@@ -117,9 +158,7 @@ export function CompanyDetailsSheet({
                  </Card>
               </div>
 
-              {/* SECCIÓN DE INFORMES TÉCNICOS (ELIMINADA COMO PEDISTE) */}
-
-              {/* LISTA DE GES (AGRUPADA POR ÁREA) */}
+              {/* LISTA DE GES */}
               {sortedAreaNames.length > 0 && (
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between p-4 pb-2 border-b bg-slate-50/50">
@@ -128,29 +167,28 @@ export function CompanyDetailsSheet({
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-4 pt-4 space-y-6">
-                    
-                    {/* Iteramos por cada Área encontrada */}
                     {sortedAreaNames.map((areaName) => (
                       <div key={areaName} className="space-y-2">
-                        {/* Título del Área */}
                         <div className="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-100 pb-1">
                           <Layers className="h-3 w-3" />
                           {areaName}
                         </div>
-
-                        {/* Lista de GES de esa área */}
                         <div className="space-y-1">
                           {groupedGes[areaName].map((ges: any) => (
                             <div key={ges.id} className="flex items-center justify-between py-2 px-2 hover:bg-slate-50 rounded-md transition-colors text-xs">
                               <div className="space-y-1">
                                 <div className="font-semibold text-slate-800">{ges.name}</div>
-                                {/* Ya no mostramos el área aquí abajo porque está en el título */}
                               </div>
                               <div className="flex items-center gap-2">
                                 <Badge variant={ges.isActive ? 'default' : 'destructive'} className="text-[10px] px-2 h-5">
                                     {ges.isActive ? 'Vigente' : 'Inactivo'}
                                 </Badge>
-                                <Button variant="outline" size="sm" className="gap-1 text-[11px] h-7" onClick={() => setSelectedGesId(ges.id)}>
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className={`gap-1 text-[11px] h-7 ${selectedGesId === ges.id ? 'border-primary bg-primary/5 text-primary' : ''}`}
+                                    onClick={() => setSelectedGesId(ges.id)}
+                                >
                                   <FileText className="h-3 w-3" /> Ver documentos
                                 </Button>
                               </div>
@@ -159,11 +197,9 @@ export function CompanyDetailsSheet({
                         </div>
                       </div>
                     ))}
-
                   </CardContent>
                 </Card>
               )}
-
             </div>
           )}
         </SheetContent>
@@ -171,6 +207,7 @@ export function CompanyDetailsSheet({
 
       <GesDocumentsSheet
         gesId={selectedGesId}
+        initialAction={initialSubAction}
         open={!!selectedGesId}
         onOpenChange={(open) => !open && setSelectedGesId(null)}
       />

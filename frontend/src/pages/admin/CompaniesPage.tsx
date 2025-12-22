@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -29,9 +30,16 @@ import { CompanyDetailsSheet } from '@/components/companies/CompanyDetailsSheet'
 
 export default function CompaniesPage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
+  
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [viewId, setViewId] = useState<string | null>(null);
-  const [editId, setEditId] = useState<string | null>(null); // ID para editar
+  const [editId, setEditId] = useState<string | null>(null); 
+  
+  // 👇 NUEVOS ESTADOS PARA NAVEGACIÓN PROFUNDA
+  const [autoOpenReportId, setAutoOpenReportId] = useState<string | null>(null);
+  const [autoOpenGesId, setAutoOpenGesId] = useState<string | null>(null); // <--- NUEVO
+  const [autoSubAction, setAutoSubAction] = useState<string | null>(null);
 
   const { data: companies, isLoading } = useQuery({
     queryKey: ['companies'],
@@ -40,6 +48,32 @@ export default function CompaniesPage() {
       return data;
     },
   });
+
+  // 👇 LÓGICA INTELIGENTE ACTUALIZADA
+  useEffect(() => {
+    if (location.state && location.state.companyId) {
+        if (location.state.action === 'OPEN_GES_MODAL' || location.state.companyId) {
+            setViewId(location.state.companyId);
+            
+            // Si viene el ID del reporte
+            if (location.state.reportId) {
+                setAutoOpenReportId(location.state.reportId);
+            }
+            // 👇 Si el backend encontró el GES ID, lo capturamos
+            if (location.state.gesId) {
+                console.log("🎯 Objetivo GES detectado:", location.state.gesId);
+                setAutoOpenGesId(location.state.gesId);
+            }
+            // 👇 CAPTURAMOS LA SUB-ACCIÓN (Ej: OPEN_MEASURES)
+            if (location.state.subAction) {
+                console.log("🎯 Acción secundaria detectada:", location.state.subAction);
+                setAutoSubAction(location.state.subAction);
+            }
+            
+            window.history.replaceState({}, document.title);
+        }
+    }
+  }, [location]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => { await axios.delete(`/companies/${id}`); },
@@ -60,7 +94,6 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-bold tracking-tight">Empresas</h1>
           <p className="text-muted-foreground">Gestiona tus clientes.</p>
         </div>
-        {/* Botón Crear Nueva (Usa el mismo sheet pero sin ID) */}
         <Button onClick={() => setEditId('new')}>
           <Plus className="mr-2 h-4 w-4" /> Nueva Empresa
         </Button>
@@ -88,12 +121,9 @@ export default function CompaniesPage() {
                     <Button variant="ghost" size="icon" onClick={() => setViewId(company.id)} title="Ver Detalles">
                       <Eye className="h-4 w-4 text-primary" />
                     </Button>
-
-                    {/* Botón Lápiz */}
                     <Button variant="ghost" size="icon" onClick={() => setEditId(company.id)} title="Editar">
                       <Pencil className="h-4 w-4 text-amber-600" />
                     </Button>
-
                     <Button variant="ghost" size="icon" onClick={() => setDeleteId(company.id)} title="Eliminar">
                       <Trash2 className="h-4 w-4 text-red-600" />
                     </Button>
@@ -105,10 +135,23 @@ export default function CompaniesPage() {
         </CardContent>
       </Card>
 
-      {/* Modal Ver Detalles */}
-      {viewId && <CompanyDetailsSheet companyId={viewId} open={!!viewId} onOpenChange={(open: boolean) => !open && setViewId(null)} />}
+      {viewId && (
+        <CompanyDetailsSheet 
+            companyId={viewId} 
+            initialReportId={autoOpenReportId}
+            initialGesId={autoOpenGesId} // 👈 PASAMOS EL GES ID AL HIJO
+            initialSubAction={autoSubAction} // 👈 PASAMOS LA ORDEN
+            open={!!viewId} 
+            onOpenChange={(open: boolean) => {
+                if (!open) {
+                    setViewId(null);
+                    setAutoOpenReportId(null); 
+                    setAutoOpenGesId(null);
+                }
+            }} 
+        />
+      )}
 
-      {/* Modal Editar/Crear */}
       {editId && (
         <CompanyFormSheet
           companyId={editId === 'new' ? null : editId}

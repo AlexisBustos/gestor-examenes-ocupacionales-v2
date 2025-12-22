@@ -1,5 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react'; // 👈 AGREGUÉ useEffect
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom'; // 👈 AGREGUÉ useLocation
 import axios from '@/lib/axios';
 import { toast } from 'sonner';
 import { 
@@ -17,36 +18,49 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 
-// 👇 IMPORTACIONES EXTERNAS
 import { WorkerCreateDialog } from '@/components/workers/WorkerCreateDialog';
 import { WorkerDetailsSheet } from '@/components/workers/WorkerDetailsSheet'; 
 
 export default function WorkersPage() {
   const queryClient = useQueryClient();
-  const [isImporting, setIsImporting] = useState(false);
   
-  // --- ESTADOS DE FILTRO ---
+  // 👇 ESTO ES NUEVO: Para saber si venimos de una alerta
+  const location = useLocation(); 
+  
+  // --- TUS VARIABLES DE ESTADO ORIGINALES (INTACTAS) ---
+  const [isImporting, setIsImporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   
-  // Filtros Avanzados
-  const [filterGes, setFilterGes] = useState<string>('ALL');       // Puesto
-  const [filterAgent, setFilterAgent] = useState<string>('ALL');   // Riesgo
-  const [filterCompany, setFilterCompany] = useState<string>('ALL'); // Empresa (Nuevo)
-  const [filterCostCenter, setFilterCostCenter] = useState<string>('ALL'); // Área (Nuevo)
+  const [filterGes, setFilterGes] = useState<string>('ALL');       
+  const [filterAgent, setFilterAgent] = useState<string>('ALL');   
+  const [filterCompany, setFilterCompany] = useState<string>('ALL'); 
+  const [filterCostCenter, setFilterCostCenter] = useState<string>('ALL'); 
 
-  // Estados para modales
   const [isCreating, setIsCreating] = useState(false);
   const [viewingWorkerId, setViewingWorkerId] = useState<string | null>(null);
   const [editingWorker, setEditingWorker] = useState<any>(null);
 
-  // 1. Cargar Trabajadores
+  // 1. Cargar Trabajadores (INTACTO)
   const { data: workers, isLoading } = useQuery({
     queryKey: ['workers'],
     queryFn: async () => (await axios.get('/workers')).data,
   });
 
-  // 2. Eliminar Trabajador
+  // 👇 LÓGICA DE APERTURA AUTOMÁTICA (LO ÚNICO QUE AGREGA COMPORTAMIENTO)
+  useEffect(() => {
+    if (location.state && location.state.action === 'OPEN_WORKER_SHEET' && location.state.workerId) {
+        console.log("🚀 Redirección de alerta detectada. Abriendo trabajador:", location.state.workerId);
+        
+        // Abrimos el modal de detalles automáticamente
+        setViewingWorkerId(location.state.workerId);
+
+        // Limpiamos el estado para que no moleste después
+        window.history.replaceState({}, document.title);
+    }
+  }, [location]);
+
+  // 2. Eliminar Trabajador (INTACTO)
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => await axios.delete(`/workers/${id}`),
     onSuccess: () => { 
@@ -56,6 +70,7 @@ export default function WorkersPage() {
     onError: () => toast.error("Error al eliminar")
   });
 
+  // --- TUS FUNCIONES AUXILIARES (INTACTAS) ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -70,7 +85,6 @@ export default function WorkersPage() {
     finally { setIsImporting(false); e.target.value = ''; }
   };
 
-  // --- LÓGICA DE LISTAS ÚNICAS (Calculado al vuelo) ---
   const uniqueGes = useMemo(() => {
       if (!workers) return [];
       const set = new Set(workers.map((w: any) => w.currentGes?.name).filter(Boolean));
@@ -90,7 +104,6 @@ export default function WorkersPage() {
       return Array.from(set).sort() as string[];
   }, [workers]);
 
-  // Nuevos Memos para Empresa y Centro de Costos
   const uniqueCompanies = useMemo(() => {
       if (!workers) return [];
       const set = new Set(workers.map((w: any) => w.company?.name).filter(Boolean));
@@ -99,51 +112,42 @@ export default function WorkersPage() {
 
   const uniqueCostCenters = useMemo(() => {
       if (!workers) return [];
-      // Usamos el nombre del centro de costo
       const set = new Set(workers.map((w: any) => w.costCenter?.name).filter(Boolean));
       return Array.from(set).sort();
   }, [workers]);
 
-  // --- FILTRADO MAESTRO ---
+  // --- TU FILTRADO (INTACTO) ---
   const filteredWorkers = workers?.filter((w: any) => {
-    // 1. Texto (Nombre o RUT)
     const matchesSearch = w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           w.rut.toLowerCase().includes(searchTerm.toLowerCase());
     
-    // 2. Estado (Tabs)
     let matchesStatus = true;
     if (filterStatus === 'TRANSITO') matchesStatus = w.employmentStatus === 'TRANSITO';
     else if (filterStatus === 'NOMINA') matchesStatus = w.employmentStatus === 'NOMINA';
     else if (filterStatus === 'DESVINCULADO') matchesStatus = w.employmentStatus === 'DESVINCULADO';
 
-    // 3. Puesto (GES)
     let matchesGes = true;
     if (filterGes !== 'ALL') matchesGes = w.currentGes?.name === filterGes;
 
-    // 4. Agente de Riesgo
     let matchesAgent = true;
     if (filterAgent !== 'ALL') {
         const workerRisks = w.currentGes?.risks?.map((r: any) => r.risk?.name) || [];
         matchesAgent = workerRisks.includes(filterAgent);
     }
 
-    // 5. Empresa (Nuevo)
     let matchesCompany = true;
     if (filterCompany !== 'ALL') matchesCompany = w.company?.name === filterCompany;
 
-    // 6. Centro de Costos (Nuevo)
     let matchesCostCenter = true;
     if (filterCostCenter !== 'ALL') matchesCostCenter = w.costCenter?.name === filterCostCenter;
 
     return matchesSearch && matchesStatus && matchesGes && matchesAgent && matchesCompany && matchesCostCenter;
   });
 
-  // Contadores
   const countTransito = workers?.filter((w:any) => w.employmentStatus === 'TRANSITO').length || 0;
   const countNomina = workers?.filter((w:any) => w.employmentStatus === 'NOMINA').length || 0;
   const countDesvinculados = workers?.filter((w:any) => w.employmentStatus === 'DESVINCULADO').length || 0;
 
-  // Limpiar filtros
   const clearFilters = () => {
       setFilterGes('ALL');
       setFilterAgent('ALL');
@@ -159,7 +163,7 @@ export default function WorkersPage() {
   return (
     <div className="space-y-6 animate-in fade-in pb-10">
       
-      {/* HEADER */}
+      {/* HEADER (INTACTO) */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b pb-6">
         <div className="flex items-center gap-4">
           <div className="p-3 bg-blue-100 rounded-lg text-primary"><Users className="h-8 w-8" /></div>
@@ -184,10 +188,9 @@ export default function WorkersPage() {
         </div>
       </div>
 
-      {/* --- ZONA DE CONTROL --- */}
+      {/* --- ZONA DE CONTROL (INTACTA) --- */}
       <div className="space-y-4">
           
-          {/* Tabs de Estado */}
           <Tabs defaultValue="ALL" className="w-full" onValueChange={setFilterStatus}>
             <TabsList className="grid w-full grid-cols-4 md:w-[600px] bg-slate-100">
               <TabsTrigger value="ALL">Todos</TabsTrigger>
@@ -206,11 +209,10 @@ export default function WorkersPage() {
             </TabsList>
           </Tabs>
 
-          {/* BARRA DE FILTROS (GRID RESPONSIVA) */}
+          {/* BARRA DE FILTROS */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-sm">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
                 
-                {/* 1. Buscador Texto */}
                 <div className="relative col-span-1 md:col-span-2 lg:col-span-1">
                     <Filter className="absolute left-2.5 top-2.5 h-4 w-4 text-slate-400" />
                     <Input 
@@ -221,7 +223,6 @@ export default function WorkersPage() {
                     />
                 </div>
 
-                {/* 2. Filtro Empresa (Nuevo) */}
                 <Select value={filterCompany} onValueChange={setFilterCompany}>
                     <SelectTrigger className="bg-white border-slate-200">
                         <div className="flex items-center gap-2 truncate">
@@ -237,10 +238,9 @@ export default function WorkersPage() {
                     </SelectContent>
                 </Select>
 
-                {/* 3. Filtro Centro Costo (Nuevo) */}
                 <Select value={filterCostCenter} onValueChange={setFilterCostCenter}>
                     <SelectTrigger className="bg-white border-slate-200">
-                         <div className="flex items-center gap-2 truncate">
+                          <div className="flex items-center gap-2 truncate">
                             <MapPin className="h-4 w-4 text-slate-400" />
                             <SelectValue placeholder="Centro / Área" />
                         </div>
@@ -253,7 +253,6 @@ export default function WorkersPage() {
                     </SelectContent>
                 </Select>
 
-                {/* 4. Filtro Puesto */}
                 <Select value={filterGes} onValueChange={setFilterGes}>
                     <SelectTrigger className="bg-white border-slate-200">
                         <SelectValue placeholder="Puesto (GES)" />
@@ -266,7 +265,6 @@ export default function WorkersPage() {
                     </SelectContent>
                 </Select>
 
-                {/* 5. Filtro Riesgo */}
                 <div className="flex gap-2">
                     <div className="flex-1">
                         <Select value={filterAgent} onValueChange={setFilterAgent}>
@@ -281,7 +279,6 @@ export default function WorkersPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    {/* Botón Limpiar (Solo si hay filtros) */}
                     {hasActiveFilters && (
                         <Button variant="ghost" size="icon" onClick={clearFilters} title="Limpiar" className="text-slate-400 hover:text-red-500 hover:bg-red-50 shrink-0">
                             <X className="h-4 w-4" />
@@ -297,7 +294,7 @@ export default function WorkersPage() {
           </div>
       </div>
 
-      {/* TABLA PRINCIPAL */}
+      {/* TABLA PRINCIPAL (INTACTA) */}
       <Card className="border-slate-200 shadow-sm overflow-hidden">
         <CardContent className="p-0">
           <Table>
@@ -316,12 +313,10 @@ export default function WorkersPage() {
                   filteredWorkers.map((w: any) => (
                     <TableRow key={w.id} className="hover:bg-slate-50 transition-colors group">
                       
-                      {/* RUT */}
                       <TableCell className="font-mono pl-6 text-slate-600 font-medium text-xs">
                           {w.rut}
                       </TableCell>
 
-                      {/* NOMBRE + EMPRESA */}
                       <TableCell>
                           <div className="flex flex-col">
                               <span className="font-medium text-slate-900">{w.name}</span>
@@ -332,7 +327,6 @@ export default function WorkersPage() {
                           </div>
                       </TableCell>
                       
-                      {/* ESTADO */}
                       <TableCell>
                         {w.employmentStatus === 'TRANSITO' ? (
                             <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 whitespace-nowrap">
@@ -349,7 +343,6 @@ export default function WorkersPage() {
                         )}
                       </TableCell>
 
-                      {/* UBICACIÓN (CC) */}
                       <TableCell>
                          <div className="flex flex-col text-xs">
                              <span className="font-medium text-slate-700">{w.position || 'Sin Cargo'}</span>
@@ -361,14 +354,12 @@ export default function WorkersPage() {
                          </div>
                       </TableCell>
                       
-                      {/* PUESTO & RIESGOS */}
                       <TableCell>
                         <div className="flex flex-col gap-1.5">
                             <span className="text-xs font-semibold text-primary/80">
                                 {w.currentGes?.name || '-'}
                             </span>
                             
-                            {/* Tags de Riesgos */}
                             {w.currentGes?.risks && w.currentGes.risks.length > 0 ? (
                                 <div className="flex flex-wrap gap-1 max-w-[250px]">
                                     {w.currentGes.risks.slice(0, 3).map((r: any, idx: number) => (
@@ -386,7 +377,6 @@ export default function WorkersPage() {
                         </div>
                       </TableCell>
 
-                      {/* ACCIONES */}
                       <TableCell className="text-right pr-6">
                         <div className="flex justify-end gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-500 hover:text-primary hover:bg-primary/10" onClick={() => setViewingWorkerId(w.id)}>
@@ -430,6 +420,7 @@ export default function WorkersPage() {
         <WorkerCreateDialog open={isCreating} onOpenChange={setIsCreating} />
       )}
 
+      {/* Modal Detalles (Ahora se abre también automáticamente por el useEffect) */}
       {viewingWorkerId && (
         <WorkerDetailsSheet 
             workerId={viewingWorkerId} 
@@ -450,7 +441,7 @@ export default function WorkersPage() {
   );
 }
 
-// --- SUBCOMPONENTE DE EDICIÓN ---
+// --- SUBCOMPONENTE DE EDICIÓN (INTACTO) ---
 function WorkerEditDialog({ worker, open, onOpenChange }: { worker: any, open: boolean, onOpenChange: (o: boolean) => void }) {
     const queryClient = useQueryClient();
     const [name, setName] = useState(worker.name || '');

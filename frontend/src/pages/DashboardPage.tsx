@@ -5,11 +5,14 @@ import axios from '@/lib/axios';
 import { useOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/context/AuthContext';
 
+// 👇 AQUÍ IMPORTAMOS EL NUEVO WIDGET
+import { AlertsWidget } from '@/components/dashboard/AlertsWidget';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress'; // 👈 ¡AQUÍ FALTABA ESTE IMPORT!
+import { Progress } from '@/components/ui/progress';
 import {
   Table,
   TableHeader,
@@ -373,6 +376,11 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 👇 ALERTS WIDGET (MOVIDO AL FINAL) */}
+      <section className="mt-8">
+        <AlertsWidget />
+      </section>
 
     </div>
   );
